@@ -4,7 +4,7 @@ This README defines the purpose of the repository's engineering
 knowledge base.
 
 This directory captures workflow-derived learning artifacts that should
-outlive a single task or chat session.
+outlive a single task or AI chat session.
 
 ## Purpose
 
@@ -20,16 +20,25 @@ remaining compatible with broader organizational knowledge sharing.
 - `incident_reports/`
 - `personal_learning_notes/`
 
-## Scope Model
+## Knowledge Model
 
-Treat entries as belonging to one of three scopes:
+Use two independent dimensions for every entry:
 
-- `repo`: specific to this service/repository and its feature set
-- `domain`: shared by a bounded context across related services
-- `global`: engineering standards reusable across many repositories
+- `audience`: `personal` or `shared`
+- `scope`: `repo`, `domain`, `global` (primarily for `shared` entries)
 
-Default to `repo` scope.
-Promote entries upward only when they prove reusable.
+Rules:
+
+1. `personal` notes are fast-capture learning artifacts for individual
+    developers.
+2. `shared` notes are curated and intended for team reuse.
+3. Default publication target is `shared` + `repo`.
+4. Promote to `domain` or `global` only after reuse evidence.
+
+This approach supports both:
+
+- `personal -> shared` knowledge maturation
+- `repo -> domain -> global` scope promotion
 
 ## Curation Standard
 
@@ -39,6 +48,22 @@ Keep entries concise and evidence-based.
 - Include impact signals when possible (latency, defect reduction,
   stability improvements, development speed).
 - Capture what changed in your decision process after each lesson.
+
+## Suggested Metadata
+
+Use lightweight frontmatter for traceability:
+
+```yaml
+---
+audience: shared            # personal | shared
+scope: repo                 # repo | domain | global | none
+maturity: validated         # draft | validated | canonical
+promotion_candidate: false
+validated_in_repos: []
+related_global: []
+related_local: []
+---
+```
 
 ## Fragmentation Guardrails
 

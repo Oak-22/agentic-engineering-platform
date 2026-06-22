@@ -5,11 +5,15 @@ development workflows, including agent guidance and constraints and developer kn
 
 ## Purpose
 
-The template formalizes three ideas:
+This template defines a practical operating model for AI-human software
+development.
 
-- AI agents need explicit operating context
-- teams need durable places to capture learning from real work
-- AI-assisted development workflows should be reusable and standardized across repositories
+It formalizes three core needs:
+
+- clear operating context and constraints for AI-assisted execution
+- durable capture of decisions, incidents, and implementation learning
+- reusable workflow structure across repositories with scope-aware
+  knowledge management
 
 ## Portfolio Role
 
@@ -41,6 +45,40 @@ For applied case studies and observations from real AI-human
 engineering work, see
 [`ai-human-engineering-collaboration-case-studies-and-best-practices`](https://github.com/Oak-22/ai-human-engineering-collaboration-case-studies-and-best-practices).
 
+## Business Value
+
+Structured knowledge capture reduces engineering costs through faster
+onboarding, lower rework from repeated mistakes, and increased reuse of
+proven practices.
+
+### Why It Matters
+
+1. Onboarding cost reduction
+  Mature teams in large organizations carry high onboarding cost due to
+  system complexity, service dependencies, and historical decisions.
+  Structured knowledge artifacts reduce time-to-context for new and
+  transferred engineers.
+
+2. Throughput support as AI accelerates delivery
+  AI increases implementation speed and expands the volume of shipped
+  code. Teams need stronger context continuity to maintain quality
+  while supporting faster feature cycles.
+
+3. Context continuity and atrophy prevention
+  Fast-moving codebases create risk of knowledge decay between work
+  cycles. Capturing decisions, incidents, and reusable patterns helps
+  teams re-enter complex areas quickly and sustain delivery tempo.
+
+4. Risk and rework reduction
+  Reusable incident learnings and decision trails reduce repeat
+  mistakes, shorten debugging loops, and lower avoidable rework.
+
+### Operational Outcome
+
+Used consistently, this template improves delivery predictability by
+lowering context-recovery overhead and increasing reuse of proven
+engineering practices.
+
 ## Template Contents
 
 - `.github/agent-instructions/`
@@ -53,20 +91,26 @@ engineering work, see
 
 Use this template as checked-in repository structure.
 
-The structure is portable. The knowledge content should be scope-aware.
+The structure is portable. The knowledge content should use two axes:
 
-In enterprise environments, most learning is repo-specific first,
-especially in microservice architectures where implementation details,
-incidents, and operational practices differ by service.
+- `audience`: `personal` or `shared`
+- `scope`: `repo`, `domain`, or `global`
 
-Use a federated model:
+This keeps personal learning flexible while preserving strong governance
+for shared team knowledge.
 
-- `global`: cross-repo practices and stable standards
-- `domain`: bounded-context guidance shared by related services
-- `repo`: service-specific decisions, incidents, and runbooks
+### Two-Axis Model
 
-Start local by default. Promote only lessons that are stable and
-reusable across services.
+- `personal` entries are capture notes for an individual developer.
+  They may be exploratory and are not authoritative.
+- `shared` entries are team-facing guidance and should be curated.
+- `shared` entries usually start at `repo` scope.
+- Promote from `repo` to `domain` or `global` only when patterns are
+  reused and stable.
+
+In enterprise microservice environments, this model avoids forcing
+everything into one hierarchy while still enabling organization-wide
+learning.
 
 If a team also maintains centralized canonical assets, those may be
 linked into a live repository through symlinks. Keep this template
@@ -76,14 +120,39 @@ copyable without machine-specific dependencies.
 
 Use this lightweight process to avoid both duplication and overfitting:
 
-1. Capture new learning in the repo where it occurred.
-2. Mark candidate notes for promotion once reused or validated.
-3. Promote to domain/global only after context-specific details are
-  abstracted into reusable guidance.
-4. Keep backlinks from promoted guidance to repo case evidence.
+1. Capture quickly in `personal` notes.
+2. Publish useful items as `shared` + `repo`.
+3. Promote to `shared` + `domain` or `shared` + `global` after reuse
+  evidence exists (signed off by senior/leads)
+4. Keep bidirectional links between promoted guidance and source repo
+  evidence.
 
 This preserves local relevance while building organization-wide
 engineering memory over time.
+
+## Enterprise Knowledge System Integration
+
+This template is designed to complement, not replace, enterprise
+knowledge systems (Confluence, SharePoint, Notion, internal wikis, or
+GitHub Pages).
+
+**Code-adjacent advantage**: Implementation-level knowledge stays near
+code where change frequency is highest, reducing update latency and
+staleness as AI-accelerated delivery increases code volume and change
+pace.
+
+**Promotion and export**: `shared` + `global` scope entries are
+candidates for export to centralized systems:
+
+- Policy-driven globals (architecture standards, compliance rules,
+  deployment gates) → enterprise portal (Confluence, SharePoint, etc.)
+- Implementation guides (debugging playbooks, observability patterns,
+  runbooks) → wiki near source (GitHub wiki, docs/ folder link)
+- Architecture decisions → both (linked bidirectionally)
+
+This creates a single source of truth per artifact, reduces copy-paste
+drift, and maintains fast feedback for technical details while
+supporting slower-moving organizational policies.
 
 ## Related Design Direction
 
