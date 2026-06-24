@@ -26,7 +26,7 @@ work.
 Project-facing repositories include:
 
 - `myHealth`
-- `creative-workflow-batch-transformation-pipeline`
+- `digital_asset_processing_pipeline`
 - `ai-infrastructure-financial-warehouse`
 
 ## Methodology Role
@@ -43,13 +43,14 @@ It answers:
 
 For reusable prompts, templates, agent instructions, and workflow
 scaffolding, see
-[`ai-assisted-development-template`](https://github.com/Oak-22/ai-assisted-development-template).
+[`ai_assisted_developer_workflow_platform_template`](https://github.com/Oak-22/ai_assisted_developer_workflow_platform_template).
 
 ## Structure
 
 Case studies are stored in Markdown files:
 
 1. case_study_01_ssm_registration.md
+2. case_study_02_instruction_provenance_feedback_loop.md
 
 
 ## License
