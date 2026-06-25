@@ -1,91 +1,90 @@
-# AI-Assisted Developer Workflow Platform Template
+# AI Agent Instruction Control Plane
 
-Reusable platform template for standardizing AI-assisted developer
-workflows across repositories, including agent instruction layers,
-prompt provenance, adoption models, and repo scaffolding.
+A repo-portable architecture for governing AI-assisted engineering
+behavior through layered instructions, runtime adapters, provenance logs,
+selective context loading, and auditable task execution.
 
 ## Purpose
 
-This template defines a practical operating model for AI-human software
-development.
+This repository provides a reusable scaffold for installing an
+instruction-control plane into software repositories.
 
-It formalizes three core needs:
+It formalizes five core needs:
 
-- clear operating context and constraints for AI-assisted execution
-- durable capture of decisions, incidents, and implementation learning
-- reusable workflow structure across repositories with scope-aware
-  knowledge management
-
-## Portfolio Role
-
-This repository is part of my AI-native engineering methodology layer.
-
-It is not a standalone portfolio product. It supports my project-facing
-repositories by documenting reusable collaboration patterns, agent
-workflows, and durable knowledge-capture practices.
-
-Project-facing repositories include:
-
-- `myHealth`
-- `digital_asset_processing_pipeline`
-- `ai-infrastructure-financial-warehouse`
-
-## Methodology Role
-
-This repository defines the reusable operating system for AI-assisted
-development: prompts, workflow templates, agent instructions, review
-rituals, and reusable project scaffolding.
+- deterministic instruction discovery for AI coding agents
+- scoped guidance layers for global, agent-level, and repo-local rules
+- runtime-specific adapters that converge on the same instruction tree
+- provenance from human observation to durable instruction
+- auditable task execution through explicit load reports
 
 It answers:
 
-> How should an AI-native engineering workflow be run?
+> How should an AI coding agent discover, load, and apply repository
+> instructions without collapsing local context, runtime adapters, and
+> reusable rules into one undifferentiated prompt?
 
 ## Related Methodology Repository
 
-For applied case studies and observations from real AI-human
-engineering work, see
-[`ai_human_engineering_collaboration_case_studies_and_best_practices`](https://github.com/Oak-22/ai_human_engineering_collaboration_case_studies_and_best_practices).
+For applied case studies and observations from real AI-human engineering
+work, see the companion case-study repository. For this repository's
+portfolio context, see
+[`docs/portfolio_context.md`](docs/portfolio_context.md).
+
+
+## Repository Identity
+
+Use **AI Agent Instruction Control Plane** as the project name.
+
+Use `ai_agent_instruction_control_plane` as the repository slug for
+local directories, remotes, package references, and generated examples.
+
+This name describes the reusable system boundary: it is a control plane
+for how AI coding agents discover, load, and apply repository
+instructions. It is broader than a single developer workflow template,
+but still narrow enough to remain adoptable by another team.
 
 ## Business Value
 
-Structured knowledge capture reduces engineering costs through faster
-onboarding, lower rework from repeated mistakes, and increased reuse of
-proven practices.
+Structured agent instructions reduce engineering friction by making AI
+assistant behavior easier to discover, constrain, audit, and reuse across
+repositories.
 
 ### Why It Matters
 
 1. Onboarding cost reduction
   Mature teams in large organizations carry high onboarding cost due to
   system complexity, service dependencies, and historical decisions.
-  Structured knowledge artifacts reduce time-to-context for new and
-  transferred engineers.
+  Structured instruction artifacts reduce time-to-context for new
+  engineers, transferred engineers, and AI coding agents entering a repo.
 
 2. Throughput support as AI accelerates delivery
-  AI increases implementation speed and expands the volume of shipped
-  code. Teams need stronger context continuity to maintain quality
+  AI increases implementation speed and expands the volume of proposed
+  changes. Teams need stronger instruction boundaries to maintain quality
   while supporting faster feature cycles.
 
 3. Context continuity and atrophy prevention
   Fast-moving codebases create risk of knowledge decay between work
-  cycles. Capturing decisions, incidents, and reusable patterns helps
-  teams re-enter complex areas quickly and sustain delivery tempo.
+  cycles. Capturing decisions, instruction provenance, and reusable
+  patterns helps teams re-enter complex areas quickly and sustain
+  delivery tempo.
 
 4. Risk and rework reduction
-  Reusable incident learnings and decision trails reduce repeat
-  mistakes, shorten debugging loops, and lower avoidable rework.
+  Reusable instructions and decision trails reduce repeat mistakes,
+  shorten debugging loops, and lower avoidable rework.
 
 ### Operational Outcome
 
 Used consistently, this template improves delivery predictability by
-lowering context-recovery overhead and increasing reuse of proven
-engineering practices.
+lowering context-recovery overhead, making agent behavior more
+inspectable, and increasing reuse of proven engineering practices.
 
 ## Template Contents
 
 - `AGENTS.md`
   Runtime-neutral repository entrypoint for AI coding agents.
 - `.github/agent_instructions/`
-  Layered AI-human workflow guidance, separating reusable global instructions from repository-specific constraints and context.
+  Layered AI-human workflow guidance, separating reusable global
+  instructions from repository-specific constraints and context.
 - `engineering_knowledge_base/`
   Structured locations for incident capture, learning notes, and other
   workflow-derived engineering knowledge.
@@ -111,7 +110,25 @@ solves three bootstrapping problems:
 
 ## Adoption Guidance
 
-Use this template as checked-in repository structure.
+Use this template as checked-in repository structure when the instruction
+control plane should be portable to other developers or automation
+environments.
+
+For an existing repository, start with the smallest useful checked-in
+surface:
+
+1. Add `AGENTS.md` at the repository root.
+2. Add `.github/agent_instructions/agent.md`.
+3. Add `.github/agent_instructions/README.md`.
+4. Add `.github/agent_instructions/global/README.md`.
+5. Add `.github/agent_instructions/repo/README.md`.
+6. Add task-relevant global or repo instruction files only when they
+   describe reusable behavior.
+
+This intrinsic adoption path keeps the control plane inside the repo
+where agents already work. Separate methodology notes can live in
+`docs/` when they explain why the pattern exists without becoming part
+of the minimum install surface.
 
 The structure is portable. The knowledge content should use two axes:
 
@@ -137,6 +154,23 @@ learning.
 If a team also maintains centralized canonical assets, those may be
 linked into a live repository through symlinks. Keep this template
 copyable without machine-specific dependencies.
+
+## Local Personalization
+
+This template should remain copyable without machine-specific paths,
+private instructions, or personal repository references.
+
+For local personal workflows, a developer may symlink selected instruction
+layers into a private configuration directory. For example:
+
+```text
+.github/agent_instructions/global
+  -> ~/.config/agent_instructions/global
+```
+
+That local symlink model is useful for private, cross-repo instruction
+portability. It should not replace the public scaffold files that make
+the template understandable to another developer.
 
 ## Promotion Workflow
 
@@ -182,7 +216,7 @@ This repository is a template scaffold, not a full implementation of
 workflow-derived retrieval.
 
 A related design direction is documented in
-[`docs/workflow_derived_retrieval_for_ai_assisted_development.md`](docs/workflow_derived_retrieval_for_ai_assisted_development.md).
+[`docs/periodic_learning_retrieval_system.md`](docs/periodic_learning_retrieval_system.md).
 That note explains how workflow telemetry and retrieval practice could
 extend this template in future systems without changing the template's
 core identity.

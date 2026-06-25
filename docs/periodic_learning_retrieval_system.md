@@ -1,7 +1,8 @@
 # Workflow-Derived Retrieval for AI-Assisted Development
 
 This note describes a related design direction for this repository.
-It is not the current product scope of `ai_assisted_developer_workflow_platform_template`.
+It is not the current product scope of
+`ai_agent_instruction_control_plane`.
 
 The current repository provides a reusable scaffold for AI-human
 workflow artifacts. The concept described below explains one possible
@@ -121,7 +122,7 @@ long-term retention than passive review.
 This repository provides the structural prerequisites for that broader
 direction:
 
-- `.github/agent-instructions/` defines AI-human operating guidance
+- `.github/agent_instructions/` defines AI-human operating guidance
 - `engineering_knowledge_base/` provides durable capture locations for
   workflow-derived learning artifacts
 - `docs/` can hold higher-level rationale and design notes
