@@ -82,11 +82,32 @@ engineering practices.
 
 ## Template Contents
 
-- `.github/agent-instructions/`
+- `AGENTS.md`
+  Runtime-neutral repository entrypoint for AI coding agents.
+- `.github/agent_instructions/`
   Layered AI-human workflow guidance, separating reusable global instructions from repository-specific constraints and context.
 - `engineering_knowledge_base/`
   Structured locations for incident capture, learning notes, and other
   workflow-derived engineering knowledge.
+
+## Why AGENTS.md Exists
+
+In a public or developer-portable instruction control plane, `AGENTS.md`
+solves three bootstrapping problems:
+
+1. Discovery
+  A generic AI coding agent entering the repository needs a conventional
+  root-level file that says where repository instructions begin.
+
+2. Bootstrapping
+  `AGENTS.md` points the agent from the repository root into the
+  instruction tree, such as `.github/agent_instructions/`, and defines
+  the order in which instruction indexes should be loaded.
+
+3. Runtime neutrality
+  `AGENTS.md` is not tied to GitHub Copilot, Codex, Cursor, Claude Code,
+  or any other single runtime. Runtime-specific adapters can still exist,
+  but they should converge on the same instruction tree.
 
 ## Adoption Guidance
 
