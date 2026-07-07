@@ -1,54 +1,31 @@
 # Copilot Instructions
 
-This is the GitHub Copilot-specific discovery adapter for the repository
-instruction system.
+This is the checked-in discovery adapter for repository-aware agents.
 
-Before making code, documentation, data-layout, or Git changes, converge
-on the same instruction tree used by generic repo-first agents and
-report what was loaded.
+Before making code, documentation, data-layout, architecture, or Git
+changes, load relevant checked-in instruction files and report what was
+loaded.
 
-## Discovery Path
+## Active Context Surface
 
 ```text
 .github/copilot-instructions.md
-  -> AGENTS.md
-  -> .github/agent_instructions/agent.md
-  -> .github/agent_instructions/README.md
-  -> .github/agent_instructions/global/README.md
-  -> .github/agent_instructions/repo/README.md
-  -> task-relevant instruction files
+  -> .github/instructions/*.instructions.md
+  -> .github/agents/*.agent.md when a specialist role is relevant
+  -> .github/prompts/*.prompt.md when an explicit reusable prompt fits
+  -> .github/skills/*/SKILL.md when an explicit skill workflow fits
 ```
 
-## Required Load Sequence
+## Required Baseline
 
-1. Read `AGENTS.md`.
-2. Read `.github/agent_instructions/agent.md`.
-3. Read `.github/agent_instructions/README.md`.
-4. Read `.github/agent_instructions/global/README.md`.
-5. Read `.github/agent_instructions/repo/README.md`.
-6. Read task-relevant files referenced by those indexes.
+For repository work, load task-relevant files under
+`.github/instructions/`.
 
-## Required First Response Block
+Always include `.github/instructions/agent-context-routing.instructions.md`
+so migration and layering rules are respected.
 
-Start change-making turns with an instruction load report:
+## Legacy Compatibility
 
-```md
-Instruction Load Report
-
-- [x] `AGENTS.md`
-- [x] `.github/agent_instructions/agent.md`
-- [x] `.github/agent_instructions/README.md`
-- [x] `.github/agent_instructions/global/README.md`
-- [x] `.github/agent_instructions/repo/README.md`
-- [x] `path/to/relevant-instruction.md` (Trigger: brief reason)
-- [ ] `path/to/skipped-instruction.md` (Skipped: brief reason)
-```
-
-If instruction files cannot be read, say which files were unavailable
-and continue only when the task can still be handled safely.
-
-## Audit Boundary
-
-The load report is an operational audit artifact. It should list files
-read for the task, not expose hidden chain-of-thought or private
-reasoning.
+Legacy paths such as `AGENTS.md` and `.github/agent_instructions/` are
+deprecated for this template. Keep migration references only when a
+specific adopting repository still requires them.

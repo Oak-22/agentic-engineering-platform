@@ -80,33 +80,30 @@ inspectable, and increasing reuse of proven engineering practices.
 
 ## Template Contents
 
-- `AGENTS.md`
-  Runtime-neutral repository entrypoint for AI coding agents.
-- `.github/agent_instructions/`
-  Layered AI-human workflow guidance, separating reusable global
-  instructions from repository-specific constraints and context.
+- `.github/copilot-instructions.md`
+  Repository entrypoint and routing adapter for repository-aware agents.
+- `.github/instructions/`
+  Durable agent behavior rules.
+- `.github/agents/`
+  Specialist agent personas.
+- `.github/prompts/`
+  Reusable task prompts.
+- `.github/skills/`
+  Repeatable workflow playbooks.
+- `.github/hooks/`
+  Mechanical guardrails for task execution.
 - `engineering_knowledge_base/`
   Structured locations for incident capture, learning notes, and other
   workflow-derived engineering knowledge.
 
-## Why AGENTS.md Exists
+## Legacy Migration Note
 
-In a public or developer-portable instruction control plane, `AGENTS.md`
-solves three bootstrapping problems:
+Earlier versions used `AGENTS.md` and `.github/agent_instructions/`.
+Those paths are now deprecated in favor of an artifact-typed `.github/`
+control plane.
 
-1. Discovery
-  A generic AI coding agent entering the repository needs a conventional
-  root-level file that says where repository instructions begin.
-
-2. Bootstrapping
-  `AGENTS.md` points the agent from the repository root into the
-  instruction tree, such as `.github/agent_instructions/`, and defines
-  the order in which instruction indexes should be loaded.
-
-3. Runtime neutrality
-  `AGENTS.md` is not tied to GitHub Copilot, Codex, Cursor, Claude Code,
-  or any other single runtime. Runtime-specific adapters can still exist,
-  but they should converge on the same instruction tree.
+Legacy files can be retained as migration references in repositories
+still transitioning, but should not remain active canonical paths.
 
 ## Adoption Guidance
 
@@ -117,13 +114,12 @@ environments.
 For an existing repository, start with the smallest useful checked-in
 surface:
 
-1. Add `AGENTS.md` at the repository root.
-2. Add `.github/agent_instructions/agent.md`.
-3. Add `.github/agent_instructions/README.md`.
-4. Add `.github/agent_instructions/global/README.md`.
-5. Add `.github/agent_instructions/repo/README.md`.
-6. Add task-relevant global or repo instruction files only when they
-   describe reusable behavior.
+1. Add `.github/copilot-instructions.md` as routing adapter.
+2. Add `.github/instructions/` for durable rules.
+3. Add `.github/agents/`, `.github/prompts/`, `.github/skills/`, and
+  `.github/hooks/` as needed.
+4. Add task-relevant artifacts only when they describe reusable
+  behavior.
 
 This intrinsic adoption path keeps the control plane inside the repo
 where agents already work. Separate methodology notes can live in
@@ -160,17 +156,11 @@ copyable without machine-specific dependencies.
 This template should remain copyable without machine-specific paths,
 private instructions, or personal repository references.
 
-For local personal workflows, a developer may symlink selected instruction
-layers into a private configuration directory. For example:
+For local personal workflows, a developer may symlink selected
+configuration layers into a private configuration directory.
 
-```text
-.github/agent_instructions/global
-  -> ~/.config/agent_instructions/global
-```
-
-That local symlink model is useful for private, cross-repo instruction
-portability. It should not replace the public scaffold files that make
-the template understandable to another developer.
+That local symlink model is useful for private portability. It should
+not replace public checked-in scaffold files.
 
 ## Promotion Workflow
 
