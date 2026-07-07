@@ -1,6 +1,6 @@
 # AI–Human Engineering Collaboration Case Studies
 
-This repository contains 10 real-world case studies showcasing collaborative problem-solving between a human engineer and an AI assistant (LLM). Each entry documents a real software development challenge, including:
+This repository contains real-world case studies showcasing collaborative problem-solving between a human engineer and an AI assistant (LLM). Each entry documents a real software development challenge, including:
 
 - Defined obstacle
 - Root cause analysis
@@ -51,6 +51,7 @@ Case studies are stored in Markdown files:
 
 1. case_study_01_ssm_registration.md
 2. case_study_02_instruction_provenance_feedback_loop.md
+3. case_study_03_agent_control_plane_convergence.md
 
 
 ## License
