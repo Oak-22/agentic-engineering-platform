@@ -1,0 +1,223 @@
+flowchart TB
+  Title["AI Agent Instruction Control Plane:<br/>Workflow-Derived Learning Platform"]
+
+  subgraph Signals["1. Workflow Signals from Real Engineering Work"]
+    direction LR
+    GitDiffs["Git commits<br/>and diffs"]
+    IDE["IDE activity<br/>and file changes"]
+    Debugging["Debugging and<br/>error-resolution events"]
+    CLI["Command-line<br/>interactions"]
+    AgentSessions["Agent-assisted<br/>development sessions"]
+    HumanNotes["Human notes<br/>and observations"]
+  end
+
+  subgraph Capture["2. Capture, Classification, and Provenance"]
+    direction LR
+    Extraction["Signal<br/>extraction"]
+    Curation["Human<br/>curation"]
+    Provenance["Provenance<br/>capture"]
+    Audience["Audience<br/>classification<br/><br/>personal | shared"]
+    Scope["Scope<br/>classification<br/><br/>repo | domain | global"]
+    Decision{"Durable<br/>lesson?"}
+
+    Extraction -->|"select useful signals"| Curation
+    Curation -->|"preserve source evidence"| Provenance
+    Provenance -->|"classify ownership"| Audience
+    Audience -->|"classify reach"| Scope
+    Scope -->|"promotion decision"| Decision
+  end
+
+  subgraph Personal["Personal Learning Space"]
+    direction TB
+    PersonalNotes["Personal learning notes"]
+    WeakSignals["Private weak signals"]
+    CodingDrills["Coding drills"]
+    RetrievalQueue["Retrieval prompt queue"]
+    AttemptResponses["Attempt-before-AI responses"]
+  end
+
+  subgraph Infra["Supporting Infrastructure"]
+    direction TB
+    GitRepo["Git repository"]
+    Versioning["Versioning"]
+    ReviewHistory["Review history"]
+    ProvenanceLogs["Provenance logs"]
+  end
+
+  subgraph ControlPlane["3. Artifact-Typed AI-Human Operating Control Plane"]
+    direction TB
+
+    Routing["Routing adapter<br/>.github/copilot-instructions.md"]
+
+    subgraph RepoScope["Shared + Repo Scope"]
+      direction LR
+      RepoIncidents["Repo incident reports"]
+      RepoImplNotes["Repo implementation notes"]
+      Instructions[".github/instructions/"]
+      Prompts[".github/prompts/"]
+      Skills[".github/skills/"]
+      Hooks[".github/hooks/"]
+    end
+
+    subgraph DomainScope["Shared + Domain Scope"]
+      direction LR
+      CaseStudies["Domain case studies"]
+      ReusablePatterns["Domain reusable patterns"]
+      DebugPlaybooks["Domain debugging playbooks"]
+      SpecialistAgents["Specialist agents<br/>.github/agents/"]
+    end
+
+    subgraph GlobalScope["Shared + Global Scope"]
+      direction LR
+      OrgStandards["Global org standards"]
+      ADRGuidance["Architecture and<br/>ADR guidance"]
+      CompliancePolicy["Compliance and<br/>policy instructions"]
+      CrossRepoRules["Cross-repo agent<br/>behavior rules"]
+    end
+
+    PromotionNote["Promotion requires reuse evidence,<br/>human review, lead signoff,<br/>and bidirectional source links."]
+
+    Routing -->|"deterministic instruction discovery"| RepoScope
+    Routing -->|"load scoped guidance"| DomainScope
+    Routing -->|"load governed standards"| GlobalScope
+
+    RepoIncidents -->|"proven reuse"| CaseStudies
+    RepoImplNotes -->|"repeatable workflow"| ReusablePatterns
+    CaseStudies -->|"stable pattern + lead review"| OrgStandards
+    ReusablePatterns -->|"policy / standardization"| CrossRepoRules
+    ADRGuidance -->|"architecture constraints"| CompliancePolicy
+  end
+
+  subgraph Retrieval["4. Future Extension: Workflow-Derived Retrieval Layer"]
+    direction LR
+    PromptGenerator["Retrieval prompt<br/>generator"]
+    Scheduler["Spaced repetition<br/>scheduler"]
+    PromptDelivered["Recall prompt<br/>delivered"]
+    MemoryAttempt["Developer attempts<br/>from memory"]
+    Explanation["Explanation or AI<br/>consultation after attempt"]
+    Reinforcement["Reinforcement signal<br/>captured"]
+    RetrievalRule["Human-in-the-loop rule:<br/>attempt retrieval before consulting AI"]
+
+    PromptGenerator -->|"schedule concept review"| Scheduler
+    Scheduler -->|"deliver at increasing intervals"| PromptDelivered
+    PromptDelivered -->|"active recall"| MemoryAttempt
+    MemoryAttempt -->|"then compare / consult"| Explanation
+    Explanation -->|"capture outcome"| Reinforcement
+    Reinforcement -->|"updates future prompts"| PromptGenerator
+  end
+
+  subgraph Lifecycle["5. Interface to Feedforward / Feedback Lifecycle"]
+    direction LR
+
+    subgraph Feedforward["Feedforward into work"]
+      direction TB
+      GovernedContext["Governed context"]
+      LoadedInstructions["Instructions"]
+      LoadedPrompts["Prompts"]
+      LoadedSkills["Skills"]
+      LoadedHooks["Hooks"]
+      LoadedStandards["Standards"]
+      RetrievalReminders["Retrieval reminders"]
+    end
+
+    subgraph Feedback["Feedback from work"]
+      direction TB
+      ProposedDiffs["Proposed artifacts<br/>and diffs"]
+      ValidationFailures["Validation failures"]
+      ReviewFindings["Review findings"]
+      Incidents["Incidents"]
+      Lessons["Lessons learned"]
+      RetrievalPerformance["Retrieval performance"]
+    end
+  end
+
+  subgraph Enterprise["Enterprise Knowledge Systems"]
+    direction TB
+    Confluence["Confluence / SharePoint"]
+    Wiki["GitHub Wiki / Docs Portal"]
+    ADRs["Architecture Decision Records"]
+    PolicyPortal["Policy / Compliance Portal"]
+  end
+
+  Title --> Signals
+
+  GitDiffs --> Extraction
+  IDE --> Extraction
+  Debugging --> Extraction
+  CLI --> Extraction
+  AgentSessions --> Extraction
+  HumanNotes --> Extraction
+
+  Decision -->|"yes / reusable"| ControlPlane
+  Decision -->|"no / private for now"| Personal
+
+  Personal -->|"candidate promotion after reuse"| Capture
+
+  Infra <-->|"version / review / sync / audit trail"| ControlPlane
+
+  ControlPlane -->|"load governed context"| Feedforward
+  Retrieval -->|"reinforcement prompts"| Feedforward
+
+  Feedback -->|"new real-world signals"| Signals
+  Feedback -->|"promote durable lessons"| Capture
+
+  ControlPlane -->|"derive prompts from durable artifacts"| PromptGenerator
+  Signals -->|"derive prompts from real work"| PromptGenerator
+  Reinforcement -->|"personal retention signal"| Personal
+  Reinforcement -->|"possible durable lesson"| Capture
+
+  OrgStandards -->|"policy / global export"| Enterprise
+  ADRGuidance -->|"ADR bidirectional links"| Enterprise
+  CompliancePolicy -->|"canonical policy publication"| Enterprise
+  DebugPlaybooks -->|"implementation guide publication"| Wiki
+
+  Enterprise -->|"canonical policy reference"| ControlPlane
+  Enterprise -->|"external standard link"| ControlPlane
+
+  RepoIncidents -.->|"preserved from existing diagram"| CaseStudies
+  CaseStudies -.->|"preserved promotion path"| OrgStandards
+  OrgStandards -.->|"export and integration"| Confluence
+  OrgStandards -.->|"implementation guides"| Wiki
+  ADRGuidance -.->|"architecture decisions"| ADRs
+
+  classDef title fill:#ffffff,stroke:#111111,stroke-width:2px,color:#111111;
+
+  classDef signal fill:#f7f7f7,stroke:#666666,stroke-width:1px,color:#111111;
+  classDef capture fill:#fff4e6,stroke:#b7791f,stroke-width:1px,color:#111111;
+  classDef decision fill:#fffaf0,stroke:#b7791f,stroke-width:2px,color:#111111;
+
+  classDef control fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#111111;
+  classDef repo fill:#e0f2fe,stroke:#0284c7,stroke-width:1px,color:#111111;
+  classDef domain fill:#dbeafe,stroke:#2563eb,stroke-width:1px,color:#111111;
+  classDef global fill:#ede9fe,stroke:#6d28d9,stroke-width:1px,color:#111111;
+
+  classDef retrieval fill:#ecfdf5,stroke:#16a34a,stroke-width:2px,color:#111111,stroke-dasharray: 6 4;
+  classDef personal fill:#f0fdf4,stroke:#15803d,stroke-width:1px,color:#111111;
+  classDef infra fill:#eeeeee,stroke:#555555,stroke-width:1px,color:#111111;
+  classDef enterprise fill:#fef3c7,stroke:#92400e,stroke-width:2px,color:#111111;
+
+  classDef feedforward fill:#ffe4e6,stroke:#e11d48,stroke-width:1px,color:#111111;
+  classDef feedback fill:#dbeafe,stroke:#0f766e,stroke-width:1px,color:#111111;
+
+  class Title title;
+
+  class GitDiffs,IDE,Debugging,CLI,AgentSessions,HumanNotes signal;
+
+  class Extraction,Curation,Provenance,Audience,Scope capture;
+  class Decision decision;
+
+  class Routing,PromotionNote control;
+  class RepoIncidents,RepoImplNotes,Instructions,Prompts,Skills,Hooks repo;
+  class CaseStudies,ReusablePatterns,DebugPlaybooks,SpecialistAgents domain;
+  class OrgStandards,ADRGuidance,CompliancePolicy,CrossRepoRules global;
+
+  class PromptGenerator,Scheduler,PromptDelivered,MemoryAttempt,Explanation,Reinforcement,RetrievalRule retrieval;
+
+  class PersonalNotes,WeakSignals,CodingDrills,RetrievalQueue,AttemptResponses personal;
+
+  class GitRepo,Versioning,ReviewHistory,ProvenanceLogs infra;
+
+  class GovernedContext,LoadedInstructions,LoadedPrompts,LoadedSkills,LoadedHooks,LoadedStandards,RetrievalReminders feedforward;
+  class ProposedDiffs,ValidationFailures,ReviewFindings,Incidents,Lessons,RetrievalPerformance feedback;
+
+  class Confluence,Wiki,ADRs,PolicyPortal enterprise;
