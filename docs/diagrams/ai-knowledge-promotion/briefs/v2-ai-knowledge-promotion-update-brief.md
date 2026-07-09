@@ -1,7 +1,5 @@
 # v2 AI Knowledge Promotion Update Brief
 
-Use the architecture-diagram-generation skill.
-
 ## Source Artifacts
 
 Semantic source:

@@ -1,7 +1,5 @@
 # Architecture Diagram Update Brief Template
 
-Use the architecture-diagram-generation skill.
-
 ## Source Artifacts
 
 Semantic source:
