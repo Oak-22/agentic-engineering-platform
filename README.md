@@ -23,12 +23,10 @@ It answers:
 > instructions without collapsing local context, runtime adapters, and
 > reusable rules into one undifferentiated prompt?
 
-## Related Methodology Repository
+## Documentation
 
-For applied case studies and observations from real AI-human engineering
-work, see the companion case-study repository. For this repository's
-portfolio context, see
-[`docs/portfolio_context.md`](docs/portfolio_context.md).
+Documentation for strategy, applied validation, diagrams, and related
+future directions lives in [`docs/`](docs/).
 
 
 ## Repository Identity
@@ -96,14 +94,28 @@ inspectable, and increasing reuse of proven engineering practices.
   Structured locations for incident capture, learning notes, and other
   workflow-derived engineering knowledge.
 
+## Docs Layout
+
+- [`docs/README.md`](docs/README.md)
+  Documentation map and placement rules.
+- [`docs/applied-validation-through-myhealth.md`](docs/applied-validation-through-myhealth.md)
+  Applied validation relationship between this control plane and
+  `myHealth`.
+- [`docs/diagrams/`](docs/diagrams/)
+  Source and exported diagrams.
+- [`docs/strategy/`](docs/strategy/)
+  Domain-agnostic strategic rationale.
+
 ## Legacy Migration Note
 
 Earlier versions used `AGENTS.md` and `.github/agent_instructions/`.
 Those paths are now deprecated in favor of an artifact-typed `.github/`
 control plane.
 
-Legacy files can be retained as migration references in repositories
-still transitioning, but should not remain active canonical paths.
+Do not include legacy `AGENTS.md` or `.github/agent_instructions/`
+paths in this template. Repositories still migrating may keep temporary
+references in their own migration branches, but the reusable control
+plane should expose only the modern artifact-typed surface.
 
 ## Adoption Guidance
 
@@ -210,3 +222,14 @@ A related design direction is documented in
 That note explains how workflow telemetry and retrieval practice could
 extend this template in future systems without changing the template's
 core identity.
+
+## Strategic Notes
+
+High-level rationale for the control-plane pattern lives in
+[`docs/strategy/`](docs/strategy/).
+
+The broad thesis is documented in
+[`docs/strategy/invisible-systems-thesis.md`](docs/strategy/invisible-systems-thesis.md).
+Domain-specific extensions, such as biohealth governance and clinical
+translation boundaries, should live in the downstream repository that
+owns that domain surface.
