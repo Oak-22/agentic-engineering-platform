@@ -1,4 +1,4 @@
-# AgentOps & Token Economics Observatory
+# AI Inference Telemetry & Economics Observatory
 
 Production-grade backend platform for collecting, modeling, and analyzing AI application telemetry to optimize token consumption, inference cost, latency, routing decisions, and agent execution across enterprise-scale LLM systems.
 
@@ -6,7 +6,7 @@ Production-grade backend platform for collecting, modeling, and analyzing AI app
 
 Large-scale AI applications introduce a new operational discipline beyond traditional observability. Every prompt, tool invocation, retrieval operation, and model selection carries measurable cost, latency, and quality tradeoffs.
 
-This project builds an end-to-end AgentOps platform that transforms raw execution events into actionable operational intelligence, enabling engineering teams to continuously optimize AI workflows through data-driven analysis.
+This project builds an end-to-end observability platform that transforms raw execution events into actionable operational intelligence, enabling engineering teams to continuously optimize AI workflows through data-driven analysis.
 
 Rather than focusing on model development, the platform emphasizes the engineering systems surrounding production AI deployments.
 
@@ -42,7 +42,8 @@ Rather than focusing on model development, the platform emphasizes the engineeri
 
 ## High-Level Architecture
 
-AI Applications
+LLM Query (CLI, IDE Chat, Desktop App, etc)
+(initial telemetry producer)
         │
         ▼
 Telemetry SDK
@@ -66,7 +67,7 @@ Analytics APIs
 (FastAPI)
         │
         ▼
-AgentOps Dashboard
+Observatory Dashboard
 
 ---
 
@@ -146,13 +147,10 @@ AgentOps Dashboard
 
 ## AI Infrastructure Components
 
-- Multi-model routing analysis
 - Prompt caching analytics
 - Context deduplication metrics
 - Token economics
-- Agent orchestration telemetry
 - RAG observability
-- MCP server utilization
 - Evaluation pipeline metrics
 
 ---
@@ -223,8 +221,7 @@ Infrastructure
 
 Visualization
 
-- React
-- Plotly
+- Plotly/Dash
 - Grafana
 
 ---
