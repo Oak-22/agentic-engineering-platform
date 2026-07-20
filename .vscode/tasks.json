@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "status-case-studies",
+			"type": "shell",
+			"command": "zsh",
+			"args": [
+				"-lc",
+				"git status --short | cat"
+			]
+		}
+	]
+}
