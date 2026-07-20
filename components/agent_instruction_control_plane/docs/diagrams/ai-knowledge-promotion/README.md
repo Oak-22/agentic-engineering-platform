@@ -14,4 +14,4 @@ platform.
 
 The broader diagram covers personal, team, and organizational knowledge.
 The learning retrieval layer is described in
-`docs/periodic_learning_retrieval_system.md`.
+`services/developer_learning_retrieval/design.md`.

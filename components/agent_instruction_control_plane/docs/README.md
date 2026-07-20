@@ -14,7 +14,7 @@ machine-local overlay.
 - [Feedforward Feedback Change Lifecycle](diagrams/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.
-- [Workflow-Derived Retrieval](periodic_learning_retrieval_system.md)
+- [Developer Learning Retrieval Service](../../../services/developer_learning_retrieval/design.md)
   Describes a future extension for turning engineering activity into
   learning and retrieval signals.
 

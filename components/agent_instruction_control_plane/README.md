@@ -228,7 +228,7 @@ This repository is a template scaffold, not a full implementation of
 workflow-derived retrieval.
 
 A related design direction is documented in
-[`docs/periodic_learning_retrieval_system.md`](docs/periodic_learning_retrieval_system.md).
+[`../../services/developer_learning_retrieval/design.md`](../../services/developer_learning_retrieval/design.md).
 That note explains how workflow telemetry and retrieval practice could
 extend this template in future systems without changing the template's
 core identity.

@@ -25,11 +25,19 @@ govern agent behavior
   A portable control plane for instruction discovery, runtime adapters,
   provenance, reusable skills, and auditable agent execution.
 
+- [`components/engineering_knowledge_base/`](components/engineering_knowledge_base/)
+  A planned portable contract for capturing, promoting, retrieving, and
+  governing engineering knowledge without publishing private notes.
+
 ### Services
 
 - [`services/ai_inference_telemetry_economics_observatory/`](services/ai_inference_telemetry_economics_observatory/)
   An observability service for measuring model usage, latency, token
   economics, routing decisions, and agent execution behavior.
+
+- [`services/developer_learning_retrieval/`](services/developer_learning_retrieval/)
+  A planned service that converts real engineering activity into daily
+  five-to-ten-minute active-recall sessions for stronger retention.
 
 ### Research and Documentation
 

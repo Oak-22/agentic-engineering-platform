@@ -10,7 +10,7 @@ Visual source:
 - `docs/diagrams/ai-knowledge-promotion/experiment/00-baseline/v1-ai-knowledge-promotion.png`
 
 Related context:
-- `docs/periodic_learning_retrieval_system.md`
+- `services/developer_learning_retrieval/design.md`
 - `README.md`
 
 ## Task

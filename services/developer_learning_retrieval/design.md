@@ -1,8 +1,8 @@
-# Workflow-Derived Retrieval for AI-Assisted Development
+# Developer Learning Retrieval Service — Design Direction
 
-This note describes a related design direction for this repository.
-It is not the current product scope of
-`agent_instruction_control_plane`.
+This note defines the design direction for a planned platform service.
+It is an architectural proposal, not a description of an implemented
+runtime.
 
 The current repository provides a reusable scaffold for AI-human
 workflow artifacts. The concept described below explains one possible
@@ -117,10 +117,9 @@ This aligns with learning principles such as retrieval practice and
 productive struggle, both of which are associated with stronger
 long-term retention than passive review.
 
-## Relationship To This Repository
+## Relationship To The Platform
 
-This repository provides the structural prerequisites for that broader
-direction:
+The platform provides the structural prerequisites for this service:
 
 - `.github/instructions/`, `.github/agents/`, `.github/prompts/`,
   `.github/skills/`, and `.github/hooks/` define an artifact-typed
@@ -129,5 +128,7 @@ direction:
   private capture locations for workflow-derived learning artifacts
 - `docs/` can hold higher-level rationale and design notes
 
-In other words, this template is the scaffold. Workflow-derived
-retrieval is one future-facing system that could be built on top of it.
+The instruction control plane governs the interaction, the telemetry
+observatory supplies workflow signals, and the engineering knowledge
+base provides durable learning material. This service would coordinate
+those inputs into short recurring retrieval sessions.
