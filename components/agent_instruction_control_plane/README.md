@@ -95,15 +95,6 @@ inspectable, and increasing reuse of proven engineering practices.
   and other workflow-derived knowledge. It is not part of the portable
   checked-in template.
 
-## Optional Reference Tools
-
-- `tools/folder_structure_visualizer/`
-  Independently packageable Python CLI for mapping repository hierarchy
-  and rendering reviewable semantic descriptions of component
-  responsibilities. The tool supports repository orientation for humans
-  and agents but is not a runtime dependency of the portable control
-  plane scaffold.
-
 ## Docs Layout
 
 - [`docs/README.md`](docs/README.md)

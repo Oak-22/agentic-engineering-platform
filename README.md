@@ -39,6 +39,13 @@ govern agent behavior
   A planned service that converts real engineering activity into daily
   five-to-ten-minute active-recall sessions for stronger retention.
 
+### Tools
+
+- [`tools/folder_structure_visualizer/`](tools/folder_structure_visualizer/)
+  An independently packageable developer-comprehension tool that maps
+  filesystem and repository hierarchy for faster onboarding, clearer
+  agent prompts, and shared human-agent structural context.
+
 ### Research and Documentation
 
 - [`docs/case_studies/`](docs/case_studies/)

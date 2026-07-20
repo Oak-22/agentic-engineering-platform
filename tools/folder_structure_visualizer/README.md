@@ -2,7 +2,22 @@
 
 Generate a living map of a local folder structure as plain text, Markdown, Mermaid, optional SVG/PNG images, and an interactive HTML viewer.
 
-This tool is built for documenting real working folders, especially personal and business systems such as photography folders, client delivery folders, creative archives, and project directories.
+## Platform Role
+
+This is a cross-cutting developer-comprehension and agentic-engineering
+velocity tool. It helps developers build accurate mental models of
+filesystems and repository hierarchy while giving humans and agents a
+shared, reviewable representation of structural context.
+
+The tool is intentionally top-level rather than owned by the Agent
+Instruction Control Plane or Developer Learning Retrieval Service. Those
+systems may consume its maps and annotations, but the visualizer remains
+independently useful for onboarding, architecture review, prompt grounding,
+and personal technical ramp-up.
+
+This tool is built for documenting real working folders, including source
+repositories, personal and business systems, photography folders, client
+delivery folders, creative archives, and project directories.
 
 ## Why It Exists
 

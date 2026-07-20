@@ -17,6 +17,10 @@
 			"path": "services/developer_learning_retrieval"
 		},
 		{
+			"name": "Folder Structure Visualizer",
+			"path": "tools/folder_structure_visualizer"
+		},
+		{
 			"name": "AI–Human Engineering Collaboration Case Studies",
 			"path": "docs/case_studies"
 		}
