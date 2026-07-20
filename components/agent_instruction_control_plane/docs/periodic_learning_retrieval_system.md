@@ -125,8 +125,8 @@ direction:
 - `.github/instructions/`, `.github/agents/`, `.github/prompts/`,
   `.github/skills/`, and `.github/hooks/` define an artifact-typed
   AI-human operating control plane
-- `engineering_knowledge_base/` provides durable capture locations for
-  workflow-derived learning artifacts
+- an optional, machine-local `engineering_knowledge_base/` provides
+  private capture locations for workflow-derived learning artifacts
 - `docs/` can hold higher-level rationale and design notes
 
 In other words, this template is the scaffold. Workflow-derived

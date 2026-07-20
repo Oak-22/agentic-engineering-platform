@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"name": "Agent Instruction Control Plane",
+			"path": "components/agent_instruction_control_plane"
+		},
+		{
+			"name": "AI Inference Telemetry & Economics Observatory",
+			"path": "services/ai_inference_telemetry_economics_observatory"
+		},
+		{
+			"name": "AI–Human Engineering Collaboration Case Studies",
+			"path": "docs/case_studies"
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"**/.DS_Store": true
+		}
+	}
+}

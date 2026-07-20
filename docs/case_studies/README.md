@@ -41,9 +41,9 @@ It answers:
 
 ## Related Methodology Repository
 
-For reusable prompts, templates, agent instructions, and workflow
-scaffolding, see
-[`ai_assisted_developer_workflow_platform_template`](https://github.com/Oak-22/ai_assisted_developer_workflow_platform_template).
+For reusable instructions, runtime adapters, skills, hooks, provenance,
+and workflow scaffolding, see the platform's
+[`Agent Instruction Control Plane`](../../components/agent_instruction_control_plane/).
 
 ## Structure
 
@@ -51,7 +51,8 @@ Case studies are stored in Markdown files:
 
 1. case_study_01_ssm_registration.md
 2. case_study_02_instruction_provenance_feedback_loop.md
-3. case_study_03_agent_control_plane_convergence.md
+3. case_study_03_Human_in_the_loop_prompt_refinement_for_reliable_agent_execution.md
+4. case_study_04_agent_control_plane_convergence.md
 
 
 ## License

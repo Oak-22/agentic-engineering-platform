@@ -1,9 +1,10 @@
 # Documentation Map
 
 This folder holds explanatory material for the AI Agent Instruction
-Control Plane. It is not the minimum install surface. The minimum
-control-plane template lives under `.github/` and
-`engineering_knowledge_base/`.
+Control Plane. It is not the minimum install surface. The portable
+control-plane template lives under `.github/`; an
+`engineering_knowledge_base/` may be mounted separately as a private,
+machine-local overlay.
 
 ## Start Here
 

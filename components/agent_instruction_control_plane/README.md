@@ -90,9 +90,10 @@ inspectable, and increasing reuse of proven engineering practices.
   Repeatable workflow playbooks.
 - `.github/hooks/`
   Mechanical guardrails for task execution.
-- `engineering_knowledge_base/`
-  Structured locations for incident capture, learning notes, and other
-  workflow-derived engineering knowledge.
+- `engineering_knowledge_base/` (optional local overlay)
+  A machine-local location for private incident capture, learning notes,
+  and other workflow-derived knowledge. It is not part of the portable
+  checked-in template.
 
 ## Optional Reference Tools
 
