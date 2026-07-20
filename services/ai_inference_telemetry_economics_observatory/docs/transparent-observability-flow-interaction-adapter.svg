@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1020" viewBox="0 0 1500 1020" role="img" aria-labelledby="title description">
+  <title id="title">Transparent observability flow with interaction adapter</title>
+  <desc id="description">Four user interaction surfaces send requests through a transparent interaction adapter. The adapter forwards normal traffic to the model API endpoint and silently emits telemetry to the local Observatory daemon, then PostgreSQL and Grafana.</desc>
+  <defs>
+    <marker id="arrow-request" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker>
+    <marker id="arrow-response" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#059669"/></marker>
+    <marker id="arrow-telemetry" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/></marker>
+    <style>
+      .heading { font-family: Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .label { font-family: Arial, Helvetica, sans-serif; fill: #0f172a; font-size: 23px; font-weight: 700; }
+      .sub { font-family: Arial, Helvetica, sans-serif; fill: #475569; font-size: 16px; }
+      .note { font-family: Arial, Helvetica, sans-serif; fill: #475569; font-size: 15px; }
+      .surface { font-family: Arial, Helvetica, sans-serif; fill: #1e293b; font-size: 17px; font-weight: 600; }
+      .solid { fill: #ffffff; stroke: #334155; stroke-width: 2.5; }
+      .transparent { fill: #f8fafc; fill-opacity: 0.45; stroke: #7c3aed; stroke-width: 2.5; stroke-dasharray: 10 8; }
+      .surface-box { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.8; }
+      .request { fill: none; stroke: #2563eb; stroke-width: 4; marker-end: url(#arrow-request); }
+      .response { fill: none; stroke: #059669; stroke-width: 4; marker-end: url(#arrow-response); }
+      .telemetry { fill: none; stroke: #7c3aed; stroke-width: 3.5; marker-end: url(#arrow-telemetry); }
+    </style>
+  </defs>
+
+  <rect width="1500" height="1020" fill="#f8fafc"/>
+  <text x="750" y="66" text-anchor="middle" class="heading" font-size="36" font-weight="700">Transparent observability flow</text>
+  <text x="750" y="102" text-anchor="middle" class="heading" font-size="19" fill="#475569">Normal interactions stay in the foreground; observability is collected locally and silently.</text>
+
+  <text x="310" y="156" text-anchor="middle" class="heading" font-size="17" font-weight="700" fill="#2563eb">USER INTERACTION PATH</text>
+  <text x="1088" y="156" text-anchor="middle" class="heading" font-size="17" font-weight="700" fill="#7c3aed">LOCAL OBSERVABILITY PATH</text>
+
+  <rect x="90" y="190" width="440" height="342" rx="18" class="solid"/>
+  <text x="310" y="232" text-anchor="middle" class="label">User interaction surface</text>
+  <rect x="120" y="258" width="380" height="48" rx="10" class="surface-box"/>
+  <text x="310" y="289" text-anchor="middle" class="surface">Terminal CLI prompt</text>
+  <rect x="120" y="320" width="380" height="48" rx="10" class="surface-box"/>
+  <text x="310" y="351" text-anchor="middle" class="surface">IDE-integrated AI chat</text>
+  <rect x="120" y="382" width="380" height="48" rx="10" class="surface-box"/>
+  <text x="310" y="413" text-anchor="middle" class="surface">Desktop/chat application</text>
+  <rect x="120" y="444" width="380" height="60" rx="10" class="surface-box"/>
+  <text x="310" y="470" text-anchor="middle" class="surface">Application UI or service request</text>
+  <text x="310" y="490" text-anchor="middle" class="note">interactive or programmatic</text>
+
+  <rect x="650" y="300" width="360" height="122" rx="18" class="transparent"/>
+  <text x="830" y="348" text-anchor="middle" class="label" fill="#5b21b6">Interaction adapter</text>
+  <text x="830" y="379" text-anchor="middle" class="sub">transparent request / response pass-through</text>
+
+  <rect x="1120" y="270" width="330" height="164" rx="18" class="solid" stroke="#7c3aed"/>
+  <text x="1285" y="326" text-anchor="middle" class="label">Local Observatory Daemon</text>
+  <text x="1285" y="357" text-anchor="middle" class="sub">normalize · enrich · buffer · batch</text>
+  <text x="1285" y="385" text-anchor="middle" class="note">runs beside the interaction surface</text>
+
+  <path d="M530 361 L650 361" class="request"/>
+  <text x="590" y="338" text-anchor="middle" class="note" fill="#2563eb">interaction</text>
+
+  <path d="M1010 361 L1120 361" class="telemetry"/>
+  <text x="1065" y="338" text-anchor="middle" class="note" fill="#6d28d9">local event</text>
+
+  <rect x="650" y="620" width="360" height="94" rx="18" class="solid"/>
+  <text x="830" y="677" text-anchor="middle" class="label">Model API Endpoint</text>
+
+  <path d="M830 422 L830 620" class="request"/>
+  <text x="852" y="540" class="note" fill="#2563eb">model request</text>
+  <path d="M790 620 L790 422" class="response"/>
+  <text x="734" y="540" text-anchor="end" class="note" fill="#059669">model response</text>
+  <path d="M650 398 L530 398" class="response"/>
+
+  <rect x="1120" y="560" width="330" height="104" rx="18" class="solid"/>
+  <text x="1285" y="605" text-anchor="middle" class="label">PostgreSQL</text>
+  <text x="1285" y="634" text-anchor="middle" class="sub">normalized telemetry store</text>
+
+  <rect x="1120" y="760" width="330" height="72" rx="18" class="solid"/>
+  <text x="1285" y="805" text-anchor="middle" class="label">Grafana · Engineering View</text>
+
+  <path d="M1285 434 L1285 560" class="telemetry"/>
+  <path d="M1285 664 L1285 760" class="telemetry"/>
+
+  <line x1="580" y1="145" x2="580" y2="900" stroke="#cbd5e1" stroke-width="2"/>
+  <line x1="1065" y1="145" x2="1065" y2="900" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="330" y="935" text-anchor="middle" class="note">foreground interaction</text>
+  <text x="830" y="935" text-anchor="middle" class="note">transparent adapter</text>
+  <text x="1285" y="935" text-anchor="middle" class="note">silent background collection</text>
+</svg>

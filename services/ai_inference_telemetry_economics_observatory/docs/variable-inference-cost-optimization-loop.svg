@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title description">
+  <title id="title">Variable inference cost optimization loop</title>
+  <desc id="description">A clockwise loop connects Provider Cost Ledger, Observatory Analysis, and Engineering Action around the goal of lowering variable inference cost while preserving outcomes.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="4" orient="auto"><path d="M0,0 L0,8 L11,4 z" fill="#0f766e"/></marker>
+    <style>
+      .title { font-family: Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .name { font-family: Arial, Helvetica, sans-serif; font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .body { font-family: Arial, Helvetica, sans-serif; font-size: 17px; fill: #334155; }
+      .step { font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 700; fill: #0f766e; letter-spacing: 1px; }
+      .card { fill: #ffffff; stroke: #94a3b8; stroke-width: 2.5; }
+      .loop { fill: none; stroke: #0f766e; stroke-width: 5; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1400" height="900" fill="#f8fafc"/>
+  <text x="700" y="75" text-anchor="middle" class="title" font-size="36" font-weight="700">Variable Inference Cost Optimization Loop</text>
+  <text x="700" y="112" text-anchor="middle" class="title" font-size="19" fill="#475569">Use provider-ledger evidence to choose, measure, and refine engineering interventions.</text>
+
+  <rect x="520" y="128" width="360" height="160" rx="22" class="card"/>
+  <text x="700" y="169" text-anchor="middle" class="step">01 · MEASURE</text>
+  <text x="700" y="211" text-anchor="middle" class="name">Provider Cost Ledger</text>
+  <text x="700" y="247" text-anchor="middle" class="body">Spend by provider, model, time, and account</text>
+  <text x="700" y="275" text-anchor="middle" class="body">Authoritative variable-cost baseline</text>
+
+  <rect x="788" y="593" width="360" height="160" rx="22" class="card"/>
+  <text x="968" y="634" text-anchor="middle" class="step">02 · EXPLAIN</text>
+  <text x="968" y="676" text-anchor="middle" class="name">Observatory Analysis</text>
+  <text x="968" y="712" text-anchor="middle" class="body">Cost concentration · anomalies</text>
+  <text x="968" y="740" text-anchor="middle" class="body">Inefficient model use · token growth</text>
+
+  <rect x="252" y="593" width="360" height="160" rx="22" class="card"/>
+  <text x="432" y="634" text-anchor="middle" class="step">03 · INTERVENE</text>
+  <text x="432" y="676" text-anchor="middle" class="name">Engineering Action</text>
+  <text x="432" y="712" text-anchor="middle" class="body">Reduce context · prompt/result caching</text>
+  <text x="432" y="740" text-anchor="middle" class="body">Change defaults · remove retries</text>
+
+  <circle cx="700" cy="518" r="105" fill="#ccfbf1" stroke="#0f766e" stroke-width="3"/>
+  <text x="700" y="489" text-anchor="middle" class="title" font-size="22" font-weight="700" fill="#115e59">Decision goal</text>
+  <text x="700" y="522" text-anchor="middle" class="title" font-size="18" font-weight="700" fill="#115e59">Lower variable</text>
+  <text x="700" y="549" text-anchor="middle" class="title" font-size="18" font-weight="700" fill="#115e59">inference cost</text>
+  <text x="700" y="575" text-anchor="middle" class="title" font-size="14" fill="#134e4a">while preserving outcomes</text>
+
+  <path d="M820 310 C1050 330 1120 450 1000 565" class="loop"/>
+  <path d="M968 775 C820 850 580 850 432 775" class="loop"/>
+  <path d="M400 565 C280 450 350 330 580 310" class="loop"/>
+
+  <text x="700" y="850" text-anchor="middle" class="title" font-size="17" fill="#475569">Every intervention is measured against the next provider-ledger period.</text>
+</svg>

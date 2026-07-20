@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900" role="img" aria-labelledby="title description">
+  <title id="title">Observatory dashboard audiences and shared telemetry</title>
+  <desc id="description">A large central Engineering Telemetry and Economics ellipse overlaps smaller Operations and Executive circles. Operations and Executive do not overlap each other.</desc>
+  <defs>
+    <linearGradient id="engineering" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0f766e" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#14b8a6" stop-opacity="0.12"/>
+    </linearGradient>
+    <linearGradient id="operations" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#2563eb" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#60a5fa" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="executive" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#7c3aed" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#c084fc" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1500" height="900" fill="#f8fafc"/>
+  <text x="750" y="84" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#0f172a">Observatory dashboard lenses</text>
+  <text x="750" y="126" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#475569">One telemetry foundation, deliberately different levels of detail</text>
+
+  <ellipse cx="750" cy="455" rx="400" ry="265" fill="url(#engineering)" stroke="#0f766e" stroke-width="4"/>
+  <circle cx="320" cy="412" r="190" fill="url(#operations)" stroke="#2563eb" stroke-width="4"/>
+  <circle cx="1180" cy="412" r="190" fill="url(#executive)" stroke="#7c3aed" stroke-width="4"/>
+
+  <text x="185" y="338" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#1d4ed8">Operations</text>
+  <text x="185" y="375" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#1e3a8a">Is it healthy right now?</text>
+  <text x="181" y="418" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#1e3a8a">• Errors &amp; availability</text>
+  <text x="181" y="450" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#1e3a8a">• Queue depth</text>
+  <text x="181" y="482" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#1e3a8a">• Throughput &amp; alerts</text>
+
+  <text x="1315" y="338" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#6d28d9">Executive</text>
+  <text x="1315" y="375" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#581c87">Are we spending wisely?</text>
+  <text x="1319" y="418" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#581c87">• Spend &amp; trends</text>
+  <text x="1319" y="450" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#581c87">• Cost per outcome</text>
+  <text x="1319" y="482" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#581c87">• Workflow value</text>
+
+  <text x="750" y="447" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" fill="#115e59">Engineering Telemetry</text>
+  <text x="750" y="485" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" fill="#115e59">&amp; Economics</text>
+  <text x="750" y="522" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#134e4a">Deep diagnostics: workflow, model, prompt, tool, retry, latency, cost</text>
+
+  <text x="443" y="614" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-style="italic" fill="#1e3a8a">shared health signals</text>
+  <text x="1057" y="614" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-style="italic" fill="#581c87">shared cost &amp; value signals</text>
+  <path d="M294 650 C435 716 540 738 663 740" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <path d="M1206 650 C1065 716 960 738 837 740" fill="none" stroke="#7c3aed" stroke-width="3"/>
+  <text x="750" y="780" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#0f172a">Shared foundation: structured telemetry events</text>
+  <text x="750" y="812" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#475569">Operations summarizes health. Executive summarizes value. Engineering investigates both.</text>
+</svg>
