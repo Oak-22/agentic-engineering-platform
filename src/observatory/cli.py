@@ -7,10 +7,12 @@ from .adapter import InteractionAdapter
 from .telemetry import HttpTelemetryEmitter, NullTelemetryEmitter
 
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="observatory")
     parser.add_argument("prompt", help="Prompt to send to the configured model")
     return parser
+
 
 
 def main() -> None:

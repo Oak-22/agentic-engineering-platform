@@ -223,18 +223,3 @@ Visualization
 
 - Plotly/Dash
 - Grafana
-
----
-
-## Future Iterations
-
-- Automatic optimization recommendations
-- Cost forecasting
-- Prompt version comparisons
-- Policy engine for model routing
-- Budget enforcement
-- Real-time anomaly detection
-- Reinforcement learning for routing policies
-- Enterprise chargeback reporting
-- Multi-cloud AI cost comparison
-- OpenTelemetry integration
