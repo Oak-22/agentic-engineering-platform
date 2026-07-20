@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shape README Entrypoint"
+  short_description: "Separate quick starts from product thinking"
+  default_prompt: "Use $shape-readme-entrypoint to turn this README into a concise hands-on entry point and preserve deeper thinking in product-thesis documentation."

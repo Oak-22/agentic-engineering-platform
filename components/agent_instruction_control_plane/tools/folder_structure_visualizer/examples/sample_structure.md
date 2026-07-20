@@ -1,0 +1,35 @@
+# Folder Structure: __JB Photography
+
+Generated: 2026-06-16 15:30
+
+Root:
+/Users/julian/Documents/__JB Photography
+
+## Tree
+
+```text
+__JB Photography
+├── 00 Inbox
+├── 01 Branding
+│   ├── Brand Assets
+│   └── Logo Design
+└── 02 Marketing
+```
+
+## Mermaid Diagram
+
+```mermaid
+graph LR
+    node_0["__JB Photography"]
+    node_1["00 Inbox"]
+    node_2["01 Branding"]
+    node_3["Brand Assets"]
+    node_4["Logo Design"]
+    node_5["02 Marketing"]
+
+    node_0 --> node_1
+    node_0 --> node_2
+    node_2 --> node_3
+    node_2 --> node_4
+    node_0 --> node_5
+```
