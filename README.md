@@ -1,9 +1,10 @@
 # Agentic Engineering Platform
 
-The Agentic Engineering Platform is a unified framework for designing,
-operating, observing, and improving AI-assisted engineering systems. It
-brings together reusable agent-governance infrastructure, execution
-telemetry, engineering tools, and evidence from real human-AI workflows.
+The Agentic Engineering Platform is an internal developer platform for
+governing, observing, and improving AI-assisted engineering workflows. It
+brings together reusable agent-governance infrastructure, execution telemetry,
+engineering tools, and evidence from real human-AI workflows. Product
+repositories are downstream consumers rather than part of the platform itself.
 
 ## Platform Model
 
@@ -69,16 +70,19 @@ grounds rather than embedded platform components.
 
 ## Local Knowledge Overlay
 
-Personal engineering notes may be mounted locally as an
-`engineering_knowledge_base` overlay inside a component or service. These
-machine-specific overlays are intentionally excluded from the canonical
-repository and do not define product requirements or runtime contracts.
+Personal engineering notes may be mounted locally through the repository-root
+`engineering_knowledge_base` symlink. This machine-specific overlay is
+intentionally excluded from the canonical repository and does not define
+product requirements or runtime contracts. The tracked
+`components/engineering_knowledge_base/` directory remains the public design
+surface for the portable knowledge-base contract.
 
 ## Development Workspace
 
-Open [`Agentic_Engineering_Platform.code-workspace`](Agentic_Engineering_Platform.code-workspace)
-in VS Code to work with the platform's component, service, and case-study
-folders as a coordinated multi-root workspace.
+Open [`agentic-engineering-platform-dev.code-workspace`](agentic-engineering-platform-dev.code-workspace)
+as **Agentic Engineering Platform — Development** in VS Code to work with the
+platform's component, service, and case-study folders as a coordinated
+multi-root workspace.
 
 ## Repository History
 

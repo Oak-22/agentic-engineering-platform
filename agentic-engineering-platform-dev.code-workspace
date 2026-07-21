@@ -6,7 +6,7 @@
 		},
 		{
 			"name": "Engineering Knowledge Base",
-			"path": "components/engineering_knowledge_base"
+			"path": "engineering_knowledge_base"
 		},
 		{
 			"name": "AI Inference Telemetry & Economics Observatory",
