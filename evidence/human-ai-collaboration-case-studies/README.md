@@ -43,7 +43,7 @@ It answers:
 
 For reusable instructions, runtime adapters, skills, hooks, provenance,
 and workflow scaffolding, see the platform's
-[`Agent Instruction Control Plane`](../agent-instruction-control-plane/).
+[`Agent Instruction Control Plane`](../../platform/agent-control-plane/).
 
 ## Structure
 

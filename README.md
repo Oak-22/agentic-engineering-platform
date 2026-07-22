@@ -20,30 +20,47 @@ govern agent behavior
 
 ## Repository Structure
 
-- [`agent-instruction-control-plane/`](agent-instruction-control-plane/)
-  A portable control plane for instruction discovery, runtime adapters,
-  provenance, reusable skills, and auditable agent execution.
+```text
+agentic-engineering-platform/
+├── platform/
+│   ├── agent-control-plane/
+│   ├── inference-telemetry-observatory/
+│   ├── context-serialization-tooling/
+│   └── developer-learning-retrieval/
+├── evidence/
+│   └── human-ai-collaboration-case-studies/
+├── shared/
+│   ├── schemas/
+│   ├── contracts/
+│   └── tooling/
+├── docs/
+│   ├── architecture/
+│   ├── operations/
+│   └── roadmap/
+└── scripts/
+```
 
-- [`ai-inference-telemetry-economics-observatory/`](ai-inference-telemetry-economics-observatory/)
-  An observability service for measuring model usage, latency, token
-  economics, routing decisions, and agent execution behavior.
+### Platform domains
 
-- [`developer-learning-retrieval/`](developer-learning-retrieval/)
-  A planned service that converts real engineering activity into daily
-  five-to-ten-minute active-recall sessions for stronger retention.
+- [`platform/agent-control-plane/`](platform/agent-control-plane/) governs
+  instruction discovery, runtime adapters, provenance, reusable skills, and
+  auditable agent execution.
+- [`platform/inference-telemetry-observatory/`](platform/inference-telemetry-observatory/)
+  measures model usage, latency, token economics, routing decisions, and agent
+  execution behavior.
+- [`platform/context-serialization-tooling/`](platform/context-serialization-tooling/)
+  provides independently packageable repository-orientation and context tools.
+- [`platform/developer-learning-retrieval/`](platform/developer-learning-retrieval/)
+  converts engineering activity into retrieval-practice and learning signals.
 
-- [`folder-structure-visualizer/`](folder-structure-visualizer/)
-  An independently packageable developer-comprehension tool that maps
-  filesystem and repository hierarchy for faster onboarding, clearer
-  agent prompts, and shared human-agent structural context.
+### Supporting boundaries
 
-- [`ai-human-engineering-collaboration-case-studies/`](ai-human-engineering-collaboration-case-studies/)
-  Applied case studies documenting human-AI collaboration patterns,
-  failure modes, prompt refinement, and instruction-system evolution.
-
-- [`docs/engineering-knowledge-base.md`](docs/engineering-knowledge-base.md)
-  The planned public contract for capturing, promoting, retrieving, and
-  governing engineering knowledge without publishing private notes.
+- [`evidence/`](evidence/) contains applied human-AI collaboration case studies
+  used to validate and improve the platform.
+- [`shared/`](shared/) owns cross-domain schemas, contracts, and reusable
+  tooling that do not belong to a single platform component.
+- [`docs/`](docs/) separates architecture, operations, and roadmap material.
+- [`scripts/`](scripts/) is reserved for repository-wide automation.
 
 ## Intended Use
 
@@ -66,7 +83,8 @@ Personal engineering notes may be mounted locally through the repository-root
 `engineering-knowledge-base` symlink. This machine-specific overlay is
 intentionally excluded from the canonical repository and does not define
 product requirements or runtime contracts. The tracked public design surface
-remains [`docs/engineering-knowledge-base.md`](docs/engineering-knowledge-base.md).
+remains
+[`docs/architecture/engineering-knowledge-base.md`](docs/architecture/engineering-knowledge-base.md).
 
 ## Development Workspace
 
