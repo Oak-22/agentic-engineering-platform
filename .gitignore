@@ -2,6 +2,4 @@
 **/.DS_Store
 **/.venv/
 **/node_modules/
-engineering_knowledge_base
-components/agent_instruction_control_plane/engineering_knowledge_base
-services/ai_inference_telemetry_economics_observatory/engineering_knowledge_base
+engineering-knowledge-base

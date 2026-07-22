@@ -26,7 +26,7 @@ work.
 Project-facing repositories include:
 
 - `myHealth`
-- `digital_asset_processing_pipeline`
+- `digital-asset-processing-pipeline`
 - `ai-infrastructure-financial-warehouse`
 
 ## Methodology Role
@@ -43,7 +43,7 @@ It answers:
 
 For reusable instructions, runtime adapters, skills, hooks, provenance,
 and workflow scaffolding, see the platform's
-[`Agent Instruction Control Plane`](../../components/agent_instruction_control_plane/).
+[`Agent Instruction Control Plane`](../agent-instruction-control-plane/).
 
 ## Structure
 

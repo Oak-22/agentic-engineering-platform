@@ -1,0 +1,103 @@
+%% Developer Learning Retrieval Service
+%% Status: planned architecture; no runtime components are implemented yet.
+flowchart LR
+  subgraph Activity["AI-assisted engineering activity"]
+    direction TB
+
+    subgraph Reasoning["Reasoning layer"]
+      direction TB
+      Notes["Developer notes<br/>intent, architecture, hypotheses"]
+      AgentReasoning["Agent-assisted sessions<br/>questions and explanations"]
+    end
+
+    subgraph Execution["Execution layer"]
+      direction TB
+      Git["Git commits and diffs<br/>code and structural changes"]
+      IDE["IDE activity<br/>file changes"]
+      Debug["Debugging events<br/>errors and resolutions"]
+      Terminal["Terminal activity<br/>commands, builds, traces"]
+    end
+  end
+
+  subgraph Observatory["Telemetry observatory and ingestion"]
+    direction TB
+    Poller["Scheduled local polling<br/>for sources without push events"]
+    Collectors["Source collectors"]
+    Normalize["Normalize and correlate<br/>reasoning with outcomes"]
+    Provenance["Attach timestamps, source links,<br/>ownership, and provenance"]
+    Signals[("Learning-signal store")]
+
+    Poller --> Collectors
+    Collectors --> Normalize --> Provenance --> Signals
+  end
+
+  subgraph Retrieval["Developer learning retrieval service — planned"]
+    direction TB
+    Select["Concept selection<br/>identify durable understanding"]
+    Generate["Grounded quiz generation<br/>focus on intent vs. outcome"]
+    Queue[("Personal retrieval queue")]
+    Scheduler["Spaced-repetition scheduler<br/>increasing review intervals"]
+    Session["Daily 5–10 minute<br/>active-recall session"]
+    Attempt["Developer answers<br/>from memory first"]
+    Reveal["Explanation or AI help<br/>unlocked after attempt"]
+    Assess["Record confidence,<br/>misconceptions, and outcome"]
+    Update["Update concept strength<br/>and next review interval"]
+
+    Signals --> Select --> Generate --> Queue --> Scheduler --> Session
+    Session --> Attempt --> Reveal --> Assess --> Update
+    Update --> Queue
+  end
+
+  subgraph Knowledge["Engineering knowledge and control plane"]
+    direction TB
+    Personal["Personal learning notes<br/>private weak signals"]
+    Durable{"Durable and reusable<br/>insight?"}
+    Repo["Shared + repo<br/>implementation notes and incidents"]
+    Domain["Shared + domain<br/>case studies and playbooks"]
+    Global["Shared + global<br/>standards and policy"]
+    Artifacts["Artifact-typed control plane<br/>instructions · agents · prompts · skills · hooks"]
+    Enterprise["Enterprise knowledge systems<br/>wiki · docs · ADRs · policy portal"]
+    Improvement["Instruction and workflow<br/>improvement for future work"]
+
+    Personal --> Durable
+    Durable -->|"not yet"| Personal
+    Durable -->|"useful locally"| Repo
+    Repo -->|"proven reuse + review"| Domain
+    Domain -->|"lead signoff + stable pattern"| Global
+    Repo --> Artifacts
+    Domain --> Artifacts
+    Global --> Artifacts
+    Global <-->|"canonical export and links"| Enterprise
+    Artifacts --> Improvement
+  end
+
+  Notes --> Poller
+  AgentReasoning --> Collectors
+  Git --> Collectors
+  IDE --> Collectors
+  Debug --> Collectors
+  Terminal --> Collectors
+
+  Assess -->|"personal retention evidence"| Personal
+  Assess -->|"possible durable lesson"| Durable
+  Artifacts -->|"durable concepts for reinforcement"| Select
+
+  Rule["Human-in-the-loop rule:<br/>attempt retrieval before consulting AI"]
+  Rule -.-> Attempt
+
+  Boundary["Implementation boundary:<br/>scheduler, quiz engine, automation, persistence,<br/>and UI are proposed—not implemented"]
+  Boundary -.-> Retrieval
+
+  classDef source fill:#eef4ff,stroke:#5470a8,color:#182234;
+  classDef ingest fill:#fff4df,stroke:#a86f18,color:#2b2112;
+  classDef service fill:#eaf7ee,stroke:#438459,color:#14281b;
+  classDef store fill:#f3efff,stroke:#7355a8,color:#241b38;
+  classDef knowledge fill:#f7eff7,stroke:#875b87,color:#2f1f2f;
+  classDef guard fill:#fff7e6,stroke:#9a6a16,color:#2b2112,stroke-dasharray: 5 3;
+
+  class Notes,AgentReasoning,Git,IDE,Debug,Terminal source;
+  class Poller,Collectors,Normalize,Provenance ingest;
+  class Select,Generate,Scheduler,Session,Attempt,Reveal,Assess,Update service;
+  class Signals,Queue store;
+  class Personal,Durable,Repo,Domain,Global,Artifacts,Enterprise,Improvement knowledge;
+  class Rule,Boundary guard;
