@@ -1,9 +1,10 @@
 # Agentic Engineering Platform
 
-The Agentic Engineering Platform is a unified framework for designing,
-operating, observing, and improving AI-assisted engineering systems. It
-brings together reusable agent-governance infrastructure, execution
-telemetry, engineering tools, and evidence from real human-AI workflows.
+The Agentic Engineering Platform is an internal developer platform for
+governing, observing, and improving AI-assisted engineering workflows. It
+brings together reusable agent-governance infrastructure, execution telemetry,
+engineering tools, and evidence from real human-AI workflows. Product
+repositories are downstream consumers rather than part of the platform itself.
 
 ## Platform Model
 
@@ -19,38 +20,30 @@ govern agent behavior
 
 ## Repository Structure
 
-### Components
-
-- [`components/agent_instruction_control_plane/`](components/agent_instruction_control_plane/)
+- [`agent-instruction-control-plane/`](agent-instruction-control-plane/)
   A portable control plane for instruction discovery, runtime adapters,
   provenance, reusable skills, and auditable agent execution.
 
-- [`components/engineering_knowledge_base/`](components/engineering_knowledge_base/)
-  A planned portable contract for capturing, promoting, retrieving, and
-  governing engineering knowledge without publishing private notes.
-
-### Services
-
-- [`services/ai_inference_telemetry_economics_observatory/`](services/ai_inference_telemetry_economics_observatory/)
+- [`ai-inference-telemetry-economics-observatory/`](ai-inference-telemetry-economics-observatory/)
   An observability service for measuring model usage, latency, token
   economics, routing decisions, and agent execution behavior.
 
-- [`services/developer_learning_retrieval/`](services/developer_learning_retrieval/)
+- [`developer-learning-retrieval/`](developer-learning-retrieval/)
   A planned service that converts real engineering activity into daily
   five-to-ten-minute active-recall sessions for stronger retention.
 
-### Tools
-
-- [`tools/folder_structure_visualizer/`](tools/folder_structure_visualizer/)
+- [`folder-structure-visualizer/`](folder-structure-visualizer/)
   An independently packageable developer-comprehension tool that maps
   filesystem and repository hierarchy for faster onboarding, clearer
   agent prompts, and shared human-agent structural context.
 
-### Research and Documentation
-
-- [`docs/case_studies/`](docs/case_studies/)
+- [`ai-human-engineering-collaboration-case-studies/`](ai-human-engineering-collaboration-case-studies/)
   Applied case studies documenting human-AI collaboration patterns,
   failure modes, prompt refinement, and instruction-system evolution.
+
+- [`docs/engineering-knowledge-base.md`](docs/engineering-knowledge-base.md)
+  The planned public contract for capturing, promoting, retrieving, and
+  governing engineering knowledge without publishing private notes.
 
 ## Intended Use
 
@@ -64,21 +57,22 @@ independently:
 - study documented collaboration patterns before encoding new agent rules
 
 Product repositories such as `myHealth` and
-`digital_asset_processing_pipeline` remain separate consumers and proving
+`digital-asset-processing-pipeline` remain separate consumers and proving
 grounds rather than embedded platform components.
 
 ## Local Knowledge Overlay
 
-Personal engineering notes may be mounted locally as an
-`engineering_knowledge_base` overlay inside a component or service. These
-machine-specific overlays are intentionally excluded from the canonical
-repository and do not define product requirements or runtime contracts.
+Personal engineering notes may be mounted locally through the repository-root
+`engineering-knowledge-base` symlink. This machine-specific overlay is
+intentionally excluded from the canonical repository and does not define
+product requirements or runtime contracts. The tracked public design surface
+remains [`docs/engineering-knowledge-base.md`](docs/engineering-knowledge-base.md).
 
 ## Development Workspace
 
-Open [`Agentic_Engineering_Platform.code-workspace`](Agentic_Engineering_Platform.code-workspace)
-in VS Code to work with the platform's component, service, and case-study
-folders as a coordinated multi-root workspace.
+Open this repository folder directly for platform-only development. For
+bidirectional work with myHealth, use the machine-local cross-repository
+workspace stored outside this repository under `~/Projects/dev/workspaces/`.
 
 ## Repository History
 

@@ -79,7 +79,7 @@ This produced three stable layers:
 1. Checked-in canonical agent controls (`.github/instructions`,
    `.github/agents`, `.github/prompts`, `.github/skills`, `.github/hooks`)
 2. Local implementation overlays (ignored, optional, promotable)
-3. Private learning capture (`engineering_knowledge_base/`)
+3. Private learning capture (`engineering-knowledge-base/`)
 
 ## Human-AI Collaboration Lesson
 
@@ -113,7 +113,7 @@ scripts/
 docs/
   notes/
 
-engineering_knowledge_base/
+engineering-knowledge-base/
 ```
 
 ## Generalizable Principle

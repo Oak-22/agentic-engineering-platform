@@ -33,7 +33,7 @@ future directions lives in [`docs/`](docs/).
 
 Use **Agent Instruction Control Plane** as the project name.
 
-Use `agent_instruction_control_plane` as the repository slug for
+Use `agent-instruction-control-plane` as the repository slug for
 local directories, remotes, package references, and generated examples.
 
 This name describes the reusable system boundary: it is a control plane
@@ -90,7 +90,7 @@ inspectable, and increasing reuse of proven engineering practices.
   Repeatable workflow playbooks.
 - `.github/hooks/`
   Mechanical guardrails for task execution.
-- `engineering_knowledge_base/` (optional local overlay)
+- `engineering-knowledge-base/` (optional local overlay)
   A machine-local location for private incident capture, learning notes,
   and other workflow-derived knowledge. It is not part of the portable
   checked-in template.
@@ -219,7 +219,7 @@ This repository is a template scaffold, not a full implementation of
 workflow-derived retrieval.
 
 A related design direction is documented in
-[`../../services/developer_learning_retrieval/design.md`](../../services/developer_learning_retrieval/design.md).
+[`../developer-learning-retrieval/design.md`](../developer-learning-retrieval/design.md).
 That note explains how workflow telemetry and retrieval practice could
 extend this template in future systems without changing the template's
 core identity.

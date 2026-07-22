@@ -3,7 +3,7 @@
 This folder holds explanatory material for the AI Agent Instruction
 Control Plane. It is not the minimum install surface. The portable
 control-plane template lives under `.github/`; an
-`engineering_knowledge_base/` may be mounted separately as a private,
+`engineering-knowledge-base/` may be mounted separately as a private,
 machine-local overlay.
 
 ## Start Here
@@ -14,7 +14,7 @@ machine-local overlay.
 - [Feedforward Feedback Change Lifecycle](diagrams/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.
-- [Developer Learning Retrieval Service](../../../services/developer_learning_retrieval/design.md)
+- [Developer Learning Retrieval Service](../../developer-learning-retrieval/design.md)
   Describes a future extension for turning engineering activity into
   learning and retrieval signals.
 

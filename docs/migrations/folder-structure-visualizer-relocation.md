@@ -2,7 +2,7 @@
 migration_id: folder-structure-visualizer-into-platform-tools
 status: complete
 source_project: folder_structure_visualizer
-target_path: tools/folder_structure_visualizer
+target_path: folder-structure-visualizer
 component_role: optional_reference_tool
 package_independence: required
 runtime_dependency_of_control_plane: false
@@ -23,7 +23,7 @@ the entire product category.
 ## Migration objective
 
 Relocate `folder_structure_visualizer` into the platform-level
-`tools/folder_structure_visualizer/` boundary as an independently
+`folder-structure-visualizer/` boundary as an independently
 packageable developer-comprehension and repository-orientation tool.
 
 The tool provides a semantic repository-orientation surface for humans
@@ -68,7 +68,7 @@ retrieval service must remain usable without installing it.
 - `.pytest_cache/`
 - `**/__pycache__/`
 - `src/*.egg-info/`
-- `engineering_knowledge_base`
+- `engineering-knowledge-base`
 
 These are local runtime, cache, generated metadata, or personal overlay
 artifacts rather than portable source.
@@ -77,7 +77,7 @@ artifacts rather than portable source.
 
 The relocation is complete only when:
 
-- [x] the target exists at `tools/folder_structure_visualizer/`
+- [x] the target exists at `folder-structure-visualizer/`
 - [x] all Python tests pass from the target directory
 - [x] `python -m folder_structure_visualizer --help` succeeds from the
       target environment

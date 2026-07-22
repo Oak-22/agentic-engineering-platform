@@ -2,9 +2,9 @@
 
 Status: **Planned public component contract**
 
-This component will define the portable structure through which
-engineering observations become durable, retrievable knowledge. It is
-separate from any developer's private knowledge content.
+This design surface defines the portable structure through which engineering
+observations become durable, retrievable knowledge. It is separate from any
+developer's private knowledge content.
 
 ## Intended Responsibilities
 
@@ -17,13 +17,12 @@ separate from any developer's private knowledge content.
 
 ## Privacy Boundary
 
-The canonical component will contain only reusable schemas, templates,
+The public contract will contain only reusable schemas, templates,
 documentation, and tooling. Personal notes may be mounted through a
-machine-local `engineering_knowledge_base` overlay and must not be
-committed automatically.
+machine-local `engineering-knowledge-base` overlay and must not be committed
+automatically.
 
 ## Platform Relationships
 
-The component receives validated learning from the Developer Learning
-Retrieval Service and supplies provenance and knowledge artifacts to the
-Agent Instruction Control Plane.
+The contract receives validated learning from Developer Learning Retrieval and
+supplies provenance and knowledge artifacts to Agent Instruction Control Plane.
