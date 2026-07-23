@@ -31,6 +31,12 @@ AI-assisted engineering activity
 
 The service design is documented in [`design.md`](design.md).
 
+Deferred feature concepts:
+
+- [Shared Shell Assistance Gradient](features/shared-shell-assistance-gradient.md)
+  explores three assistance interfaces over one continuous shell session as a
+  source of learning and retention signals.
+
 ## Implementation Boundary
 
 No scheduler, quiz engine, Codex automation, persistence layer, or user
