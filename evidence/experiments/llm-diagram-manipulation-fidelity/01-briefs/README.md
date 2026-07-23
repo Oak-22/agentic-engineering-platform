@@ -3,7 +3,9 @@
 Current briefs:
 
 - `v2-ai-knowledge-promotion-update-brief.md`
-- `architecture-diagram-update-brief-template.md`
+
+The reusable template is maintained at the shared
+[experiments level](../../architecture-diagram-update-brief-template.md).
 
 Store frozen run-specific briefs here when needed:
 

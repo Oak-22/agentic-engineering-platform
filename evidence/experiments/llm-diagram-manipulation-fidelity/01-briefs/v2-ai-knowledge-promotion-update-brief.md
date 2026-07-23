@@ -3,14 +3,16 @@
 ## Source Artifacts
 
 Semantic source:
-- `docs/diagrams/ai-knowledge-promotion/experiment/00-baseline/v1-ai-knowledge-promotion.mmd`
+- `evidence/experiments/llm-diagram-manipulation-fidelity/00-baseline/v1-ai-knowledge-promotion.mmd`
 
 Visual source:
-- `docs/diagrams/ai-knowledge-promotion/experiment/00-baseline/v1-ai-knowledge-promotion.excalidraw`
-- `docs/diagrams/ai-knowledge-promotion/experiment/00-baseline/v1-ai-knowledge-promotion.png`
+- `evidence/experiments/llm-diagram-manipulation-fidelity/00-baseline/v1-ai-knowledge-promotion.excalidraw`
+- `evidence/experiments/llm-diagram-manipulation-fidelity/00-baseline/v1-ai-knowledge-promotion.png`
 
 Related context:
-- `developer-learning-retrieval/design.md`
+- `platform/developer-learning-retrieval/design.md`
+- `platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/full-diagram.svg`
+- `platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/`
 - `README.md`
 
 ## Task
@@ -18,7 +20,7 @@ Related context:
 Generate a revised Mermaid version of the diagram for v2.
 
 Output target:
-- `docs/diagrams/ai-knowledge-promotion/experiment/mode-a3-brief-visual/v2-ai-knowledge-promotion.mode-a3-brief-visual.mmd`
+- `evidence/experiments/llm-diagram-manipulation-fidelity/mode-a3-brief-visual/v2-ai-knowledge-promotion.mode-a3-brief-visual.mmd`
 
 Do not edit the v1 files.
 

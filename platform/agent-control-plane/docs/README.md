@@ -11,7 +11,7 @@ machine-local overlay.
 - [Applied Validation Through myHealth](applied-validation-through-myhealth.md)
   Explains how `myHealth` acts as the applied validation target for the
   control-plane pattern.
-- [Feedforward Feedback Change Lifecycle](diagrams/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
+- [Feedforward Feedback Change Lifecycle](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.
 - [Developer Learning Retrieval Service](../../developer-learning-retrieval/design.md)
@@ -20,14 +20,14 @@ machine-local overlay.
 
 ## Diagrams
 
-- [feedforward-feedback-change-lifecycle.excalidraw](diagrams/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.excalidraw)
+- [feedforward-feedback-change-lifecycle.excalidraw](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.excalidraw)
   Source file for the lifecycle diagram.
-- [feedforward-feedback-change-lifecycle.png](diagrams/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
+- [feedforward-feedback-change-lifecycle.png](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
   Exported image for docs, portfolio use, and review.
 - [AI Knowledge Promotion Diagram](diagrams/ai-knowledge-promotion/README.md)
   Diagram family for personal/team/org knowledge capture, promotion,
   retrieval, and integration.
-- [AI Knowledge Promotion Diagram Experiment](diagrams/ai-knowledge-promotion/experiment/README.md)
+- [LLM Diagram Manipulation Fidelity Experiment](../../../evidence/experiments/llm-diagram-manipulation-fidelity/README.md)
   Scaffold for comparing Mermaid-first and Excalidraw-native diagram
   update workflows.
 

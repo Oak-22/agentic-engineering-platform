@@ -1,4 +1,9 @@
-# AI Knowledge Promotion Diagram Experiment
+# LLM Diagram Manipulation Fidelity Experiment
+
+The AI knowledge promotion diagram is the test subject. The experiment measures
+whether an LLM can revise it without losing its semantics, manually refined
+visual structure, or relationship to the detailed feedforward/feedback
+lifecycle subcomponent.
 
 ## Workflow
 
