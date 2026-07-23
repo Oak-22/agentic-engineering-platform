@@ -1,4 +1,4 @@
-# Agent Instruction Control Plane
+# Agent Control Plane
 
 A repo-portable architecture for governing AI-assisted engineering
 behavior through layered instructions, runtime adapters, provenance logs,
@@ -17,6 +17,10 @@ It formalizes five core needs:
 - provenance from human observation to durable instruction
 - auditable task execution through explicit load reports
 
+The first executable portability surface is the
+[`portable-agents/`](portable-agents/) manifest contract and its deterministic
+GitHub custom-agent adapter.
+
 It answers:
 
 > How should an AI coding agent discover, load, and apply repository
@@ -28,18 +32,6 @@ It answers:
 Documentation for strategy, applied validation, diagrams, and related
 future directions lives in [`docs/`](docs/).
 
-
-## Repository Identity
-
-Use **Agent Instruction Control Plane** as the project name.
-
-Use `agent-instruction-control-plane` as the repository slug for
-local directories, remotes, package references, and generated examples.
-
-This name describes the reusable system boundary: it is a control plane
-for how AI coding agents discover, load, and apply repository
-instructions. It is broader than a single developer workflow template,
-but still narrow enough to remain adoptable by another team.
 
 ## Business Value
 

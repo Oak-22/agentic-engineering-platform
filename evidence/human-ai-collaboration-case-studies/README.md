@@ -39,11 +39,11 @@ It answers:
 
 > What did real AI-human collaboration reveal in practice?
 
-## Related Methodology Repository
+## Related Platform Component
 
 For reusable instructions, runtime adapters, skills, hooks, provenance,
 and workflow scaffolding, see the platform's
-[`Agent Instruction Control Plane`](../../platform/agent-control-plane/).
+[`agent control plane`](../../platform/agent-control-plane/).
 
 ## Structure
 

@@ -25,4 +25,4 @@ automatically.
 ## Platform Relationships
 
 The contract receives validated learning from Developer Learning Retrieval and
-supplies provenance and knowledge artifacts to Agent Instruction Control Plane.
+supplies provenance and knowledge artifacts to the agent control plane.
