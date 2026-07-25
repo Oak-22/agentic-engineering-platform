@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/routing-decision.schema.json",
+  "title": "Engineering Work Routing Decision",
+  "description": "Recorded decision describing how one work event should be promoted, delivered, suppressed, or deferred.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "decisionId",
+    "eventId",
+    "decidedAt",
+    "policyVersion",
+    "loopAssessment",
+    "routes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "decisionId": {
+      "type": "string",
+      "pattern": "^decision-[a-z0-9][a-z0-9-]*$"
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^evt-[a-z0-9][a-z0-9-]*$"
+    },
+    "decidedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "policyVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "loopAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "recurrenceCount",
+        "recommendation"
+      ],
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": [
+            "none",
+            "exact-duplicate",
+            "already-satisfied",
+            "semantic-recurrence",
+            "hop-limit"
+          ]
+        },
+        "recurrenceCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recommendation": {
+          "type": "string",
+          "enum": [
+            "continue",
+            "return-prior",
+            "replan",
+            "stop",
+            "intervene"
+          ]
+        },
+        "matchedEventId": {
+          "type": "string",
+          "pattern": "^evt-[a-z0-9][a-z0-9-]*$"
+        }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/route"
+      }
+    }
+  },
+  "$defs": {
+    "destination": {
+      "type": "string",
+      "enum": [
+        "telemetry",
+        "knowledge-base",
+        "jira",
+        "confluence",
+        "git"
+      ]
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "destination",
+        "action",
+        "reasonCode",
+        "rationale",
+        "approval"
+      ],
+      "properties": {
+        "destination": {
+          "$ref": "#/$defs/destination"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "create",
+            "append",
+            "update",
+            "publish",
+            "suppress",
+            "defer",
+            "no-op"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasonCode": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actionFingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "required",
+            "status"
+          ],
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "not-required",
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            },
+            "approvalRef": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

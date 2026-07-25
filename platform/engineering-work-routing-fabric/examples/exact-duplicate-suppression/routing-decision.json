@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "decisionId": "decision-jira-execution-mode-update",
+  "eventId": "evt-jira-execution-mode-update",
+  "decidedAt": "2026-07-24T20:10:01Z",
+  "policyVersion": "loop-guard-v0.1",
+  "loopAssessment": {
+    "classification": "none",
+    "recurrenceCount": 0,
+    "recommendation": "continue"
+  },
+  "routes": [
+    {
+      "destination": "jira",
+      "action": "update",
+      "target": "AEPI-10",
+      "reasonCode": "governed-metadata-update",
+      "rationale": "The requested planning metadata is represented by a controlled Jira field.",
+      "idempotencyKey": "evt-jira-execution-mode-update:jira:update:AEPI-10",
+      "actionFingerprint": "jira:update:AEPI-10:set-execution-mode-agent",
+      "approval": {
+        "required": false,
+        "status": "not-required"
+      }
+    }
+  ]
+}

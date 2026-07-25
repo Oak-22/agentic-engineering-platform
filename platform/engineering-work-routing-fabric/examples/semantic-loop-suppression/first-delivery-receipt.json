@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "receipt-jira-status-reminder-1",
+  "decisionId": "decision-jira-status-reminder-1",
+  "eventId": "evt-jira-status-reminder-1",
+  "destination": "jira",
+  "idempotencyKey": "evt-jira-status-reminder-1:jira:append:AEPI-10-comments",
+  "outcome": "applied",
+  "stateChanged": true,
+  "resultRef": "jira:AEPI-10:comment-1",
+  "observedAt": "2026-07-24T20:20:02Z"
+}

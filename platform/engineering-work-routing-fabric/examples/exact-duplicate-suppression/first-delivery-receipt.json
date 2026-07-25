@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "receipt-jira-execution-mode-update-first",
+  "decisionId": "decision-jira-execution-mode-update",
+  "eventId": "evt-jira-execution-mode-update",
+  "destination": "jira",
+  "idempotencyKey": "evt-jira-execution-mode-update:jira:update:AEPI-10",
+  "outcome": "applied",
+  "stateChanged": true,
+  "resultRef": "jira:AEPI-10",
+  "observedAt": "2026-07-24T20:10:02Z"
+}
