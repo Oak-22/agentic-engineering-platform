@@ -21,6 +21,14 @@ The first executable portability surface is the
 [`portable-agents/`](portable-agents/) manifest contract and its deterministic
 GitHub custom-agent adapter.
 
+Portable work-governance contracts live in [`contracts/`](contracts/).
+The Jira work-item contract keeps board-facing operational metadata separate
+from immutable agent-run attempt history and detailed telemetry.
+
+The monorepo installs runtime-discovered adapters at repository root. Run
+[`../../scripts/check-agent-discovery-layout.sh`](../../scripts/check-agent-discovery-layout.sh)
+to verify that they have not drifted back into the component directory.
+
 It answers:
 
 > How should an AI coding agent discover, load, and apply repository
@@ -70,17 +78,19 @@ inspectable, and increasing reuse of proven engineering practices.
 
 ## Template Contents
 
-- `.github/copilot-instructions.md`
-  Repository entrypoint and routing adapter for repository-aware agents.
-- `.github/instructions/`
-  Durable agent behavior rules.
-- `.github/agents/`
+- [`../../AGENTS.md`](../../AGENTS.md)
+  Shared repository guidance for Codex and compatible agents.
+- [`../../.github/copilot-instructions.md`](../../.github/copilot-instructions.md)
+  Root GitHub Copilot routing adapter.
+- [`../../.github/instructions/`](../../.github/instructions/)
+  Path-specific Copilot behavior rules.
+- [`../../.github/agents/`](../../.github/agents/)
   Specialist agent personas.
-- `.github/prompts/`
+- [`../../.github/prompts/`](../../.github/prompts/)
   Reusable task prompts.
-- `.github/skills/`
+- [`../../.github/skills/`](../../.github/skills/)
   Repeatable workflow playbooks.
-- `.github/hooks/`
+- [`../../.github/hooks/`](../../.github/hooks/)
   Mechanical guardrails for task execution.
 - `engineering-knowledge-base/` (optional local overlay)
   A machine-local location for private incident capture, learning notes,
@@ -99,16 +109,13 @@ inspectable, and increasing reuse of proven engineering practices.
 - [`docs/strategy/`](docs/strategy/)
   Domain-agnostic strategic rationale.
 
-## Legacy Migration Note
+## Runtime discovery boundary
 
-Earlier versions used `AGENTS.md` and `.github/agent_instructions/`.
-Those paths are now deprecated in favor of an artifact-typed `.github/`
-control plane.
-
-Do not include legacy `AGENTS.md` or `.github/agent_instructions/`
-paths in this template. Repositories still migrating may keep temporary
-references in their own migration branches, but the reusable control
-plane should expose only the modern artifact-typed surface.
+Repository-discovered files must be installed relative to the adopting
+repository's Git or workspace root. The platform implementation can remain
+under `platform/agent-control-plane/`, but a nested `.github/` tree there is
+not an active repository configuration when this monorepo is opened at its
+root.
 
 ## Adoption Guidance
 
@@ -119,11 +126,12 @@ environments.
 For an existing repository, start with the smallest useful checked-in
 surface:
 
-1. Add `.github/copilot-instructions.md` as routing adapter.
-2. Add `.github/instructions/` for durable rules.
-3. Add `.github/agents/`, `.github/prompts/`, `.github/skills/`, and
+1. Add root `AGENTS.md` for shared agent guidance.
+2. Add root `.github/copilot-instructions.md` as the Copilot adapter.
+3. Add root `.github/instructions/` for path-specific Copilot rules.
+4. Add `.github/agents/`, `.github/prompts/`, `.github/skills/`, and
   `.github/hooks/` as needed.
-4. Add task-relevant artifacts only when they describe reusable
+5. Add task-relevant artifacts only when they describe reusable
   behavior.
 
 This intrinsic adoption path keeps the control plane inside the repo

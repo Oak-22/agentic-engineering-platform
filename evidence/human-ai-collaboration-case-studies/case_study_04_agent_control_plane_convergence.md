@@ -76,7 +76,7 @@ The pattern was named **agent-control plane convergence**:
 
 This produced three stable layers:
 
-1. Checked-in canonical agent controls (`.github/instructions`,
+1. Checked-in canonical agent controls (`AGENTS.md`, `.github/instructions`,
    `.github/agents`, `.github/prompts`, `.github/skills`, `.github/hooks`)
 2. Local implementation overlays (ignored, optional, promotable)
 3. Private learning capture (`engineering-knowledge-base/`)
@@ -99,6 +99,8 @@ not first-class active paths.
 Recommended template baseline:
 
 ```text
+AGENTS.md
+
 .github/
   copilot-instructions.md
   instructions/

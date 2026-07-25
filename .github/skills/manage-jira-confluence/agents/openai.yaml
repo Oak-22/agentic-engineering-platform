@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Jira and Confluence"
+  short_description: "Operate linked delivery and knowledge workflows"
+  default_prompt: "Use $manage-jira-confluence to create or update linked Jira work and Confluence documentation, then verify the resulting state."

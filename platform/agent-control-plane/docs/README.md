@@ -1,8 +1,8 @@
 # Documentation Map
 
-This folder holds explanatory material for the AI Agent Instruction
-Control Plane. It is not the minimum install surface. The portable
-control-plane template lives under `.github/`; an
+This folder holds explanatory material for the agent control plane. It is not
+the minimum install surface. Runtime-discovered entrypoints live at the
+repository root in `AGENTS.md` and `.github/`; an
 `engineering-knowledge-base/` may be mounted separately as a private,
 machine-local overlay.
 
@@ -41,7 +41,10 @@ machine-local overlay.
 
 ## Placement Rules
 
-- Keep reusable control-plane implementation artifacts in `.github/`.
+- Keep runtime-discovered repository adapters at root `AGENTS.md` and
+  `.github/`.
+- Keep reusable control-plane implementation artifacts under
+  `platform/agent-control-plane/`.
 - Keep explanatory notes, diagrams, and applied validation writeups in
   `docs/`.
 - Keep domain-specific governance in the downstream domain repository
