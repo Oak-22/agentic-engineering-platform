@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "captureMethod": "manual-self-report",
+  "observabilityLevel": "partial",
+  "turnId": "codex-chat-2026-07-24-single-turn-001",
+  "runId": "run-codex-chat-2026-07-24-001",
+  "attemptId": "attempt-001",
+  "attemptSequence": 1,
+  "surface": "codex-chat",
+  "observationWindow": {
+    "startedAt": "2026-07-24T18:19:18Z",
+    "closedAtEventSequence": 5,
+    "closureReason": "artifact-created"
+  },
+  "prompt": {
+    "text": "okay so lets actually try a smaller step. like observability for just a single prompt-turn here.",
+    "receivedAt": "2026-07-24T18:19:18Z"
+  },
+  "events": [
+    {
+      "sequence": 1,
+      "type": "turn.observation.started",
+      "occurredAt": "2026-07-24T18:19:18Z"
+    },
+    {
+      "sequence": 2,
+      "type": "attempt.started",
+      "occurredAt": "2026-07-24T18:19:18Z"
+    },
+    {
+      "sequence": 3,
+      "type": "tool.completed",
+      "tool": "local-shell",
+      "operation": "read current UTC time and inspect telemetry directories",
+      "occurredAt": "2026-07-24T18:19:18Z"
+    },
+    {
+      "sequence": 4,
+      "type": "tool.completed",
+      "tool": "apply-patch",
+      "operation": "create the single-prompt-turn observation artifact",
+      "occurredAt": "2026-07-24T18:19:18Z"
+    },
+    {
+      "sequence": 5,
+      "type": "artifact.created",
+      "artifact": "platform/inference-telemetry-observatory/examples/single-prompt-turn.json",
+      "occurredAt": "2026-07-24T18:19:18Z"
+    }
+  ],
+  "derived": {
+    "attemptCount": 1,
+    "toolCallCount": 2,
+    "retryCount": 0,
+    "interventionCount": 0
+  },
+  "unavailable": [
+    "private model reasoning",
+    "host-generated model request identifiers",
+    "input token count",
+    "output token count",
+    "cached token count",
+    "provider-reported latency",
+    "provider-reported cost"
+  ],
+  "notes": [
+    "This record is assembled from events visible to the assistant and user, not emitted by the Codex host.",
+    "toolCallCount includes the local inspection and artifact-write calls made before this record was validated.",
+    "No retry boundary was observed, so the turn is represented as one run and one attempt."
+  ]
+}
