@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/jira-field-mapping.schema.json",
+  "title": "Jira Field Mapping",
+  "description": "Deployment-specific mapping from portable work-item metadata properties to Jira custom-field identifiers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "projectKey",
+    "fields"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "projectKey": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executionMode",
+        "initiationMode",
+        "approvalPolicy"
+      ],
+      "properties": {
+        "executionMode": {
+          "$ref": "#/$defs/jiraCustomFieldId"
+        },
+        "initiationMode": {
+          "$ref": "#/$defs/jiraCustomFieldId"
+        },
+        "approvalPolicy": {
+          "$ref": "#/$defs/jiraCustomFieldId"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "jiraCustomFieldId": {
+      "type": "string",
+      "pattern": "^customfield_[1-9][0-9]*$"
+    }
+  }
+}

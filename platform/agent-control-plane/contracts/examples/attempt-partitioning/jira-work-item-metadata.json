@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "workItemKey": "AEPI-10",
+  "executionMode": "agent",
+  "initiationMode": "human",
+  "approvalPolicy": "human-required"
+}

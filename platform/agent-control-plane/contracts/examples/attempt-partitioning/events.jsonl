@@ -1,0 +1,12 @@
+{"eventSequence":1,"eventType":"run.started","occurredAt":"2026-07-24T16:00:00Z","workItemKey":"AEPI-10","runId":"run-aepi-10-001"}
+{"eventSequence":2,"eventType":"attempt.started","occurredAt":"2026-07-24T16:00:01Z","workItemKey":"AEPI-10","runId":"run-aepi-10-001","attemptId":"attempt-001","attemptSequence":1}
+{"eventSequence":3,"eventType":"model.completed","occurredAt":"2026-07-24T16:00:08Z","runId":"run-aepi-10-001","attemptId":"attempt-001","model":"example-model","inputTokens":800,"outputTokens":220}
+{"eventSequence":4,"eventType":"tool.called","occurredAt":"2026-07-24T16:00:09Z","runId":"run-aepi-10-001","attemptId":"attempt-001","tool":"jira.read"}
+{"eventSequence":5,"eventType":"tool.failed","occurredAt":"2026-07-24T16:00:10Z","runId":"run-aepi-10-001","attemptId":"attempt-001","tool":"jira.read","errorClass":"timeout"}
+{"eventSequence":6,"eventType":"attempt.completed","occurredAt":"2026-07-24T16:00:10Z","runId":"run-aepi-10-001","attemptId":"attempt-001","outcome":"failed","failureType":"tool"}
+{"eventSequence":7,"eventType":"attempt.started","occurredAt":"2026-07-24T16:00:12Z","workItemKey":"AEPI-10","runId":"run-aepi-10-001","attemptId":"attempt-002","attemptSequence":2,"startReason":"orchestrator-retry","previousAttemptId":"attempt-001"}
+{"eventSequence":8,"eventType":"model.completed","occurredAt":"2026-07-24T16:00:18Z","runId":"run-aepi-10-001","attemptId":"attempt-002","model":"example-model","inputTokens":850,"outputTokens":240}
+{"eventSequence":9,"eventType":"tool.completed","occurredAt":"2026-07-24T16:00:20Z","runId":"run-aepi-10-001","attemptId":"attempt-002","tool":"jira.read","durationMs":1300}
+{"eventSequence":10,"eventType":"validation.completed","occurredAt":"2026-07-24T16:00:22Z","runId":"run-aepi-10-001","attemptId":"attempt-002","result":"passed"}
+{"eventSequence":11,"eventType":"attempt.completed","occurredAt":"2026-07-24T16:00:22Z","runId":"run-aepi-10-001","attemptId":"attempt-002","outcome":"passed"}
+{"eventSequence":12,"eventType":"run.completed","occurredAt":"2026-07-24T16:00:23Z","workItemKey":"AEPI-10","runId":"run-aepi-10-001","outcome":"passed","attemptCount":2}
