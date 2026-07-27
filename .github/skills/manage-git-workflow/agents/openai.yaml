@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Git Workflow"
+  short_description: "Apply explicit authority to Git and PR changes"
+  default_prompt: "Use $manage-git-workflow to publish this change with the correct Git authorization boundaries."

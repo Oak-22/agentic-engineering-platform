@@ -13,6 +13,9 @@ Run `scripts/check-agent-discovery-layout.sh` to verify the one-to-one mapping.
 
 Available skills:
 
+- `manage-git-workflow/`
+  Apply explicit authorization boundaries to branches, commits, pushes, pull
+  requests, merges, and cleanup.
 - `manage-jira-confluence/`
   Operate linked Jira discovery, Jira delivery, and Confluence knowledge
   workflows with verified cross-product traceability.
