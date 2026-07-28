@@ -1,6 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "workItemKey": "AEPI-10",
+  "accountableHumanId": "human-operator-001",
   "executionMode": "agent",
   "initiationMode": "human",
   "approvalPolicy": "human-required"

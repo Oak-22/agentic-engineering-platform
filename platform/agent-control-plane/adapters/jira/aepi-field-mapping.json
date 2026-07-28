@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "projectKey": "AEPI",
+  "fields": {
+    "accountableHuman": "assignee",
+    "executionMode": "customfield_10160",
+    "initiationMode": "customfield_10161",
+    "approvalPolicy": "customfield_10162"
+  }
+}

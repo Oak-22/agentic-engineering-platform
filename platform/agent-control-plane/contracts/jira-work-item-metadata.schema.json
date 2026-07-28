@@ -8,18 +8,24 @@
   "required": [
     "schemaVersion",
     "workItemKey",
+    "accountableHumanId",
     "executionMode",
     "initiationMode",
     "approvalPolicy"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "workItemKey": {
       "type": "string",
       "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$",
       "description": "Stable Jira issue key, for example AEPI-9."
+    },
+    "accountableHumanId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Portable identifier for the natural person accountable for the work item. Runtime adapters project this value onto their native human-assignment field."
     },
     "executionMode": {
       "type": "string",

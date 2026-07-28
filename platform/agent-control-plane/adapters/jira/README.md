@@ -3,6 +3,13 @@
 This adapter projects the portable Jira work-item metadata contract into a
 specific Jira deployment.
 
+## AEPI accountability
+
+Map portable `accountableHumanId` to Jira's standard `assignee` field. Every
+governed AEPI work item must have one human assignee, including work with
+`Execution Mode: Agent`. Jira Team may provide supplemental group ownership,
+but it does not replace the accountable human.
+
 ## AEPI planning fields
 
 Create these fields as single-select fields in the Agentic Engineering
@@ -14,8 +21,8 @@ Platform Implementation (`AEPI`) project:
 | `initiationMode` | Initiation Mode | Human, Scheduled, Event-driven, Agent-delegated |
 | `approvalPolicy` | Approval Policy | Human required, Human on exception, Automated |
 
-After Jira creates the fields, write their actual `customfield_*` identifiers
-to `aepi-field-mapping.json` using
+Record the standard accountability field and Jira-generated `customfield_*`
+identifiers in `aepi-field-mapping.json` using
 [`jira-field-mapping.schema.json`](jira-field-mapping.schema.json). Do not
 invent IDs or commit authentication material.
 

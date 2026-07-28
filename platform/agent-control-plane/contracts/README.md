@@ -20,7 +20,13 @@ planning semantics that can be selected without runtime instrumentation:
 executionMode
 initiationMode
 approvalPolicy
+accountableHumanId
 ```
+
+`accountableHumanId` is required even when `executionMode` is `agent`.
+Execution describes who performs the work; accountability identifies the
+natural person responsible for it. A team may provide supplemental ownership
+context but does not replace the accountable human.
 
 The attempt store remains authoritative for attempt history. Runtime outcomes,
 failure classifications, and attempt identifiers must not be projected into
