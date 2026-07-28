@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Git Workflow"
+  short_description: "Apply explicit authority to Git and PR changes"
+  default_prompt: "Use $manage-git-workflow to inspect, commit, and publish the appropriate current changes, batching any material clarification questions before mutation."

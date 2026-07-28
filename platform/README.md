@@ -5,6 +5,9 @@ the Agentic Engineering Platform.
 
 - [`agent-control-plane/`](agent-control-plane/) governs instruction discovery,
   runtime adapters, provenance, and auditable execution.
+- [`engineering-work-routing-fabric/`](engineering-work-routing-fabric/)
+  normalizes work events, records cross-system routing decisions, and supplies
+  idempotency and loop-guard contracts.
 - [`inference-telemetry-observatory/`](inference-telemetry-observatory/) measures
   model usage, latency, token economics, routing, and execution behavior.
 - [`context-serialization-tooling/`](context-serialization-tooling/) provides

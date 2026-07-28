@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "receipt-case-study-category-removal",
+  "decisionId": "decision-case-study-category-removal",
+  "eventId": "evt-case-study-category-removal",
+  "destination": "knowledge-base",
+  "idempotencyKey": "evt-case-study-category-removal:knowledge-base:append:audience-first-tree",
+  "outcome": "applied",
+  "stateChanged": true,
+  "resultRef": "git:6863bfb",
+  "observedAt": "2026-07-24T20:00:02Z"
+}

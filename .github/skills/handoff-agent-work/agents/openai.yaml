@@ -1,0 +1,4 @@
+interface:
+  display_name: "Handoff Agent Work"
+  short_description: "Preserve context across agent boundaries"
+  default_prompt: "Use $handoff-agent-work to prepare a resumable handoff for another capable agent."

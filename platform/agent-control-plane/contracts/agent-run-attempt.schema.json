@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/agent-run-attempt.schema.json",
+  "title": "Agent Run Attempt",
+  "description": "Immutable record of one attempt to advance a work item. Attempt history is authoritative here rather than on the Jira work item.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "attemptId",
+    "runId",
+    "workItemKey",
+    "sequence",
+    "executorType",
+    "outcome",
+    "startedAt",
+    "finishedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "attemptId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the externally initiated execution session containing this attempt."
+    },
+    "workItemKey": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonically increasing attempt number within runId."
+    },
+    "executorType": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "human",
+        "hybrid"
+      ]
+    },
+    "executorId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for the agent, person, or orchestrated executor."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "blocked"
+      ]
+    },
+    "failureType": {
+      "type": "string",
+      "enum": [
+        "quality",
+        "context",
+        "tool",
+        "permission",
+        "environment",
+        "safety"
+      ]
+    },
+    "interventionRequired": {
+      "type": "boolean",
+      "default": false
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "telemetryRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque reference to detailed traces, prompts, tool calls, model usage, and cost telemetry."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "failed"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "required": [
+          "failureType"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "passed"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "failureType"
+          ]
+        }
+      }
+    }
+  ]
+}

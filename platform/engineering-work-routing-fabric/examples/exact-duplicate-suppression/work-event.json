@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "eventId": "evt-jira-execution-mode-update",
+  "occurredAt": "2026-07-24T20:10:00Z",
+  "eventType": "work-item.metadata.requested",
+  "summary": "Set the AEPI test task execution mode to agent.",
+  "executionMode": "agent",
+  "actorId": "jira-adapter",
+  "source": {
+    "surface": "routing-fabric-fixture",
+    "repository": "agentic-engineering-platform",
+    "workItem": "AEPI-10"
+  },
+  "correlationId": "aepi-metadata-integration-test",
+  "hopCount": 1,
+  "artifacts": [],
+  "proposedAction": {
+    "actionType": "update",
+    "destination": "jira",
+    "target": "AEPI-10",
+    "intent": "set-execution-mode-agent",
+    "expectedState": {
+      "executionMode": "agent"
+    }
+  }
+}

@@ -53,6 +53,7 @@ Case studies are stored in Markdown files:
 2. case_study_02_instruction_provenance_feedback_loop.md
 3. case_study_03_Human_in_the_loop_prompt_refinement_for_reliable_agent_execution.md
 4. case_study_04_agent_control_plane_convergence.md
+5. case_study_05_private_local_ollama_on_macos.md
 
 
 ## License

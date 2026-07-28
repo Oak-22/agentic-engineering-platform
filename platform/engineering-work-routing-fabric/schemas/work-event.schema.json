@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/work-event.schema.json",
+  "title": "Engineering Work Event",
+  "description": "Append-only envelope for one observable unit of human-agent engineering activity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "occurredAt",
+    "eventType",
+    "summary",
+    "executionMode",
+    "source",
+    "correlationId",
+    "hopCount",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^evt-[a-z0-9][a-z0-9-]*$"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "eventType": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "executionMode": {
+      "type": "string",
+      "enum": [
+        "human",
+        "agent",
+        "hybrid"
+      ]
+    },
+    "actorId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "repository"
+      ],
+      "properties": {
+        "surface": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workItem": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "causationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parentEventId": {
+      "type": "string",
+      "pattern": "^evt-[a-z0-9][a-z0-9-]*$"
+    },
+    "hopCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "ref"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "proposedAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actionType",
+        "destination",
+        "target",
+        "intent"
+      ],
+      "properties": {
+        "actionType": {
+          "type": "string",
+          "enum": [
+            "create",
+            "append",
+            "update",
+            "publish"
+          ]
+        },
+        "destination": {
+          "$ref": "#/$defs/destination"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedState": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "destination": {
+      "type": "string",
+      "enum": [
+        "telemetry",
+        "knowledge-base",
+        "jira",
+        "confluence",
+        "git"
+      ]
+    }
+  }
+}

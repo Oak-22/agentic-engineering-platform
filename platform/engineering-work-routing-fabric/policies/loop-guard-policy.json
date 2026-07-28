@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "policyId": "loop-guard-v0.1",
+  "exactDuplicate": {
+    "matchOn": [
+      "idempotencyKey"
+    ],
+    "action": "return-prior",
+    "emitReceiptOutcome": "already-applied"
+  },
+  "alreadySatisfied": {
+    "requiresExpectedStateCheck": true,
+    "action": "stop",
+    "emitReceiptOutcome": "already-satisfied"
+  },
+  "semanticRecurrence": {
+    "matchOn": [
+      "correlationId",
+      "destination",
+      "target",
+      "actionFingerprint"
+    ],
+    "firstRecurrence": "replan",
+    "secondRecurrence": "intervene",
+    "continuedRecurrence": "stop"
+  },
+  "hopLimit": {
+    "maximum": 8,
+    "action": "intervene"
+  },
+  "consequentialPublication": {
+    "destinations": [
+      "confluence",
+      "knowledge-base"
+    ],
+    "actions": [
+      "publish"
+    ],
+    "defaultApproval": "pending"
+  }
+}

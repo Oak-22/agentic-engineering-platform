@@ -8,22 +8,37 @@ repositories are downstream consumers rather than part of the platform itself.
 
 ## Platform Model
 
-The repository is organized around a feedback loop:
+The platform turns human intention into reusable agent behavior by encoding
+procedures as skills, grounding them in governed supporting artifacts,
+executing them within explicit task authority, and feeding observed outcomes
+back into the system.
+
+The repository is organized around that feedback loop:
 
 ```text
-govern agent behavior
-  -> execute engineering workflows
-  -> capture telemetry and outcomes
-  -> study human-AI collaboration
-  -> promote validated lessons back into the platform
+human intention
+  -> skills and supporting artifacts
+  -> authorized contextual execution
+  -> observable behavior and outcomes
+  -> validated learning
+  -> refined platform guidance
 ```
 
 ## Repository Structure
 
 ```text
 agentic-engineering-platform/
+├── AGENTS.md
+├── .github/
+│   ├── copilot-instructions.md
+│   ├── instructions/
+│   ├── agents/
+│   ├── prompts/
+│   ├── skills/
+│   └── hooks/
 ├── platform/
 │   ├── agent-control-plane/
+│   ├── engineering-work-routing-fabric/
 │   ├── inference-telemetry-observatory/
 │   ├── context-serialization-tooling/
 │   └── developer-learning-retrieval/
@@ -45,6 +60,9 @@ agentic-engineering-platform/
 - [`platform/agent-control-plane/`](platform/agent-control-plane/) governs
   instruction discovery, runtime adapters, provenance, reusable skills, and
   auditable agent execution.
+- [`platform/engineering-work-routing-fabric/`](platform/engineering-work-routing-fabric/)
+  normalizes engineering activity, records routing decisions, and prevents
+  duplicate or circular destination actions.
 - [`platform/inference-telemetry-observatory/`](platform/inference-telemetry-observatory/)
   measures model usage, latency, token economics, routing decisions, and agent
   execution behavior.
@@ -55,6 +73,9 @@ agentic-engineering-platform/
 
 ### Supporting boundaries
 
+- [`AGENTS.md`](AGENTS.md) and [`.github/`](.github/) are the repository-root
+  runtime discovery surface. Their portable contracts, adapters, and design
+  documentation remain owned by the Agent Control Plane component.
 - [`evidence/`](evidence/) contains applied human-AI collaboration case studies
   used to validate and improve the platform.
 - [`shared/`](shared/) owns cross-domain schemas, contracts, and reusable
