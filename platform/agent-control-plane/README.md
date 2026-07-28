@@ -9,6 +9,20 @@ selective context loading, and auditable task execution.
 This repository provides a reusable scaffold for installing an
 instruction-control plane into software repositories.
 
+Within the larger platform feedback loop, the control plane owns the
+transformation from intention into governed execution:
+
+```text
+human intention
+  -> governed instructions and skills
+  -> runtime discovery and context loading
+  -> authorized agent behavior
+```
+
+Telemetry, routing, evidence, and learning remain separate platform concerns
+that observe outcomes and feed validated lessons back into this control
+surface.
+
 It formalizes five core needs:
 
 - deterministic instruction discovery for AI coding agents

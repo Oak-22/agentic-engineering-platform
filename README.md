@@ -8,14 +8,20 @@ repositories are downstream consumers rather than part of the platform itself.
 
 ## Platform Model
 
-The repository is organized around a feedback loop:
+The platform turns human intention into reusable agent behavior by encoding
+procedures as skills, grounding them in governed supporting artifacts,
+executing them within explicit task authority, and feeding observed outcomes
+back into the system.
+
+The repository is organized around that feedback loop:
 
 ```text
-govern agent behavior
-  -> execute engineering workflows
-  -> capture telemetry and outcomes
-  -> study human-AI collaboration
-  -> promote validated lessons back into the platform
+human intention
+  -> skills and supporting artifacts
+  -> authorized contextual execution
+  -> observable behavior and outcomes
+  -> validated learning
+  -> refined platform guidance
 ```
 
 ## Repository Structure
