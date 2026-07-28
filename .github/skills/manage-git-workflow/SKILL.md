@@ -1,6 +1,6 @@
 ---
 name: manage-git-workflow
-description: Govern local Git and GitHub delivery operations through explicit authority, scoped staging, feature branches, commits, pushes, pull requests, merges, and branch cleanup. Use whenever work may create or switch a branch, stage or commit changes, modify a remote, open or update a pull request, merge work, or delete Git refs.
+description: Govern local Git and GitHub delivery operations through explicit authority, scoped staging, feature branches, commits, pushes, pull requests, merges, and branch cleanup. Use whenever work may create or switch a branch, stage or commit changes, commit and push all current work, modify a remote, open or update a pull request, merge work, or delete Git refs.
 ---
 
 # Manage Git Workflow
@@ -21,6 +21,37 @@ editing as permission to change Git history or remote state.
 5. Stop for direction when the current branch contains work that does not
    belong in the requested change and isolation would materially change the
    delivery plan.
+
+## Run an interactive preflight
+
+Before an authorized commit or publication workflow, summarize:
+
+- repository, branch, upstream, and requested operations;
+- changes proposed for inclusion and any exclusions;
+- proposed commit boundaries and concise messages;
+- checks to run before publication.
+
+Proceed without another question when the request already authorizes the
+operations, the scope is coherent, the branch is permitted, and publication
+is non-destructive. When clarification is necessary, ask the smallest set of
+material questions together and recommend a default for each. Do not ask the
+user to reconfirm facts or operations already established by the request.
+
+Clarify when:
+
+- the repository is ambiguous or the request spans multiple repositories;
+- the active branch is the default branch and a commit or push would require a
+  choice between direct work and a feature branch;
+- changes represent unrelated outcomes that should not share a commit;
+- untracked, generated, secret-like, or unexpectedly large files make
+  inclusion uncertain;
+- the remote, upstream, divergence, or existing pull request changes the safe
+  publication path.
+
+Interpret “all” or “everything” as all appropriate current changes in the
+named repository, not permission to cross repository boundaries, include
+credentials or disposable output, collapse unrelated outcomes into one
+commit, or perform operations beyond those explicitly requested.
 
 ## Authority boundaries
 
