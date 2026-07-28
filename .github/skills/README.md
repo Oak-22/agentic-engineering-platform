@@ -13,6 +13,9 @@ Run `scripts/check-agent-discovery-layout.sh` to verify the one-to-one mapping.
 
 Available skills:
 
+- `handoff-agent-work/`
+  Preserve intent, evidence, permissions, and workflow state when authorized
+  work must cross an agent, runtime, tool, or capability boundary.
 - `manage-git-workflow/`
   Apply explicit authorization boundaries to branches, commits, pushes, pull
   requests, merges, and cleanup.
