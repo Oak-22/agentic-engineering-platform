@@ -1,6 +1,6 @@
 ---
-description: "Portable general AI-agent collaboration rules."
-applyTo: "**/*"
+paths:
+  - "**/*"
 ---
 
 @../../platform/agent-control-plane/agent-assets/instructions/general-agent.md

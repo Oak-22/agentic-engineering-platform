@@ -7,9 +7,17 @@ cd "$repository_root"
 
 required_paths="
 AGENTS.md
+CLAUDE.md
 .github/copilot-instructions.md
 .github/instructions
+.github/skills
 .agents/skills
+.claude/rules
+.claude/skills
+platform/agent-control-plane/agent-assets/instructions
+platform/agent-control-plane/agent-assets/skills
+platform/agent-control-plane/agent-assets/role-charters
+platform/agent-control-plane/agent-assets/workflow-definitions
 "
 
 for required_path in $required_paths; do
@@ -24,15 +32,13 @@ if [ -d platform/agent-control-plane/.github ]; then
   exit 1
 fi
 
-for canonical_skill in .github/skills/*; do
+for canonical_skill in platform/agent-control-plane/agent-assets/skills/*; do
   if [ ! -d "$canonical_skill" ]; then
     continue
   fi
 
   skill_name=$(basename "$canonical_skill")
   skill_file="$canonical_skill/SKILL.md"
-  adapter_path=".agents/skills/$skill_name"
-  expected_target="../../.github/skills/$skill_name"
 
   if [ ! -f "$skill_file" ]; then
     echo "canonical skill is missing SKILL.md: $canonical_skill" >&2
@@ -45,32 +51,77 @@ for canonical_skill in .github/skills/*; do
     exit 1
   fi
 
-  if [ ! -L "$adapter_path" ]; then
-    echo "missing Codex skill adapter: $adapter_path" >&2
+  for runtime in .agents .claude .github; do
+    adapter_path="$runtime/skills/$skill_name"
+    expected_target="../../platform/agent-control-plane/agent-assets/skills/$skill_name"
+
+    if [ ! -L "$adapter_path" ]; then
+      echo "missing skill adapter: $adapter_path" >&2
+      exit 1
+    fi
+
+    if [ "$(readlink "$adapter_path")" != "$expected_target" ]; then
+      echo "skill adapter has unexpected target: $adapter_path" >&2
+      exit 1
+    fi
+
+    if [ ! -f "$adapter_path/SKILL.md" ]; then
+      echo "skill adapter does not resolve: $adapter_path" >&2
+      exit 1
+    fi
+  done
+done
+
+for runtime in .agents .claude .github; do
+  for adapter_path in "$runtime"/skills/*; do
+    if [ ! -e "$adapter_path" ] && [ ! -L "$adapter_path" ]; then
+      continue
+    fi
+
+    skill_name=$(basename "$adapter_path")
+    if [ "$skill_name" = "README.md" ]; then
+      continue
+    fi
+
+    if [ ! -d "platform/agent-control-plane/agent-assets/skills/$skill_name" ]; then
+      echo "skill adapter has no canonical skill: $adapter_path" >&2
+      exit 1
+    fi
+  done
+done
+
+for adapter_path in .github/instructions/*.instructions.md .claude/rules/*.md; do
+  import_path=$(sed -n 's/^@//p' "$adapter_path" | head -n 1)
+  if [ -z "$import_path" ]; then
+    echo "instruction adapter is missing a canonical import: $adapter_path" >&2
     exit 1
   fi
 
-  if [ "$(readlink "$adapter_path")" != "$expected_target" ]; then
-    echo "Codex skill adapter has unexpected target: $adapter_path" >&2
-    exit 1
-  fi
-
-  if [ ! -f "$adapter_path/SKILL.md" ]; then
-    echo "Codex skill adapter does not resolve: $adapter_path" >&2
+  adapter_directory=$(dirname "$adapter_path")
+  if ! (cd "$adapter_directory" && test -f "$import_path"); then
+    echo "instruction adapter import does not resolve: $adapter_path" >&2
     exit 1
   fi
 done
 
-for adapter_path in .agents/skills/*; do
-  if [ ! -e "$adapter_path" ] && [ ! -L "$adapter_path" ]; then
-    continue
-  fi
+workflow_adapter=".github/prompts/git-foundations.prompt.md"
+workflow_target="../../platform/agent-control-plane/agent-assets/workflow-definitions/git-foundations.md"
+if [ ! -L "$workflow_adapter" ] || [ "$(readlink "$workflow_adapter")" != "$workflow_target" ]; then
+  echo "workflow adapter has unexpected target: $workflow_adapter" >&2
+  exit 1
+fi
 
-  skill_name=$(basename "$adapter_path")
-  if [ ! -d ".github/skills/$skill_name" ]; then
-    echo "Codex skill adapter has no canonical skill: $adapter_path" >&2
+if ! grep -q '^@AGENTS.md$' CLAUDE.md; then
+  echo "CLAUDE.md must import AGENTS.md" >&2
+  exit 1
+fi
+
+for entrypoint in AGENTS.md CLAUDE.md .github/copilot-instructions.md; do
+  line_count=$(wc -l < "$entrypoint")
+  if [ "$line_count" -gt 100 ]; then
+    echo "runtime entrypoint exceeds 100 lines: $entrypoint" >&2
     exit 1
   fi
 done
 
-echo "agent discovery layout is rooted correctly"
+echo "agent discovery layout and canonical adapters are valid"

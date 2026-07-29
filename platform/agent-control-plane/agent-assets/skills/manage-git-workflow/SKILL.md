@@ -53,6 +53,23 @@ named repository, not permission to cross repository boundaries, include
 credentials or disposable output, collapse unrelated outcomes into one
 commit, or perform operations beyond those explicitly requested.
 
+## Link Jira work through branch names
+
+When a Jira work item governs the change, include its key in the feature
+branch name:
+
+```text
+agent/AEPI-16-neutral-agent-assets
+```
+
+Keep commit subjects concise, imperative, and outcome-oriented. Leave Jira
+keys and model or runtime names out of commit subjects unless the user
+explicitly requests them.
+
+Record agent provenance as structured execution metadata in the governed
+work-item, telemetry, or attempt-history system. Preserve human accountability
+through assignment, review, and approval records.
+
 ## Authority boundaries
 
 Apply the narrowest matching authorization:
@@ -93,7 +110,7 @@ request. If the user expands or narrows the request, apply the newest scope.
 2. Stage explicit paths; never use a broad staging command in a mixed
    worktree.
 3. Review the staged diff and run the smallest relevant checks.
-4. Commit with a concise outcome-oriented message.
+4. Commit with a concise, outcome-oriented message.
 5. Push the feature branch with upstream tracking.
 6. Open a draft pull request unless the user explicitly requests
    ready-for-review status.

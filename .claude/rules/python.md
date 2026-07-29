@@ -1,6 +1,6 @@
 ---
-description: "Portable Python code standards"
-applyTo: "**/*.py"
+paths:
+  - "**/*.py"
 ---
 
 @../../platform/agent-control-plane/agent-assets/instructions/python.md

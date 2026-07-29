@@ -94,18 +94,27 @@ inspectable, and increasing reuse of proven engineering practices.
 
 - [`../../AGENTS.md`](../../AGENTS.md)
   Shared repository guidance for Codex and compatible agents.
+- [`../../CLAUDE.md`](../../CLAUDE.md)
+  Root Claude Code routing adapter.
 - [`../../.github/copilot-instructions.md`](../../.github/copilot-instructions.md)
   Root GitHub Copilot routing adapter.
+- [`agent-assets/`](agent-assets/)
+  Canonical shared instructions, skills, role charters, and workflow
+  definitions.
+- [`../../.agents/`](../../.agents/)
+  Codex discovery adapters.
+- [`../../.claude/`](../../.claude/)
+  Claude Code discovery adapters.
 - [`../../.github/instructions/`](../../.github/instructions/)
-  Path-specific Copilot behavior rules.
+  Path-specific GitHub Copilot adapters.
 - [`../../.github/agents/`](../../.github/agents/)
-  Specialist agent personas.
+  GitHub Copilot agent adapters.
 - [`../../.github/prompts/`](../../.github/prompts/)
-  Reusable task prompts.
+  GitHub Copilot prompt adapters.
 - [`../../.github/skills/`](../../.github/skills/)
-  Repeatable workflow playbooks.
+  GitHub Copilot skill adapters.
 - [`../../.github/hooks/`](../../.github/hooks/)
-  Mechanical guardrails for task execution.
+  GitHub-native mechanical guardrails.
 - `engineering-knowledge-base/` (optional local overlay)
   A machine-local location for private incident capture, learning notes,
   and other workflow-derived knowledge. It is not part of the portable
@@ -126,10 +135,9 @@ inspectable, and increasing reuse of proven engineering practices.
 ## Runtime discovery boundary
 
 Repository-discovered files must be installed relative to the adopting
-repository's Git or workspace root. The platform implementation can remain
-under `platform/agent-control-plane/`, but a nested `.github/` tree there is
-not an active repository configuration when this monorepo is opened at its
-root.
+repository's Git or workspace root. Keep entrypoints and runtime discovery
+adapters light. Store reusable content under `agent-assets/`, then expose it
+through each runtime's native root-level discovery paths.
 
 ## Adoption Guidance
 
@@ -141,11 +149,13 @@ For an existing repository, start with the smallest useful checked-in
 surface:
 
 1. Add root `AGENTS.md` for shared agent guidance.
-2. Add root `.github/copilot-instructions.md` as the Copilot adapter.
-3. Add root `.github/instructions/` for path-specific Copilot rules.
-4. Add `.github/agents/`, `.github/prompts/`, `.github/skills/`, and
-  `.github/hooks/` as needed.
-5. Add task-relevant artifacts only when they describe reusable
+2. Add root `CLAUDE.md` and `.github/copilot-instructions.md` as lightweight
+   runtime entrypoints.
+3. Add canonical reusable content under `agent-assets/`.
+4. Add `.agents/`, `.claude/`, and `.github/` discovery adapters only for
+   supported runtimes.
+5. Keep hooks, permissions, and enforcement configuration runtime-owned.
+6. Add task-relevant artifacts only when they describe reusable
   behavior.
 
 This intrinsic adoption path keeps the control plane inside the repo

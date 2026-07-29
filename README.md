@@ -29,6 +29,12 @@ human intention
 ```text
 agentic-engineering-platform/
 ├── AGENTS.md
+├── CLAUDE.md
+├── .agents/
+│   └── skills/
+├── .claude/
+│   ├── rules/
+│   └── skills/
 ├── .github/
 │   ├── copilot-instructions.md
 │   ├── instructions/
@@ -38,6 +44,11 @@ agentic-engineering-platform/
 │   └── hooks/
 ├── platform/
 │   ├── agent-control-plane/
+│   │   └── agent-assets/
+│   │       ├── instructions/
+│   │       ├── skills/
+│   │       ├── role-charters/
+│   │       └── workflow-definitions/
 │   ├── engineering-work-routing-fabric/
 │   ├── inference-telemetry-observatory/
 │   ├── context-serialization-tooling/
