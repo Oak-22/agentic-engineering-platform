@@ -65,7 +65,8 @@ gate without treating it as approved.
 
 Keep these identifiers synchronized as they become available:
 
-- Jira key, summary, status, and accountable owner;
+- Jira key, summary, status, accountable owner, and structured execution
+  provenance;
 - Confluence design or decision link when durable documentation is needed;
 - feature branch and target branch;
 - commit identifiers and verification evidence;

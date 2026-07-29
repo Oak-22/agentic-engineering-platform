@@ -27,7 +27,15 @@ identifiers in `aepi-field-mapping.json` using
 invent IDs or commit authentication material.
 
 Loose, multi-value Jira Labels remain available for search vocabulary. They
-must not replace these governed fields.
+must not replace these governed fields. Use labels for concise
+business-relevant classification and retrieval.
+
+Record human-agent collaboration lineage through constrained structured
+metadata such as issue history metadata, governed custom fields, execution
+attempt records, and telemetry identifiers. Keep actor, model, runtime, and
+generation details out of summaries, descriptions, and labels unless they
+materially affect a business decision, accountability boundary, review, or
+audit requirement.
 
 Runtime outcome, failure, run, and attempt fields are intentionally postponed
 until the inference telemetry subsystem can supply trustworthy projections.

@@ -33,6 +33,7 @@ not a numerical quality target.
 
 - Establish the engineering outcome and acceptance criteria.
 - Resolve or create the Jira task.
+- Record available collaboration lineage through structured backend metadata.
 - Link durable architecture, decisions, or operating guidance from
   Confluence when needed.
 - Identify the accountable human and review boundary.
