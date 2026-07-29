@@ -1,6 +1,6 @@
 ---
 name: manage-git-workflow
-description: Govern local Git and GitHub delivery operations through explicit authority, scoped staging, feature branches, commits, pushes, pull requests, merges, and branch cleanup. Use whenever work may create or switch a branch, stage or commit changes, commit and push all current work, modify a remote, open or update a pull request, merge work, or delete Git refs.
+description: Govern local Git and GitHub delivery operations through explicit authority, scoped staging, feature branches, commits, pushes, pull requests, merges, and branch cleanup. Use when work may create or switch a branch, stage or commit changes, modify a remote, publish or update a pull request, merge work, delete Git refs, or when deliver-governed-change delegates a source-control operation.
 ---
 
 # Manage Git Workflow
@@ -8,6 +8,13 @@ description: Govern local Git and GitHub delivery operations through explicit au
 Keep implementation authority separate from publication authority. Infer only
 the operations necessarily implied by the user's request, and do not treat file
 editing as permission to change Git history or remote state.
+
+## Coordination boundary
+
+Own Git and GitHub operations. When `deliver-governed-change` coordinates the
+larger delivery unit, accept its resolved Jira key, outcome, scope, and current
+delivery phase as inputs. Preserve this skill's authority checks for every Git
+mutation.
 
 ## Resolve scope first
 

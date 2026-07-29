@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deliver Governed Change"
+  short_description: "Coordinate traceable engineering delivery"
+  default_prompt: "Use $deliver-governed-change to carry this engineering outcome through Jira, implementation, Git delivery, review, and closure within my authorization."
