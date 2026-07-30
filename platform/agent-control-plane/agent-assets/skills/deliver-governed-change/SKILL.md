@@ -76,6 +76,45 @@ before planning or executing a delivery.
 Complete only the phases authorized by the current request. Report the next
 gate without treating it as approved.
 
+## Backfill completed work
+
+When the user explicitly asks to backfill a governed-change run, delivery, or
+record for work already performed, treat that request as authority to
+reconstruct the delivery unit through verified **Implement** state. The user
+does not need to enumerate the routine reversible operations inside that
+reconstruction.
+
+For a repository change, the backfill includes:
+
+1. Resolve or create the Jira task and record that the delivery record is
+   retrospective.
+2. Reconstruct the outcome, acceptance criteria, accountable owner, scope,
+   existing evidence, and actual delivery state.
+3. Inspect current Git and GitHub state for existing branches, commits, pull
+   requests, or merge evidence before creating anything.
+4. Create or select the Jira-keyed local feature branch needed by the default
+   delivery relationship. Use a separate worktree when that is the safest way
+   to isolate the outcome from unrelated or user-authored changes.
+5. Transfer only the bounded change into the delivery unit, run the smallest
+   relevant checks, and synchronize the branch and verification evidence back
+   to Jira.
+6. Set Jira status from verified reality. Do not mark work complete solely
+   because its record was created retrospectively.
+
+For a change owned by Jira, Confluence, GitHub configuration, or another
+external system, reconstruct the selected durable-authority evidence path and
+do not create empty Git artifacts.
+
+A backfill request does not authorize creating commits, pushing branches,
+opening pull requests, advancing review state, merging, deleting refs or
+worktrees, or rewriting history. Record existing identifiers when they can be
+verified, then report the next unapproved gate.
+
+Stop for a human decision when the outcome boundary is ambiguous, safe
+isolation would require discarding or rewriting work, the correct base or
+target branch cannot be resolved, or reconstruction would expand permissions,
+sharing, review scope, or delivery risk.
+
 ## Maintain traceability
 
 Keep these identifiers synchronized as they become available:

@@ -122,6 +122,7 @@ Each gate requires the authority applicable to its system and impact:
 | Modify repository files | Implementation request |
 | Modify external configuration | Mutation request for the owning system and scope |
 | Create or switch branches | Branch operation request |
+| Backfill completed repository work | Retrospective delivery request; includes work-record mutation and local isolation through verified Implement state |
 | Stage and commit | Commit request |
 | Push or open a pull request | Publication request |
 | Approve or request changes | Review authority |
@@ -129,6 +130,38 @@ Each gate requires the authority applicable to its system and impact:
 | Delete refs | Cleanup request naming the target |
 
 Authority for one gate does not approve later gates.
+
+## Retrospective backfill
+
+An explicit request to backfill a governed-change run authorizes the routine,
+reversible reconstruction needed to represent already-performed work through
+verified Implement state.
+
+For repository changes:
+
+1. Resolve or create the Jira task and mark the record as retrospective.
+2. Reconstruct the outcome, acceptance criteria, ownership, bounded file
+   scope, verification evidence, and actual delivery state.
+3. Inspect existing branches, commits, pull requests, merges, and target-branch
+   state before creating new artifacts.
+4. Create or select the Jira-keyed local branch required by the delivery unit.
+   Prefer a separate worktree when the source worktree contains another
+   outcome or unrelated user changes.
+5. Move only the bounded changes into the isolated delivery unit, verify them,
+   and synchronize the branch and evidence to Jira.
+6. Set Jira status to the verified phase. Retrospective task creation alone
+   does not prove review, merge, delivery, or completion.
+
+For external-system changes, reconstruct the selected durable-authority path
+using the external artifact identifiers and native audit evidence. Do not
+create a branch, commit, or pull request without repository-tracked changes.
+
+The backfill request does not authorize new commits, pushes, pull requests,
+review decisions, merges, history rewrites, or cleanup. Existing durable
+identifiers may be recorded after read-only verification. Stop when the
+outcome boundary, base or target branch, safe isolation method, permission
+scope, sharing boundary, or review risk cannot be resolved without a human
+decision.
 
 ## Deliberate exceptions
 
