@@ -1,6 +1,6 @@
 ---
 name: manage-jira-confluence
-description: Read, create, update, link, transition, and verify Jira and Confluence artifacts as one traceable delivery workflow. Use for Jira projects, boards, backlogs, Product Discovery ideas, work items, comments, statuses, or links; for Confluence spaces, pages, architecture notes, decisions, runbooks, or experiment records; and whenever work must move coherently between discovery, implementation, documentation, and evidence.
+description: Read, create, update, link, transition, and verify Jira and Confluence artifacts as one traceable Atlassian workflow. Use for Jira projects, boards, backlogs, Product Discovery ideas, work items, comments, statuses, or links; for Confluence spaces, pages, architecture notes, decisions, runbooks, or experiment records; or when deliver-governed-change delegates an Atlassian operation.
 ---
 
 # Manage Jira and Confluence
@@ -8,6 +8,13 @@ description: Read, create, update, link, transition, and verify Jira and Conflue
 Operate Jira as the work system of record and Confluence as the durable
 knowledge system. Preserve bidirectional traceability without duplicating
 canonical content.
+
+## Coordination boundary
+
+Own Jira and Confluence operations. When `deliver-governed-change` coordinates
+the larger delivery unit, accept its resolved outcome, repository evidence,
+and current delivery phase as inputs. Preserve this skill's live-schema,
+permission, mutation, and verification requirements.
 
 ## Core workflow
 
