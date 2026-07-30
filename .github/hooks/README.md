@@ -7,3 +7,7 @@ pre-response gating.
 
 Hooks remain runtime-owned because lifecycle events, tool names, and
 permission semantics differ across agent surfaces.
+
+The prompt instruction manifest currently uses a durable Copilot instruction
+adapter because this repository does not claim an authoritative
+instruction-loaded event for that runtime.

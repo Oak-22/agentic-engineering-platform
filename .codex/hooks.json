@@ -1,0 +1,17 @@
+{
+  "description": "Inject the prompt-scoped instruction-reference manifest contract.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime codex",
+            "timeout": 10,
+            "statusMessage": "Preparing instruction references"
+          }
+        ]
+      }
+    ]
+  }
+}
