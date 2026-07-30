@@ -104,9 +104,14 @@ Apply the narrowest matching authorization:
   branch rather than creating another one.
 - A request to merge authorizes only the specified pull request and merge
   method. It does not authorize branch deletion unless cleanup is explicit.
+- A request to clean up a named local delivery unit after merge authorizes
+  removal of its verified linked worktree, deletion of its local feature
+  branch, and pruning of stale worktree metadata. It does not authorize
+  deleting a remote branch or any other worktree.
 - Force pushes, history rewrites, ref deletion, and direct pushes to the
   default branch always require explicit authorization naming that operation
-  and target.
+  and target. The local feature-branch deletion included in a named
+  post-merge cleanup request is the narrow exception defined above.
 
 Do not ask repeatedly for an operation already authorized by the active
 request. If the user expands or narrows the request, apply the newest scope.
@@ -136,3 +141,27 @@ request. If the user expands or narrows the request, apply the newest scope.
 - Re-read remote or pull-request state after writes.
 - Treat merge, force push, rebase of published history, and branch deletion as
   distinct operations with distinct authority.
+
+## Clean up a merged delivery worktree
+
+Resolve and verify the complete target before mutating local state:
+
+1. Identify the pull request and confirm its head branch, base branch, head
+   identifier, merged state, merge result, and merge time.
+2. Fetch the remote base and verify the recorded merge result is reachable
+   from it.
+3. Resolve the feature branch's linked worktree through Git metadata. Do not
+   infer the directory from its name.
+4. Require an empty worktree status, including untracked files, and verify
+   `HEAD` matches the pull request's published head identifier.
+5. Remove the linked worktree without force.
+6. Delete the local feature branch normally when Git recognizes it as merged.
+   After a squash merge, force-delete only when the pull-request, head, merge,
+   and target-branch checks above all succeeded.
+7. Prune stale worktree metadata and re-read the worktree and branch lists.
+8. Report whether GitHub already deleted the remote branch. Delete it only
+   when remote cleanup was explicitly authorized.
+
+Stop without deletion when the pull request is open or unknown, the target
+does not contain the merge result, the worktree is dirty, its branch or `HEAD`
+does not match the pull request, or more than one target remains plausible.

@@ -102,15 +102,39 @@ traceability easy to inspect and does not serve as a numerical quality target.
 - Move the Jira task to `In Review` when implementation evidence is ready.
 - Require an accountable human to approve governed work.
 
-### 7. Close
+### 7. Merge
 
 - Merge only after approval and required checks.
 - Verify the target branch contains the intended result.
-- Clean up local and remote feature refs when authorized.
 - Record the merge and verification evidence for repository changes.
 - Record native configuration identifiers and audit evidence for external
   changes.
-- Move the Jira task to its completed status only after delivery is verified.
+
+### 8. Post-merge cleanup
+
+- Start cleanup only from a request that identifies the delivery unit or the
+  exact local targets.
+- Resolve the Jira key, pull request, feature branch, target branch, and linked
+  worktree before deleting anything.
+- Confirm the pull request is merged and its merge result is reachable from
+  the updated target branch.
+- Confirm the worktree has no tracked, untracked, staged, or conflicted
+  changes and that its `HEAD` matches the published pull-request head.
+- Remove the linked worktree before deleting its local feature branch.
+- For squash merges, use the verified pull-request state, head identifier,
+  merge identifier, and target-branch reachability as evidence. Branch
+  ancestry alone cannot establish that the squash result was preserved.
+- Prune stale worktree administration records after the intended worktree is
+  removed.
+- Read the remote branch state after cleanup. Delete a surviving remote branch
+  only when remote cleanup is separately authorized.
+- Preserve the worktree and refs when state is dirty, unmerged, ambiguous, or
+  mismatched.
+- Record cleanup evidence, then move the Jira task to its completed status.
+
+GitHub-side merge and branch settings cannot remove a developer's local
+worktree directory or local branch. Local cleanup requires a later local agent
+run or separately authorized local automation.
 
 ## Authority gates
 
@@ -127,7 +151,8 @@ Each gate requires the authority applicable to its system and impact:
 | Push or open a pull request | Publication request |
 | Approve or request changes | Review authority |
 | Merge | Merge request |
-| Delete refs | Cleanup request naming the target |
+| Remove a local worktree and branch | Local cleanup request naming the delivery unit or targets |
+| Delete a remote branch | Remote cleanup request naming the branch |
 
 Authority for one gate does not approve later gates.
 
