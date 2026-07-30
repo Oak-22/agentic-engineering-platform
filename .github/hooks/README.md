@@ -1,6 +1,9 @@
 # Hooks
 
-Place machine-enforced guardrails here as hook configuration artifacts.
+Place GitHub-native machine guardrails here as runtime configuration.
 
 Examples include pre-tool checks, post-edit validation, and
 pre-response gating.
+
+Hooks remain runtime-owned because lifecycle events, tool names, and
+permission semantics differ across agent surfaces.

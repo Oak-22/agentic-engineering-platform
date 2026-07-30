@@ -2,7 +2,8 @@
 
 This folder holds explanatory material for the agent control plane. It is not
 the minimum install surface. Runtime-discovered entrypoints live at the
-repository root in `AGENTS.md` and `.github/`; an
+repository root in `AGENTS.md`, `CLAUDE.md`, `.agents/`, `.claude/`, and
+`.github/`. Canonical reusable content lives in `../agent-assets/`; an
 `engineering-knowledge-base/` may be mounted separately as a private,
 machine-local overlay.
 
@@ -20,6 +21,9 @@ machine-local overlay.
 
 ## Diagrams
 
+- [Agent Asset Discovery Layers](diagrams/agent-asset-discovery-layers.md)
+  Separates lightweight shared entrypoints and runtime adapters from the
+  content-heavy canonical agent assets.
 - [feedforward-feedback-change-lifecycle.excalidraw](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.excalidraw)
   Source file for the lifecycle diagram.
 - [feedforward-feedback-change-lifecycle.png](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
@@ -42,7 +46,8 @@ machine-local overlay.
 ## Placement Rules
 
 - Keep runtime-discovered repository adapters at root `AGENTS.md` and
-  `.github/`.
+  runtime-owned `.agents/`, `.claude/`, and `.github/` paths.
+- Keep canonical reusable agent assets under `../agent-assets/`.
 - Keep reusable control-plane implementation artifacts under
   `platform/agent-control-plane/`.
 - Keep explanatory notes, diagrams, and applied validation writeups in
