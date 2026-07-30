@@ -77,6 +77,12 @@ rules, read [references/aep-information-model.md](references/aep-information-mod
 - Write outcome-oriented summaries.
 - Include context, scope, acceptance criteria, and source links when they
   materially help execution.
+- Apply concise labels that classify the work for business-relevant search,
+  reporting, or workflow use. Preserve every existing label when adding one.
+- Record human-agent collaboration lineage in constrained structured metadata
+  or telemetry supported by the live system. Expose provenance in
+  business-facing fields only when it affects accountability, review, audit,
+  or a business decision.
 - Preserve user-authored description content unless replacement was requested.
 - Apply labels and custom fields only when supported by the live project
   schema.
@@ -152,6 +158,8 @@ Finish only when:
 - the intended artifacts exist in the correct Jira project or Confluence
   space;
 - their important fields and content match the request;
+- relevant business classification labels are present without encoding
+  incidental actor or runtime details;
 - statuses and resolutions are correct;
 - cross-product relationships point in the intended direction;
 - direct links and any residual limitations are reported.

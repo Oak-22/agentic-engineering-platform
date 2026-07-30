@@ -46,3 +46,25 @@ decision, or experiment record exists.
 - Keep execution state and acceptance criteria in AEPI.
 - Keep durable reasoning and evidence in AEP.
 - Summarize and link across surfaces; do not maintain three full copies.
+
+## Human-agent collaboration lineage
+
+Keep Jira summaries, descriptions, and labels focused on the business outcome,
+work classification, ownership, and delivery state.
+
+Capture collaboration lineage through the narrowest structured backend
+surface that supports the intended use:
+
+- Jira history metadata for the actor and generator behind a mutation;
+- governed custom fields when provenance changes accountability, approval, or
+  audit behavior;
+- execution-attempt records for agent, model, runtime, prompt, and tool
+  lineage;
+- telemetry correlation identifiers for detailed operational investigation;
+- Git and GitHub integration records for branch, commit, pull-request, review,
+  and automation lineage.
+
+Surface provenance to business users when it changes a decision, review
+boundary, compliance obligation, or accountable ownership. Routine agent
+participation remains available through backend evidence without becoming
+business-facing taxonomy.

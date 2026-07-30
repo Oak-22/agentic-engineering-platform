@@ -18,15 +18,28 @@ before planning or executing a delivery.
 1. Identify one accountable engineering outcome and its acceptance criteria.
 2. Resolve an existing Jira work item or create one when the request
    authorizes tracked delivery.
-3. Apply the default relationship:
+3. Classify the system that owns the durable change and select its delivery
+   path:
+
+   - repository files: Jira plus Git branch, commits, pull request, and review;
+   - Jira or Confluence configuration: Jira plus Atlassian artifact identifiers
+     and audit evidence;
+   - GitHub settings: Jira plus GitHub setting scope and audit evidence;
+   - repository and external configuration: both evidence paths;
+   - minor reversible operation: an existing work record, comment, or native
+     audit log when it preserves accountability and intent.
+
+4. For repository changes, apply the default relationship:
 
    ```text
    1 Jira task : 1 feature branch : 1 pull request : X commits : Y tracked file changes
    ```
 
-4. Treat `X` as the number of coherent commits and `Y` as the number of
+5. Treat `X` as the number of coherent commits and `Y` as the number of
    tracked files changed by the outcome.
-5. Record a deliberate exception when the outcome needs a different
+6. Do not create empty Git artifacts for changes owned entirely by another
+   system.
+7. Record a deliberate exception when the outcome needs a different
    relationship.
 
 ## Coordinate specialized operations
@@ -44,11 +57,13 @@ before planning or executing a delivery.
 ## Advance through explicit gates
 
 1. **Shape:** establish the outcome, scope, acceptance criteria, owner, and
-   durable design location.
-2. **Isolate:** create or select the Jira-keyed feature branch when branch
-   creation is authorized.
+   durable design location; classify the durable change authority and select
+   the delivery path.
+2. **Isolate:** create or select the Jira-keyed feature branch for repository
+   changes when branch creation is authorized; resolve external configuration
+   targets without creating empty Git artifacts.
 3. **Implement:** make the bounded changes and run the smallest relevant
-   checks.
+   checks; re-read external configuration after mutation.
 4. **Commit:** partition the result into coherent commits when committing is
    authorized.
 5. **Publish:** push and open one draft pull request when publication is
@@ -65,12 +80,16 @@ gate without treating it as approved.
 
 Keep these identifiers synchronized as they become available:
 
-- Jira key, summary, status, and accountable owner;
+- Jira key, summary, status, accountable owner, and structured execution
+  provenance;
+- durable change authority and selected delivery path;
 - Confluence design or decision link when durable documentation is needed;
 - feature branch and target branch;
 - commit identifiers and verification evidence;
 - pull-request URL, review state, and required checks;
 - merge result, cleanup state, and final Jira status.
+- external configuration identifiers and native audit evidence when the
+  durable change lives outside the repository.
 
 Use the Jira key in the feature-branch name. Keep commit subjects and
 pull-request titles focused on the engineering outcome. Record agent and
@@ -91,7 +110,9 @@ runtime provenance in structured work-item or telemetry metadata.
 Verify every mutated system before reporting completion. Return:
 
 - the Jira and documentation records;
+- the selected delivery path and durable change authority;
 - branch, commits, pull request, and target branch when created;
+- external configuration identifiers and audit evidence when applicable;
 - checks and review state;
 - excluded or residual work;
 - the next unapproved delivery gate.
