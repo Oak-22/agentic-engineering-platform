@@ -9,9 +9,6 @@ machine-local overlay.
 
 ## Start Here
 
-- [Applied Validation Through myHealth](applied-validation-through-myhealth.md)
-  Explains how `myHealth` acts as the applied validation target for the
-  control-plane pattern.
 - [Feedforward Feedback Change Lifecycle](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.

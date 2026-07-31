@@ -31,10 +31,6 @@ It formalizes five core needs:
 - provenance from human observation to durable instruction
 - auditable task execution through explicit load reports
 
-The first executable portability surface is the
-[`portable-agents/`](portable-agents/) manifest contract and its deterministic
-GitHub custom-agent adapter.
-
 Portable work-governance contracts live in [`contracts/`](contracts/).
 The Jira work-item contract keeps board-facing operational metadata separate
 from immutable agent-run attempt history and detailed telemetry.
@@ -158,9 +154,6 @@ inspectable, and increasing reuse of proven engineering practices.
 
 - [`docs/README.md`](docs/README.md)
   Documentation map and placement rules.
-- [`docs/applied-validation-through-myhealth.md`](docs/applied-validation-through-myhealth.md)
-  Applied validation relationship between this control plane and
-  `myHealth`.
 - [`docs/diagrams/`](docs/diagrams/)
   Source and exported diagrams.
 - [`docs/strategy/`](docs/strategy/)
