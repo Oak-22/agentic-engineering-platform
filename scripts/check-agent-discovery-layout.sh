@@ -14,8 +14,12 @@ CLAUDE.md
 .github/instructions
 .github/skills
 .agents/skills
+.agents/skills/README.md
+.codex/hooks/README.md
 .claude/rules
 .claude/skills
+.claude/skills/README.md
+.claude/hooks/README.md
 platform/agent-control-plane/agent-assets/instructions
 platform/agent-control-plane/agent-assets/skills
 platform/agent-control-plane/agent-assets/role-charters
