@@ -85,6 +85,9 @@ It answers:
 Documentation for strategy, applied validation, diagrams, and related
 future directions lives in [`docs/`](docs/).
 
+Contributor automation and operational commands are documented in
+[`scripts/README.md`](scripts/README.md).
+
 
 ## Business Value
 

@@ -23,9 +23,14 @@ mutation.
 2. Identify unrelated or user-authored changes and keep them unstaged.
 3. Check whether the current branch already has a pull request before deciding
    whether to extend it or create a new branch.
-4. State the intended branch and publication scope before performing an
+4. Before creating or switching to a new Jira-keyed branch or worktree, run
+   `python3 platform/agent-control-plane/scripts/governed_task_preflight.py`
+   from the repository root. Stop on any reported blocker. The preflight is
+   read-only and never authorizes automatically committing, stashing,
+   discarding, merging, or deleting work.
+5. State the intended branch and publication scope before performing an
    authorized delivery workflow.
-5. Stop for direction when the current branch contains work that does not
+6. Stop for direction when the current branch contains work that does not
    belong in the requested change and isolation would materially change the
    delivery plan.
 

@@ -63,6 +63,13 @@ traceability easy to inspect and does not serve as a numerical quality target.
 
 - For repository changes, inspect repository, branch, worktree, remotes,
   tracking state, and existing pull requests.
+- Before creating or switching to a new Jira-keyed branch or worktree, run
+  `python3 platform/agent-control-plane/scripts/governed_task_preflight.py`
+  from the repository root. Stop when it reports uncommitted changes, an open
+  governed pull request, an unpublished feature branch, or required cleanup
+  for the current merged delivery.
+- Treat this preflight as read-only. Never satisfy it by automatically
+  committing, stashing, discarding, merging, or deleting work.
 - Create a feature branch named `agent/<JIRA-KEY>-<outcome-slug>` when
   repository-tracked content will change.
 - For external configuration changes, identify the target site, project,
