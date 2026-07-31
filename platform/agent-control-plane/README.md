@@ -65,6 +65,19 @@ operating system's temporary-data directory. Set
 `AEP_INSTRUCTION_MANIFEST_DIR` to choose another location. Prompt text is
 excluded from the ledger.
 
+## Provider documentation bootstrap
+
+Codex and Claude Code run a shared `SessionStart` hook that makes current
+provider documentation available through a local-first cache. The hook stores
+the comprehensive provider corpus outside the repository, refreshes it only
+when missing or stale, and injects a compact lookup path rather than loading
+the full manual into the context window.
+
+Set `AEP_PROVIDER_DOCS_DIR` to choose another cache directory and
+`AEP_PROVIDER_DOCS_TTL_SECONDS` to change the default 24-hour freshness
+window. Network failures do not block session startup; a stale local manual
+remains available when refresh fails.
+
 It answers:
 
 > How should an AI coding agent discover, load, and apply repository
