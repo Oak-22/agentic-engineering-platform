@@ -21,9 +21,7 @@ CLAUDE.md
 .claude/skills/README.md
 .claude/hooks/README.md
 platform/agent-control-plane/agent-assets/instructions
-platform/agent-control-plane/agent-assets/skills
 platform/agent-control-plane/agent-assets/role-charters
-platform/agent-control-plane/agent-assets/workflow-definitions
 platform/agent-control-plane/scripts/instruction_manifest_hook.py
 platform/agent-control-plane/scripts/provider_docs_session_start.py
 "
@@ -52,7 +50,7 @@ if [ -d platform/agent-control-plane/.github ]; then
   exit 1
 fi
 
-for canonical_skill in platform/agent-control-plane/agent-assets/skills/*; do
+for canonical_skill in .agents/skills/*; do
   if [ ! -d "$canonical_skill" ]; then
     continue
   fi
@@ -71,9 +69,9 @@ for canonical_skill in platform/agent-control-plane/agent-assets/skills/*; do
     exit 1
   fi
 
-  for runtime in .agents .claude .github; do
+  for runtime in .claude .github; do
     adapter_path="$runtime/skills/$skill_name"
-    expected_target="../../platform/agent-control-plane/agent-assets/skills/$skill_name"
+    expected_target="../../.agents/skills/$skill_name"
 
     if [ ! -L "$adapter_path" ]; then
       echo "missing skill adapter: $adapter_path" >&2
@@ -92,7 +90,7 @@ for canonical_skill in platform/agent-control-plane/agent-assets/skills/*; do
   done
 done
 
-for runtime in .agents .claude .github; do
+for runtime in .claude .github; do
   for adapter_path in "$runtime"/skills/*; do
     if [ ! -e "$adapter_path" ] && [ ! -L "$adapter_path" ]; then
       continue
@@ -103,7 +101,7 @@ for runtime in .agents .claude .github; do
       continue
     fi
 
-    if [ ! -d "platform/agent-control-plane/agent-assets/skills/$skill_name" ]; then
+    if [ ! -d ".agents/skills/$skill_name" ]; then
       echo "skill adapter has no canonical skill: $adapter_path" >&2
       exit 1
     fi
@@ -125,7 +123,7 @@ for adapter_path in .github/instructions/*.instructions.md .claude/rules/*.md; d
 done
 
 workflow_adapter=".github/prompts/git-foundations.prompt.md"
-workflow_target="../../platform/agent-control-plane/agent-assets/workflow-definitions/git-foundations.md"
+workflow_target="../../.agents/skills/manage-git-workflow/references/git-foundations.md"
 if [ ! -L "$workflow_adapter" ] || [ "$(readlink "$workflow_adapter")" != "$workflow_target" ]; then
   echo "workflow adapter has unexpected target: $workflow_adapter" >&2
   exit 1

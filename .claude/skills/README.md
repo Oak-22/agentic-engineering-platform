@@ -1,7 +1,8 @@
 # Claude Skill Catalog
 
-This directory exposes the repository's installed, shared skills to Claude
-Code. The reference catalog below lists every skill published in Anthropic's
+This directory exposes the canonical packages under `.agents/skills/` to
+Claude Code through relative symlinks. The reference catalog below lists every
+skill published in Anthropic's
 official skills repository so developers can study production and example
 patterns before creating a repository-specific skill.
 

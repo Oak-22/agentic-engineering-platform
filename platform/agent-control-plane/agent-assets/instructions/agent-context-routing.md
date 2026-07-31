@@ -8,17 +8,18 @@ preserving safe migration semantics.
 ## Layer model
 
 1. Lightweight repository entrypoints load shared, always-applicable rules.
-2. Lightweight runtime adapters satisfy native discovery contracts.
-3. Shared agent assets hold reusable instructions, skills, role charters, and
-   workflow definitions.
-4. Runtime-native hooks, permissions, CI, rulesets, and IAM enforce mechanical
+2. Canonical provider-neutral skill packages live under `.agents/skills/`.
+3. Lightweight Claude Code and GitHub Copilot adapters satisfy native
+   discovery contracts.
+4. Shared agent assets hold reusable instructions and role charters.
+5. Runtime-native hooks, permissions, CI, rulesets, and IAM enforce mechanical
    boundaries.
 
 ## Discovery boundary
 
-Runtime-discovered entrypoints and adapters belong at the repository root.
-Canonical reusable content belongs under
-`platform/agent-control-plane/agent-assets/`.
+Runtime-discovered entrypoints, canonical skill packages, and adapters belong
+at the repository root. Canonical reusable instructions and role charters
+belong under `platform/agent-control-plane/agent-assets/`.
 
 ## Local overlay rule
 

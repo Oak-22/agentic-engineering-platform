@@ -134,10 +134,9 @@ inspectable, and increasing reuse of proven engineering practices.
 - [`../../.github/copilot-instructions.md`](../../.github/copilot-instructions.md)
   Root GitHub Copilot routing adapter.
 - [`agent-assets/`](agent-assets/)
-  Canonical shared instructions, skills, role charters, and workflow
-  definitions.
+  Canonical shared instructions and role charters.
 - [`../../.agents/`](../../.agents/)
-  Codex discovery adapters.
+  Canonical provider-neutral skill packages and Codex discovery.
 - [`../../.claude/`](../../.claude/)
   Claude Code discovery adapters.
 - [`../../.github/instructions/`](../../.github/instructions/)
@@ -171,7 +170,8 @@ inspectable, and increasing reuse of proven engineering practices.
 
 Repository-discovered files must be installed relative to the adopting
 repository's Git or workspace root. Keep entrypoints and runtime discovery
-adapters light. Store reusable content under `agent-assets/`, then expose it
+adapters light. Store canonical skill packages under `.agents/skills/`, store
+shared instructions and role charters under `agent-assets/`, and expose them
 through each runtime's native root-level discovery paths.
 
 ## Adoption Guidance
@@ -186,9 +186,10 @@ surface:
 1. Add root `AGENTS.md` for shared agent guidance.
 2. Add root `CLAUDE.md` and `.github/copilot-instructions.md` as lightweight
    runtime entrypoints.
-3. Add canonical reusable content under `agent-assets/`.
-4. Add `.agents/`, `.claude/`, and `.github/` discovery adapters only for
-   supported runtimes.
+3. Add canonical skill packages under `.agents/skills/` and other reusable
+   content under `agent-assets/`.
+4. Add `.claude/` and `.github/` discovery adapters only for supported
+   runtimes.
 5. Keep hooks, permissions, and enforcement configuration runtime-owned.
 6. Add task-relevant artifacts only when they describe reusable
   behavior.
