@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/provider_docs_session_start.py\" --runtime claude",
+            "timeout": 20,
+            "statusMessage": "Preparing local Claude Code documentation"
+          }
+        ]
+      }
+    ],
     "InstructionsLoaded": [
       {
         "hooks": [

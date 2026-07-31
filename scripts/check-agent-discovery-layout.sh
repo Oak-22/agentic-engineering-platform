@@ -25,6 +25,7 @@ platform/agent-control-plane/agent-assets/skills
 platform/agent-control-plane/agent-assets/role-charters
 platform/agent-control-plane/agent-assets/workflow-definitions
 platform/agent-control-plane/scripts/instruction_manifest_hook.py
+platform/agent-control-plane/scripts/provider_docs_session_start.py
 "
 
 for required_path in $required_paths; do
@@ -37,8 +38,10 @@ done
 python3 -m json.tool .codex/hooks.json >/dev/null
 python3 -m json.tool .claude/settings.json >/dev/null
 
-if ! grep -q '"InstructionsLoaded"' .claude/settings.json \
+if ! grep -q '"SessionStart"' .claude/settings.json \
+  || ! grep -q '"InstructionsLoaded"' .claude/settings.json \
   || ! grep -q '"UserPromptSubmit"' .claude/settings.json \
+  || ! grep -q '"SessionStart"' .codex/hooks.json \
   || ! grep -q '"UserPromptSubmit"' .codex/hooks.json; then
   echo "prompt instruction manifest hooks are incomplete" >&2
   exit 1

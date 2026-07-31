@@ -1,6 +1,20 @@
 {
-  "description": "Inject the prompt-scoped instruction-reference manifest contract.",
+  "description": "Load provider documentation and inject prompt-scoped instruction references.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/provider_docs_session_start.py\" --runtime codex",
+            "timeout": 20,
+            "statusMessage": "Preparing local Codex documentation",
+            "additionalContextLimit": 1200
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
