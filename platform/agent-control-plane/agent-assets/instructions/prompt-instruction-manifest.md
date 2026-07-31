@@ -5,14 +5,21 @@ response:
 
 ```text
 Instruction References
-| Instruction | Evidence | Reason |
-| --- | --- | --- |
-| path or skill name | evidence label | short relevance |
+| Instruction | Evidence | Citation | Reason |
+| --- | --- | --- | --- |
+| path or skill name | evidence label | structured-record link | short relevance |
 ```
 
 Report only instruction sources that governed the current turn. Keep the
 manifest short and omit the block only when the runtime cannot support a
 per-prompt response requirement.
+
+The hook may seed a compact, clickable citation for evidence it can structure.
+Preserve that citation with its evidence label. Both fields derive from the
+same validated instruction-evidence record; do not pair a citation with a
+different evidence type. For instructions added during the turn without a
+structured record, use `Unavailable` in the Citation column rather than
+inventing proof.
 
 Use these evidence labels precisely:
 

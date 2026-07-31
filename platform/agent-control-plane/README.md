@@ -56,10 +56,12 @@ Runtime evidence retains its source:
   instruction adapter. Its entries remain `Declared` unless the runtime
   supplies authoritative load evidence.
 
-The shared hook writes a session ledger with one snapshot per prompt under the
-operating system's temporary-data directory. Set
-`AEP_INSTRUCTION_MANIFEST_DIR` to choose another location. Prompt text is
-excluded from the ledger.
+The shared hook writes a session ledger with one snapshot per prompt to a
+canonical local-data store partitioned by repository identity. An ignored
+`.aep/instruction-evidence` symlink exposes only the active project's logs so
+citation clicks open the relevant JSONL file directly. Set
+`AEP_INSTRUCTION_MANIFEST_DIR` to choose another canonical location. Prompt
+text is excluded from the ledger.
 
 ## Provider documentation bootstrap
 
