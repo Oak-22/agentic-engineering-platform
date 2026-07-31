@@ -11,6 +11,36 @@ schemas.
   defines governed planning metadata shown on a Jira work item.
 - [`agent-run-attempt.schema.json`](agent-run-attempt.schema.json) defines the
   immutable record for one execution attempt.
+- [`instruction-evidence-record.schema.json`](instruction-evidence-record.schema.json)
+  binds each instruction evidence type to the citation fields capable of
+  proving that claim. Its compact citation label links to the structured
+  project-scoped evidence log containing the record identified by `recordId`.
+
+## Instruction evidence and citations
+
+Instruction evidence is a discriminated record rather than an independently
+selected label and citation. Each evidence type has a distinct proof contract:
+
+- `Observed` requires an authoritative runtime event observation.
+- `Runtime baseline` requires a named runtime discovery mechanism and scope.
+- `Explicitly invoked` requires a captured skill or instruction invocation.
+- `Read during turn` requires a runtime tool-read event.
+- `Declared` requires the adapter that made the declaration.
+
+Every variant also cites the project-qualified source using repository
+identity, base revision, repository-relative path, SHA-256 digest, Git blob
+identity, and worktree state. Consumers render `citation.label` as a local file
+link to `citation.href`; both values come from the same validated record as
+`evidenceType`, preventing unsupported evidence-citation combinations.
+`activeRepositoryId` identifies the governed project while `repositoryId`
+identifies the instruction source, so a source loaded from another repository
+cannot appear project-local merely because its content hash is valid.
+
+The canonical logs live outside the working tree in a directory partitioned by
+repository identity. The hook creates an ignored `.aep/instruction-evidence`
+view in the active repository that points to only that project's partition.
+Clicking a citation therefore opens the relevant local JSONL log without
+publishing prompt history or machine-specific paths.
 
 A work item represents the desired outcome. An attempt represents one effort
 to achieve that outcome. The current Jira contract deliberately contains only

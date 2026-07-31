@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/instruction-evidence-record.schema.json",
+  "title": "Instruction Evidence Record",
+  "description": "Project-qualified, content-addressed proof for one instruction reference. The evidence type and its citation contract are validated as one record.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/observed"
+    },
+    {
+      "$ref": "#/$defs/runtimeBaseline"
+    },
+    {
+      "$ref": "#/$defs/explicitlyInvoked"
+    },
+    {
+      "$ref": "#/$defs/readDuringTurn"
+    },
+    {
+      "$ref": "#/$defs/declared"
+    }
+  ],
+  "$defs": {
+    "sourceCitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "href",
+        "activeRepositoryId",
+        "repositoryId",
+        "baseRevision",
+        "path",
+        "sha256",
+        "gitBlob",
+        "worktreeState"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Compact UI label for the citation link."
+        },
+        "href": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute local path to the project-scoped evidence log containing this record."
+        },
+        "repositoryId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identity of the repository containing the cited source."
+        },
+        "activeRepositoryId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identity of the project in which the governed turn ran. A differing repositoryId makes a cross-project source explicit."
+        },
+        "baseRevision": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+          "description": "Repository-relative instruction path."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "gitBlob": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "Git object identity of the exact cited bytes, including modified worktree content."
+        },
+        "worktreeState": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "modified",
+            "untracked"
+          ]
+        }
+      }
+    },
+    "common": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "recordId",
+        "instruction",
+        "evidenceType",
+        "reason",
+        "citation",
+        "proof"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "recordId": {
+          "type": "string",
+          "pattern": "^iev_[0-9a-f]{24}$"
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceType": {
+          "enum": [
+            "Observed",
+            "Runtime baseline",
+            "Explicitly invoked",
+            "Read during turn",
+            "Declared"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "citation": {
+          "$ref": "#/$defs/sourceCitation"
+        },
+        "proof": {
+          "type": "object"
+        }
+      }
+    },
+    "observed": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "properties": {
+            "evidenceType": {
+              "const": "Observed"
+            },
+            "proof": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "runtime",
+                "eventName",
+                "observationId"
+              ],
+              "properties": {
+                "runtime": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "eventName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "observationId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "loadReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "runtimeBaseline": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "properties": {
+            "evidenceType": {
+              "const": "Runtime baseline"
+            },
+            "proof": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "runtime",
+                "discoveryMechanism",
+                "scopePath"
+              ],
+              "properties": {
+                "runtime": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "discoveryMechanism": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scopePath": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "explicitlyInvoked": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "properties": {
+            "evidenceType": {
+              "const": "Explicitly invoked"
+            },
+            "proof": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "invocationId",
+                "invocationKind"
+              ],
+              "properties": {
+                "invocationId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "invocationKind": {
+                  "enum": [
+                    "skill",
+                    "instruction"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "readDuringTurn": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "properties": {
+            "evidenceType": {
+              "const": "Read during turn"
+            },
+            "proof": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "runtime",
+                "toolEventId"
+              ],
+              "properties": {
+                "runtime": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "toolEventId": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "declared": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "properties": {
+            "evidenceType": {
+              "const": "Declared"
+            },
+            "proof": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "adapterPath",
+                "declarationKind"
+              ],
+              "properties": {
+                "adapterPath": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "declarationKind": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
