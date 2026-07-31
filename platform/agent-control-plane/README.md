@@ -43,6 +43,28 @@ The monorepo installs runtime-discovered adapters at repository root. Run
 [`../../scripts/check-agent-discovery-layout.sh`](../../scripts/check-agent-discovery-layout.sh)
 to verify that they have not drifted back into the component directory.
 
+## Prompt instruction manifests
+
+Each completed prompt response includes a compact list of the instructions
+that governed that turn. The canonical response contract lives in
+[`agent-assets/instructions/prompt-instruction-manifest.md`](agent-assets/instructions/prompt-instruction-manifest.md).
+
+Runtime evidence retains its source:
+
+- Claude Code records authoritative `InstructionsLoaded` observations and
+  injects them at `UserPromptSubmit`.
+- Codex discovers the applicable `AGENTS.md` repository baseline at
+  `UserPromptSubmit`, then asks the model to add instructions and skills used
+  during the turn.
+- GitHub Copilot receives the durable response requirement through its
+  instruction adapter. Its entries remain `Declared` unless the runtime
+  supplies authoritative load evidence.
+
+The shared hook writes a session ledger with one snapshot per prompt under the
+operating system's temporary-data directory. Set
+`AEP_INSTRUCTION_MANIFEST_DIR` to choose another location. Prompt text is
+excluded from the ledger.
+
 It answers:
 
 > How should an AI coding agent discover, load, and apply repository

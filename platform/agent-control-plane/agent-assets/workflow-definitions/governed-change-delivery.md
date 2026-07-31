@@ -102,15 +102,39 @@ traceability easy to inspect and does not serve as a numerical quality target.
 - Move the Jira task to `In Review` when implementation evidence is ready.
 - Require an accountable human to approve governed work.
 
-### 7. Close
+### 7. Merge
 
 - Merge only after approval and required checks.
 - Verify the target branch contains the intended result.
-- Clean up local and remote feature refs when authorized.
 - Record the merge and verification evidence for repository changes.
 - Record native configuration identifiers and audit evidence for external
   changes.
-- Move the Jira task to its completed status only after delivery is verified.
+
+### 8. Post-merge cleanup
+
+- Start cleanup only from a request that identifies the delivery unit or the
+  exact local targets.
+- Resolve the Jira key, pull request, feature branch, target branch, and linked
+  worktree before deleting anything.
+- Confirm the pull request is merged and its merge result is reachable from
+  the updated target branch.
+- Confirm the worktree has no tracked, untracked, staged, or conflicted
+  changes and that its `HEAD` matches the published pull-request head.
+- Remove the linked worktree before deleting its local feature branch.
+- For squash merges, use the verified pull-request state, head identifier,
+  merge identifier, and target-branch reachability as evidence. Branch
+  ancestry alone cannot establish that the squash result was preserved.
+- Prune stale worktree administration records after the intended worktree is
+  removed.
+- Read the remote branch state after cleanup. Delete a surviving remote branch
+  only when remote cleanup is separately authorized.
+- Preserve the worktree and refs when state is dirty, unmerged, ambiguous, or
+  mismatched.
+- Record cleanup evidence, then move the Jira task to its completed status.
+
+GitHub-side merge and branch settings cannot remove a developer's local
+worktree directory or local branch. Local cleanup requires a later local agent
+run or separately authorized local automation.
 
 ## Authority gates
 
@@ -122,13 +146,47 @@ Each gate requires the authority applicable to its system and impact:
 | Modify repository files | Implementation request |
 | Modify external configuration | Mutation request for the owning system and scope |
 | Create or switch branches | Branch operation request |
+| Backfill completed repository work | Retrospective delivery request; includes work-record mutation and local isolation through verified Implement state |
 | Stage and commit | Commit request |
 | Push or open a pull request | Publication request |
 | Approve or request changes | Review authority |
 | Merge | Merge request |
-| Delete refs | Cleanup request naming the target |
+| Remove a local worktree and branch | Local cleanup request naming the delivery unit or targets |
+| Delete a remote branch | Remote cleanup request naming the branch |
 
 Authority for one gate does not approve later gates.
+
+## Retrospective backfill
+
+An explicit request to backfill a governed-change run authorizes the routine,
+reversible reconstruction needed to represent already-performed work through
+verified Implement state.
+
+For repository changes:
+
+1. Resolve or create the Jira task and mark the record as retrospective.
+2. Reconstruct the outcome, acceptance criteria, ownership, bounded file
+   scope, verification evidence, and actual delivery state.
+3. Inspect existing branches, commits, pull requests, merges, and target-branch
+   state before creating new artifacts.
+4. Create or select the Jira-keyed local branch required by the delivery unit.
+   Prefer a separate worktree when the source worktree contains another
+   outcome or unrelated user changes.
+5. Move only the bounded changes into the isolated delivery unit, verify them,
+   and synchronize the branch and evidence to Jira.
+6. Set Jira status to the verified phase. Retrospective task creation alone
+   does not prove review, merge, delivery, or completion.
+
+For external-system changes, reconstruct the selected durable-authority path
+using the external artifact identifiers and native audit evidence. Do not
+create a branch, commit, or pull request without repository-tracked changes.
+
+The backfill request does not authorize new commits, pushes, pull requests,
+review decisions, merges, history rewrites, or cleanup. Existing durable
+identifiers may be recorded after read-only verification. Stop when the
+outcome boundary, base or target branch, safe isolation method, permission
+scope, sharing boundary, or review risk cannot be resolved without a human
+decision.
 
 ## Deliberate exceptions
 

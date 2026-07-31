@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "InstructionsLoaded": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime claude",
+            "timeout": 10,
+            "statusMessage": "Preparing instruction references"
+          }
+        ]
+      }
+    ]
+  }
+}

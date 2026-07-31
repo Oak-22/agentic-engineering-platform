@@ -33,6 +33,7 @@ agentic-engineering-platform/
 ├── .agents/
 │   └── skills/
 ├── .claude/
+│   ├── hooks/
 │   ├── rules/
 │   └── skills/
 ├── .github/

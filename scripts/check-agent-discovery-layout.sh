@@ -9,15 +9,22 @@ required_paths="
 AGENTS.md
 CLAUDE.md
 .github/copilot-instructions.md
+.codex/hooks.json
+.claude/settings.json
 .github/instructions
 .github/skills
 .agents/skills
+.agents/skills/README.md
+.codex/hooks/README.md
 .claude/rules
 .claude/skills
+.claude/skills/README.md
+.claude/hooks/README.md
 platform/agent-control-plane/agent-assets/instructions
 platform/agent-control-plane/agent-assets/skills
 platform/agent-control-plane/agent-assets/role-charters
 platform/agent-control-plane/agent-assets/workflow-definitions
+platform/agent-control-plane/scripts/instruction_manifest_hook.py
 "
 
 for required_path in $required_paths; do
@@ -26,6 +33,16 @@ for required_path in $required_paths; do
     exit 1
   fi
 done
+
+python3 -m json.tool .codex/hooks.json >/dev/null
+python3 -m json.tool .claude/settings.json >/dev/null
+
+if ! grep -q '"InstructionsLoaded"' .claude/settings.json \
+  || ! grep -q '"UserPromptSubmit"' .claude/settings.json \
+  || ! grep -q '"UserPromptSubmit"' .codex/hooks.json; then
+  echo "prompt instruction manifest hooks are incomplete" >&2
+  exit 1
+fi
 
 if [ -d platform/agent-control-plane/.github ]; then
   echo "nested runtime tree must not exist: platform/agent-control-plane/.github" >&2

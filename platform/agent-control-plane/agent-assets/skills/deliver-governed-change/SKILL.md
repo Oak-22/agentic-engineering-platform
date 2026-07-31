@@ -70,11 +70,77 @@ before planning or executing a delivery.
    authorized.
 6. **Review:** synchronize evidence and move the work to review. Require an
    accountable human to approve governed work.
-7. **Close:** merge, clean up refs, and complete the Jira work only when those
-   actions are authorized and verified.
+7. **Merge:** merge only when the requested method, approval, and required
+   checks are authorized and verified.
+8. **Clean up:** after a verified merge, remove the delivery unit's linked
+   worktree and refs only when cleanup is authorized, then synchronize the
+   cleanup evidence and complete the Jira work.
 
 Complete only the phases authorized by the current request. Report the next
 gate without treating it as approved.
+
+## Backfill completed work
+
+When the user explicitly asks to backfill a governed-change run, delivery, or
+record for work already performed, treat that request as authority to
+reconstruct the delivery unit through verified **Implement** state. The user
+does not need to enumerate the routine reversible operations inside that
+reconstruction.
+
+For a repository change, the backfill includes:
+
+1. Resolve or create the Jira task and record that the delivery record is
+   retrospective.
+2. Reconstruct the outcome, acceptance criteria, accountable owner, scope,
+   existing evidence, and actual delivery state.
+3. Inspect current Git and GitHub state for existing branches, commits, pull
+   requests, or merge evidence before creating anything.
+4. Create or select the Jira-keyed local feature branch needed by the default
+   delivery relationship. Use a separate worktree when that is the safest way
+   to isolate the outcome from unrelated or user-authored changes.
+5. Transfer only the bounded change into the delivery unit, run the smallest
+   relevant checks, and synchronize the branch and verification evidence back
+   to Jira.
+6. Set Jira status from verified reality. Do not mark work complete solely
+   because its record was created retrospectively.
+
+For a change owned by Jira, Confluence, GitHub configuration, or another
+external system, reconstruct the selected durable-authority evidence path and
+do not create empty Git artifacts.
+
+A backfill request does not authorize creating commits, pushing branches,
+opening pull requests, advancing review state, merging, deleting refs or
+worktrees, or rewriting history. Record existing identifiers when they can be
+verified, then report the next unapproved gate.
+
+Stop for a human decision when the outcome boundary is ambiguous, safe
+isolation would require discarding or rewriting work, the correct base or
+target branch cannot be resolved, or reconstruction would expand permissions,
+sharing, review scope, or delivery risk.
+
+## Clean up completed delivery units
+
+Treat a natural-language request such as “clean up the local worktree and
+branch for AEPI-21 after verifying its pull request was merged” as authority
+for local cleanup of that named delivery unit. It does not authorize merging,
+deleting another worktree, or deleting a remote branch.
+
+Delegate cleanup mechanics to `manage-git-workflow` and require it to:
+
+1. resolve the Jira key, pull request, feature branch, target branch, and
+   linked worktree as one delivery unit;
+2. verify the pull request is merged and the target contains its merge result;
+3. verify the worktree is clean and its `HEAD` matches the published feature
+   tip;
+4. remove the linked worktree before deleting the local feature branch;
+5. verify squash merges from pull-request and target-branch evidence instead
+   of branch ancestry alone;
+6. prune stale worktree metadata and report the remote branch's disposition;
+7. preserve and report any dirty, unmerged, ambiguous, or mismatched target.
+
+GitHub cannot delete local worktrees or refs. Run this phase from a local
+agent session after the GitHub merge, or through separately authorized local
+automation.
 
 ## Maintain traceability
 
