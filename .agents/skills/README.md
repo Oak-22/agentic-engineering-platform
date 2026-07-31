@@ -1,6 +1,8 @@
 # Codex Skill Catalog
 
-This directory exposes the repository's installed, shared skills to Codex.
+This directory owns the repository's canonical provider-neutral Agent Skill
+packages. Each skill keeps its procedure, runtime-neutral metadata, and
+supporting references together so other runtimes can use thin adapters.
 The reference catalogs below show the standard skills published by OpenAI so
 developers can study proven workflow boundaries before creating a
 repository-specific skill.

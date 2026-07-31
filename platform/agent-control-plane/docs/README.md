@@ -47,7 +47,8 @@ machine-local overlay.
 
 - Keep runtime-discovered repository adapters at root `AGENTS.md` and
   runtime-owned `.agents/`, `.claude/`, and `.github/` paths.
-- Keep canonical reusable agent assets under `../agent-assets/`.
+- Keep canonical skill packages under `../../../.agents/skills/`; keep shared
+  instructions and role charters under `../agent-assets/`.
 - Keep reusable control-plane implementation artifacts under
   `platform/agent-control-plane/`.
 - Keep explanatory notes, diagrams, and applied validation writeups in

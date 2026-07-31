@@ -1,7 +1,7 @@
 # Agent Asset Discovery Layers
 
 This diagram separates lightweight repository entrypoints and runtime
-discovery adapters from the shared, content-heavy agent assets.
+adapters from canonical skill packages and other shared agent assets.
 
 ```mermaid
 flowchart TB
@@ -17,13 +17,18 @@ flowchart TB
         end
     end
 
+    subgraph P["CANONICAL — PROVIDER-NEUTRAL SKILL PACKAGES"]
+        direction TB
+        PS[" "]
+        DA[".agents/skills/<br/>Skills and colocated references"]
+    end
+
     subgraph D["LIGHT — RUNTIME DISCOVERY ADAPTERS"]
         direction TB
         DS[" "]
 
         subgraph DR[" "]
             direction LR
-            DA[".agents/<br/>Codex discovery"]
             DC[".claude/<br/>Claude discovery"]
             DG[".github/<br/>Copilot discovery"]
         end
@@ -37,9 +42,7 @@ flowchart TB
         subgraph SR[" "]
             direction LR
             I["instructions/"]
-            SK["skills/"]
             R["role-charters/"]
-            W["workflow-definitions/"]
         end
     end
 
@@ -47,16 +50,17 @@ flowchart TB
     C --> DC
     G --> DG
 
-    DA --> ROOT
+    DC --> DA
+    DG --> DA
+    A --> ROOT
     DC --> ROOT
     DG --> ROOT
 
     ROOT --> I
-    ROOT --> SK
     ROOT --> R
-    ROOT --> W
 
     style ES fill:transparent,stroke:transparent
+    style PS fill:transparent,stroke:transparent
     style DS fill:transparent,stroke:transparent
     style SS fill:transparent,stroke:transparent
 

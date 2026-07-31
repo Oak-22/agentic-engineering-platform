@@ -10,7 +10,7 @@ system-specific actions and preserve the user's authority boundary at every
 phase.
 
 Read
-[the governed change delivery workflow](../../workflow-definitions/governed-change-delivery.md)
+[the governed change delivery workflow](references/governed-change-delivery.md)
 before planning or executing a delivery.
 
 ## Establish the delivery unit
