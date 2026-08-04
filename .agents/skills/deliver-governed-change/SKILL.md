@@ -15,7 +15,10 @@ before planning or executing a delivery.
 
 ## Establish the delivery unit
 
-1. Identify one accountable engineering outcome and its acceptance criteria.
+1. Accept one bounded outcome from `shape-repository-change`, or use that skill
+   when observations, working-tree changes, or local commits still need to be
+   grouped. Confirm the accountable outcome and acceptance criteria before
+   creating delivery artifacts.
 2. Resolve an existing Jira work item or create one when the request
    authorizes tracked delivery.
 3. Classify the system that owns the durable change and select its delivery
@@ -44,6 +47,9 @@ before planning or executing a delivery.
 
 ## Coordinate specialized operations
 
+- Use `shape-repository-change` to identify and classify coherent outcomes,
+  dependencies, exclusions, acceptance criteria, and verification
+  expectations without initiating delivery.
 - Use `manage-jira-confluence` for Jira and Confluence reads, writes, links,
   transitions, and verification.
 - Use `manage-git-workflow` for branches, staging, commits, pushes, pull
@@ -56,9 +62,11 @@ before planning or executing a delivery.
 
 ## Advance through explicit gates
 
-1. **Shape:** establish the outcome, scope, acceptance criteria, owner, and
-   durable design location; classify the durable change authority and select
-   the delivery path.
+1. **Shape:** use `shape-repository-change` to establish the bounded outcome,
+   scope, dependencies, exclusions, acceptance criteria, and verification
+   expectations. Then resolve the accountable owner and durable design
+   location, classify the durable change authority, and select the delivery
+   path.
 2. **Isolate:** create or select the Jira-keyed feature branch for repository
    changes when branch creation is authorized; resolve external configuration
    targets without creating empty Git artifacts.
@@ -92,7 +100,10 @@ For a repository change, the backfill includes:
 1. Resolve or create the Jira task and record that the delivery record is
    retrospective.
 2. Reconstruct the outcome, acceptance criteria, accountable owner, scope,
-   existing evidence, and actual delivery state.
+   existing evidence, and actual delivery state. Use
+   `shape-repository-change` when repository evidence still needs to be
+   partitioned into a bounded outcome, while preserving this backfill
+   workflow's authority and cross-system reconstruction responsibilities.
 3. Inspect current Git and GitHub state for existing branches, commits, pull
    requests, or merge evidence before creating anything.
 4. Create or select the Jira-keyed local feature branch needed by the default

@@ -20,6 +20,7 @@ repository is deprecated.
 - `handoff-agent-work` — Preserve intent, evidence, authority, and state when work moves between agents or runtimes.
 - `manage-git-workflow` — Govern branches, commits, pushes, pull requests, merges, and cleanup.
 - `manage-jira-confluence` — Read and update Jira and Confluence as one traceable Atlassian workflow.
+- `shape-repository-change` — Turn repository observations and changes into coherent delivery-unit candidates.
 - `shape-readme-entrypoint` — Keep a repository README focused on orientation and a hands-on quick start.
 
 ## OpenAI system skills
