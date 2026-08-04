@@ -10,3 +10,6 @@ runtime dependency of the platform components.
 - [`experiments/llm-diagram-manipulation-fidelity/`](experiments/llm-diagram-manipulation-fidelity/)
   compares how LLM workflows preserve semantics, layout, routing, and native
   editability while revising architecture diagrams.
+- [`experiments/repo-context-handoff-across-models/`](experiments/repo-context-handoff-across-models/)
+  measures whether a quarantined, session-derived context handoff improves a
+  new agent session's repository understanding.

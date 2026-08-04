@@ -1,0 +1,1 @@
+Based only on the project context available to you in this new session, explain your current understanding of this repository: its purpose, architecture, ownership boundaries, workflows, current state, and important uncertainties. Distinguish verified facts from inference. Do not modify files. Keep the answer under 1,200 words.
