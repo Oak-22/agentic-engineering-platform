@@ -49,7 +49,9 @@ traceability easy to inspect and does not serve as a numerical quality target.
 
 ### 1. Shape
 
-- Establish the engineering outcome and acceptance criteria.
+- Use `shape-repository-change` to establish the bounded engineering outcome,
+  classification, included and excluded scope, dependencies, acceptance
+  criteria, and verification expectations.
 - Resolve or create the Jira task.
 - Classify the durable change authority and select the delivery path.
 - Identify the required native configuration identifiers and audit evidence
@@ -173,7 +175,9 @@ For repository changes:
 
 1. Resolve or create the Jira task and mark the record as retrospective.
 2. Reconstruct the outcome, acceptance criteria, ownership, bounded file
-   scope, verification evidence, and actual delivery state.
+   scope, verification evidence, and actual delivery state. Use
+   `shape-repository-change` when existing repository evidence still needs to
+   be partitioned, without expanding backfill authority or lifecycle claims.
 3. Inspect existing branches, commits, pull requests, merges, and target-branch
    state before creating new artifacts.
 4. Create or select the Jira-keyed local branch required by the delivery unit.

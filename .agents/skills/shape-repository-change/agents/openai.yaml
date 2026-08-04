@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shape Repository Change"
+  short_description: "Turn repository changes into coherent outcomes"
+  default_prompt: "Use $shape-repository-change to group these repository observations or changes into bounded delivery-unit candidates."
