@@ -17,7 +17,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "pip"
-    directory: "/platform/context-serialization-tooling"
+    directory: "/shared/tooling/folder-structure-visualizer"
     schedule:
       interval: "weekly"
       day: "monday"

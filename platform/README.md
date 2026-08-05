@@ -4,16 +4,12 @@ This directory contains the runtime and developer-facing systems that make up
 the Agentic Engineering Platform.
 
 - [`agent-control-plane/`](agent-control-plane/) governs instruction discovery,
-  runtime adapters, provenance, and auditable execution.
-- [`engineering-work-routing-fabric/`](engineering-work-routing-fabric/)
-  normalizes work events, records cross-system routing decisions, and supplies
-  idempotency and loop-guard contracts.
+  runtime adapters, provenance, governed actions, and auditable execution.
 - [`inference-telemetry-observatory/`](inference-telemetry-observatory/) measures
-  model usage, latency, token economics, routing, and execution behavior.
-- [`context-serialization-tooling/`](context-serialization-tooling/) provides
-  independently packageable repository-orientation and context tools.
+  model usage, latency, token economics, and execution behavior.
 - [`developer-learning-retrieval/`](developer-learning-retrieval/) turns
   engineering activity into retrieval-practice and learning signals.
 
-Components should remain independently testable and packageable. Cross-domain
-interfaces belong under [`../shared/`](../shared/).
+These three pillars remain independently testable and packageable. Shared data
+schemas, interface contracts, and cross-cutting tools belong under
+[`../shared/`](../shared/).

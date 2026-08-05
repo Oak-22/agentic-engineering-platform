@@ -19,9 +19,10 @@ human intention
   -> authorized agent behavior
 ```
 
-Telemetry, routing, evidence, and learning remain separate platform concerns
-that observe outcomes and feed validated lessons back into this control
-surface.
+Inference Telemetry and Developer Learning remain peer platform pillars that
+observe outcomes and feed validated lessons back into this control surface.
+Shared contracts and schemas define concrete interfaces between the three
+pillars without becoming another control plane.
 
 It formalizes five core needs:
 
@@ -34,6 +35,23 @@ It formalizes five core needs:
 Portable work-governance contracts live in [`contracts/`](contracts/).
 The Jira work-item contract keeps board-facing operational metadata separate
 from immutable agent-run attempt history and detailed telemetry.
+
+## Governed action safety
+
+The control plane owns routing and authorization for governed engineering
+actions while each destination system remains authoritative for its own data.
+Its workflows:
+
+- read current destination state before mutation;
+- suppress duplicate or already-satisfied actions;
+- retain Jira keys, run and attempt identifiers, and native audit evidence;
+- stop, replan, or escalate repeated failures instead of looping; and
+- keep detailed observation streams behind the `telemetryRef` on an immutable
+  agent-run attempt.
+
+These rules do not require a generalized work-event, routing-decision, or
+delivery-receipt schema. Add a shared schema only when a concrete producer and
+consumer need a versioned cross-pillar interface.
 
 The monorepo installs runtime-discovered adapters at repository root. Run
 [`../../scripts/check-agent-discovery-layout.sh`](../../scripts/check-agent-discovery-layout.sh)

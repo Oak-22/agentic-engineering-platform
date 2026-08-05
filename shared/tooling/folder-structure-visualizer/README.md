@@ -9,9 +9,9 @@ velocity tool. It helps developers build accurate mental models of
 filesystems and repository hierarchy while giving humans and agents a
 shared, reviewable representation of structural context.
 
-The tool is intentionally top-level rather than owned by the Agent
-Instruction Control Plane or Developer Learning Retrieval Service. Those
-systems may consume its maps and annotations, but the visualizer remains
+The tool lives under shared tooling rather than any one platform pillar. The
+Agent Control Plane, Inference Telemetry Observatory, and Developer Learning
+Retrieval may consume its maps and annotations, but the visualizer remains
 independently useful for onboarding, architecture review, prompt grounding,
 and personal technical ramp-up.
 
