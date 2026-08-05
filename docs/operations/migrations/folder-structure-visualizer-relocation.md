@@ -3,12 +3,18 @@ migration_id: folder-structure-visualizer-into-platform-tools
 status: complete
 source_project: folder_structure_visualizer
 target_path: platform/context-serialization-tooling
+current_path: shared/tooling/folder-structure-visualizer
 component_role: optional_reference_tool
 package_independence: required
 runtime_dependency_of_control_plane: false
 ---
 
-# Folder Structure Visualizer relocation contract
+# Folder Structure Visualizer historical relocation contract
+
+This record preserves the completed relocation into the former platform-tools
+boundary. The package now lives at
+`shared/tooling/folder-structure-visualizer/`, where its cross-pillar and
+independent lifecycle is explicit.
 
 ## Product positioning
 
@@ -77,7 +83,8 @@ artifacts rather than portable source.
 
 The relocation is complete only when:
 
-- [x] the target exists at `platform/context-serialization-tooling/`
+- [x] the target existed at `platform/context-serialization-tooling/` when
+      this relocation completed
 - [x] all Python tests pass from the target directory
 - [x] `python -m folder_structure_visualizer --help` succeeds from the
       target environment

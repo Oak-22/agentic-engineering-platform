@@ -5,4 +5,5 @@ at least two platform components share its lifecycle or contract.
 
 - [`schemas/`](schemas/) contains shared data and event schemas.
 - [`contracts/`](contracts/) contains cross-component interface contracts.
-- [`tooling/`](tooling/) contains repository-wide reusable tooling.
+- [`tooling/`](tooling/) contains repository-wide reusable tooling, including
+  the independently packageable folder-structure visualizer.

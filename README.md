@@ -13,11 +13,11 @@ executing them within explicit task authority, and feeding observed outcomes
 back into the system.
 
 
-That loop maps onto three governing components: the Agent Control Plane
-governs execution through Shared Contracts & Schemas, which in turn hands
-observed behavior to Inference Telemetry and reinforced understanding to
-Developer Learning. Both feed back into the Agent Control Plane, closing the
-loop.
+That loop maps onto three peer components: the Agent Control Plane governs
+execution, Inference Telemetry observes behavior and outcomes, and Developer
+Learning turns validated signals into reinforced understanding. Shared
+Contracts & Schemas connect the three components, and telemetry and learning
+feed improvements back into the Agent Control Plane.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="control-plane-diagram-dark.svg">
@@ -49,9 +49,7 @@ agentic-engineering-platform/
 │   │   └── agent-assets/
 │   │       ├── instructions/
 │   │       └── role-charters/
-│   ├── engineering-work-routing-fabric/
 │   ├── inference-telemetry-observatory/
-│   ├── context-serialization-tooling/
 │   └── developer-learning-retrieval/
 ├── evidence/
 │   └── human-ai-collaboration-case-studies/
@@ -59,6 +57,7 @@ agentic-engineering-platform/
 │   ├── schemas/
 │   ├── contracts/
 │   └── tooling/
+│       └── folder-structure-visualizer/
 ├── docs/
 │   ├── architecture/
 │   ├── operations/
@@ -69,16 +68,11 @@ agentic-engineering-platform/
 ### Platform domains
 
 - [`platform/agent-control-plane/`](platform/agent-control-plane/) governs
-  instruction discovery, runtime adapters, provenance, reusable skills, and
-  auditable agent execution.
-- [`platform/engineering-work-routing-fabric/`](platform/engineering-work-routing-fabric/)
-  normalizes engineering activity, records routing decisions, and prevents
-  duplicate or circular destination actions.
+  instruction discovery, runtime adapters, provenance, reusable skills,
+  governed action routing, and auditable agent execution.
 - [`platform/inference-telemetry-observatory/`](platform/inference-telemetry-observatory/)
-  measures model usage, latency, token economics, routing decisions, and agent
-  execution behavior.
-- [`platform/context-serialization-tooling/`](platform/context-serialization-tooling/)
-  provides independently packageable repository-orientation and context tools.
+  measures model usage, latency, token economics, and agent execution
+  behavior.
 - [`platform/developer-learning-retrieval/`](platform/developer-learning-retrieval/)
   converts engineering activity into retrieval-practice and learning signals.
 
@@ -90,7 +84,8 @@ agentic-engineering-platform/
 - [`evidence/`](evidence/) contains applied human-AI collaboration case studies
   used to validate and improve the platform.
 - [`shared/`](shared/) owns cross-domain schemas, contracts, and reusable
-  tooling that do not belong to a single platform component.
+  tooling that connect multiple pillars or do not belong to a single platform
+  component.
 - [`docs/`](docs/) separates architecture, operations, and roadmap material.
 - [`scripts/`](scripts/) is reserved for repository-wide automation.
 
