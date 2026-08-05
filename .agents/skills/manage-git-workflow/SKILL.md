@@ -16,23 +16,54 @@ larger delivery unit, accept its resolved Jira key, outcome, scope, and current
 delivery phase as inputs. Preserve this skill's authority checks for every Git
 mutation.
 
+Read
+[the workbench-to-delivery branching contract](../../../platform/agent-control-plane/docs/workbench-delivery-branching.md)
+when exploratory capture, workbench commits, selective transfer, dependencies,
+or stacked branches are in scope.
+
 ## Resolve scope first
 
 1. Inspect the current branch, worktree, remotes, tracking state, and relevant
    diff.
-2. Identify unrelated or user-authored changes and keep them unstaged.
-3. Check whether the current branch already has a pull request before deciding
+2. Treat the session's primary workspace root as the developer-visible
+   checkout unless the user explicitly identifies another open workspace.
+   Report its path and branch before editing, and again whenever either
+   changes.
+3. Identify unrelated or user-authored changes and keep them unstaged.
+4. Check whether the current branch already has a pull request before deciding
    whether to extend it or create a new branch.
-4. Before creating or switching to a new Jira-keyed branch or worktree, run
+5. Before creating or switching to a new Jira-keyed branch or worktree, run
    `python3 platform/agent-control-plane/scripts/governed_task_preflight.py`
    from the repository root. Stop on any reported blocker. The preflight is
    read-only and never authorizes automatically committing, stashing,
    discarding, merging, or deleting work.
-5. State the intended branch and publication scope before performing an
+6. State the intended branch and publication scope before performing an
    authorized delivery workflow.
-6. Stop for direction when the current branch contains work that does not
+7. Stop for direction when the current branch contains work that does not
    belong in the requested change and isolation would materially change the
    delivery plan.
+
+## Separate capture from delivery
+
+- Keep `main` as the clean integration base and ordinary pull-request target.
+- Use a private, unpublished `workbench/local` branch in the primary checkout
+  for exploratory capture. Commit each coherent idea atomically without
+  assuming that capture commits are final delivery units.
+- Use `shape-repository-change` to partition workbench evidence before
+  delivery. Switch that same primary checkout to an ordinary Jira-keyed branch
+  created from current `main`, then transfer only the selected commits, files,
+  or hunks. `main` remains the base even when it is not checked out.
+- Use a secondary worktree only for concurrent agents, genuinely parallel
+  delivery, stable long-running processes, or unsafe branch switching caused
+  by unrelated work. Before editing there, disclose its exact path, branch,
+  owner, purpose, and IDE-visibility consequence. Never silently redirect work
+  away from the primary checkout.
+- Prefer merging a prerequisite first and deriving dependent work from the
+  updated `main`. Use a stacked branch only when the dependency, temporary
+  base, merge order, and later retargeting work are explicit.
+- Stop when mixed workbench evidence cannot be separated safely, dependency
+  direction remains ambiguous, two agents claim one worktree, or the developer
+  expects files in a different checkout than the active execution directory.
 
 ## Run an interactive preflight
 
@@ -93,6 +124,10 @@ Apply the narrowest matching authorization:
   branch changes, pushes, pull requests, merges, or branch deletion.
 - A request to create or switch to a named branch authorizes only that local
   branch operation unless publication is also requested.
+- A request to create a private workbench authorizes its local branch or
+  primary-checkout switch or creation. It does not authorize publishing it or
+  treating it as a delivery branch. A separate worktree requires an identified
+  isolation reason and visibility disclosure.
 - A request to commit authorizes staging the scoped changes and committing
   them on the current non-default branch. On the default branch, ask whether
   to commit there or create a feature branch because neither choice is
@@ -110,20 +145,27 @@ Apply the narrowest matching authorization:
 - A request to merge authorizes only the specified pull request and merge
   method. It does not authorize branch deletion unless cleanup is explicit.
 - A request to clean up a named local delivery unit after merge authorizes
-  removal of its verified linked worktree, deletion of its local feature
-  branch, and pruning of stale worktree metadata. It does not authorize
-  deleting a remote branch or any other worktree.
+  switching a clean primary checkout away from its verified feature branch or
+  removing its verified secondary worktree, deleting the local feature branch,
+  and pruning stale worktree metadata. It does not authorize deleting the
+  primary checkout directory, a remote branch, or any other worktree.
 - Force pushes, history rewrites, ref deletion, and direct pushes to the
   default branch always require explicit authorization naming that operation
   and target. The local feature-branch deletion included in a named
   post-merge cleanup request is the narrow exception defined above.
+
+The repository pre-commit guardrail blocks ordinary commits on checked-out
+`main` when `.githooks` is configured. Its `AEP_ALLOW_MAIN_COMMIT=1` bypass is
+an implementation mechanism, not authority; use it only after the user has
+explicitly authorized that exceptional direct commit.
 
 Do not ask repeatedly for an operation already authorized by the active
 request. If the user expands or narrows the request, apply the newest scope.
 
 ## Publish a pull request
 
-1. Prefer a focused feature branch based on the intended target branch.
+1. Prefer a focused feature branch based on current `main`. Use another base
+   only for a recorded dependency exception.
 2. Stage explicit paths; never use a broad staging command in a mixed
    worktree.
 3. Review the staged diff and run the smallest relevant checks.
@@ -141,32 +183,58 @@ request. If the user expands or narrows the request, apply the newest scope.
 - Preserve generated or cache files created by verification unless they are
   known disposable outputs within the requested scope; do not stage them
   merely because a check created them.
-- Prefer a separate worktree or another non-destructive isolation method when
-  an authorized change must start from a different base.
+- Prefer branch switching in the primary checkout. Use a separate worktree
+  only when concurrency, a stable long-running process, or unrelated local
+  changes make branch switching unsafe, and surface the resulting visibility
+  split before implementation.
 - Re-read remote or pull-request state after writes.
 - Treat merge, force push, rebase of published history, and branch deletion as
   distinct operations with distinct authority.
 
-## Clean up a merged delivery worktree
+## Clean up a merged delivery checkout
 
 Resolve and verify the complete target before mutating local state:
+
+1. From the disclosed primary workspace, run the bundled cleanup script without
+   `--execute` to produce a verification plan:
+
+   ```bash
+   python3 .agents/skills/manage-git-workflow/scripts/cleanup_merged_delivery.py \
+     --pr <NUMBER> \
+     --primary-workspace <REPOSITORY_ROOT>
+   ```
+
+2. When the user already requested local cleanup for that pull request or
+   delivery unit, rerun the verified command with `--execute` without asking
+   for redundant confirmation. Stop on any script blocker rather than
+   reproducing the mutation sequence manually.
+3. Treat the script as local-only. It fetches and prunes remote-tracking refs,
+   but never deletes the remote feature branch or changes Jira.
+
+The script applies the following contract:
 
 1. Identify the pull request and confirm its head branch, base branch, head
    identifier, merged state, merge result, and merge time.
 2. Fetch the remote base and verify the recorded merge result is reachable
    from it.
-3. Resolve the feature branch's linked worktree through Git metadata. Do not
-   infer the directory from its name.
-4. Require an empty worktree status, including untracked files, and verify
-   `HEAD` matches the pull request's published head identifier.
-5. Remove the linked worktree without force.
-6. Delete the local feature branch normally when Git recognizes it as merged.
+3. Resolve whether the feature branch is checked out in the primary checkout
+   or a secondary worktree through Git metadata. Do not infer the directory
+   from its name.
+4. Require an empty status, including untracked files, and verify `HEAD`
+   matches the pull request's published head identifier.
+5. For the primary checkout, switch to local `main` and update it by
+   fast-forward, then return the visible checkout to an existing clean
+   `workbench/local` branch or leave `main` checked out when no workbench
+   exists. Never delete the primary checkout directory.
+6. For a secondary worktree, remove that verified worktree without force.
+7. Delete the local feature branch normally when Git recognizes it as merged.
    After a squash merge, force-delete only when the pull-request, head, merge,
    and target-branch checks above all succeeded.
-7. Prune stale worktree metadata and re-read the worktree and branch lists.
-8. Report whether GitHub already deleted the remote branch. Delete it only
+8. Prune stale worktree metadata and re-read the worktree and branch lists.
+9. Report whether GitHub already deleted the remote branch. Delete it only
    when remote cleanup was explicitly authorized.
 
 Stop without deletion when the pull request is open or unknown, the target
-does not contain the merge result, the worktree is dirty, its branch or `HEAD`
-does not match the pull request, or more than one target remains plausible.
+does not contain the merge result, the active checkout is dirty, its branch or
+`HEAD` does not match the pull request, primary-versus-secondary ownership is
+unclear, or more than one target remains plausible.

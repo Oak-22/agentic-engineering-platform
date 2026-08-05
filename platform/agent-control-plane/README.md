@@ -90,6 +90,9 @@ future directions lives in [`docs/`](docs/).
 Contributor automation and operational commands are documented in
 [`scripts/README.md`](scripts/README.md).
 
+The repository branching contract is documented in
+[`docs/workbench-delivery-branching.md`](docs/workbench-delivery-branching.md).
+
 
 ## Business Value
 

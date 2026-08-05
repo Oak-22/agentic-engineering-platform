@@ -4,6 +4,20 @@ Operational scripts in this directory implement deterministic Agent Control
 Plane behavior. Runtime adapters and governed workflows invoke them; maintainers
 can also run them directly when diagnosing or verifying that behavior.
 
+## Protect the integration branch
+
+Enable the repository-owned Git hooks once per clone:
+
+```bash
+git config --local core.hooksPath .githooks
+```
+
+The pre-commit hook invokes `protect_main_commit.py` and rejects ordinary
+commits while `main` is checked out. An explicitly authorized exception can be
+invoked with `AEP_ALLOW_MAIN_COMMIT=1 git commit`. See
+[`../docs/workbench-delivery-branching.md`](../docs/workbench-delivery-branching.md)
+for the complete branching contract and the limits of local hook enforcement.
+
 ## Governed task-start preflight
 
 Run this check before creating or switching to another Jira-keyed branch or

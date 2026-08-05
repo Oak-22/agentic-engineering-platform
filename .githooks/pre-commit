@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+repository_root=$(git rev-parse --show-toplevel)
+exec python3 "$repository_root/platform/agent-control-plane/scripts/protect_main_commit.py"
