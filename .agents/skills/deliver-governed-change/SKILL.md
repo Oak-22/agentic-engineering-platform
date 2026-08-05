@@ -67,9 +67,13 @@ before planning or executing a delivery.
    expectations. Then resolve the accountable owner and durable design
    location, classify the durable change authority, and select the delivery
    path.
-2. **Isolate:** create or select the Jira-keyed feature branch for repository
-   changes when branch creation is authorized; resolve external configuration
-   targets without creating empty Git artifacts.
+2. **Isolate:** switch the primary developer-visible checkout to a Jira-keyed
+   feature branch from current `main` when branch creation is authorized, then
+   transfer only shaped workbench evidence when applicable. Use a secondary
+   worktree only for an explicit concurrency or isolation exception and expose
+   its visibility boundary. Resolve external configuration targets without
+   creating empty Git artifacts. Use another branch base only for an explicit
+   dependency exception.
 3. **Implement:** make the bounded changes and run the smallest relevant
    checks; re-read external configuration after mutation.
 4. **Commit:** partition the result into coherent commits when committing is
@@ -80,9 +84,10 @@ before planning or executing a delivery.
    accountable human to approve governed work.
 7. **Merge:** merge only when the requested method, approval, and required
    checks are authorized and verified.
-8. **Clean up:** after a verified merge, remove the delivery unit's linked
-   worktree and refs only when cleanup is authorized, then synchronize the
-   cleanup evidence and complete the Jira work.
+8. **Clean up:** after a verified merge, restore the primary checkout or remove
+   an exceptional secondary worktree, then delete the delivery refs only when
+   cleanup is authorized. Synchronize the cleanup evidence and complete the
+   Jira work.
 
 Complete only the phases authorized by the current request. Report the next
 gate without treating it as approved.
@@ -107,8 +112,9 @@ For a repository change, the backfill includes:
 3. Inspect current Git and GitHub state for existing branches, commits, pull
    requests, or merge evidence before creating anything.
 4. Create or select the Jira-keyed local feature branch needed by the default
-   delivery relationship. Use a separate worktree when that is the safest way
-   to isolate the outcome from unrelated or user-authored changes.
+   delivery relationship in the primary developer-visible checkout. Use a
+   separate worktree only when concurrency or unrelated user-authored changes
+   make branch switching unsafe, and disclose that visibility boundary.
 5. Transfer only the bounded change into the delivery unit, run the smallest
    relevant checks, and synchronize the branch and verification evidence back
    to Jira.
@@ -131,27 +137,34 @@ sharing, review scope, or delivery risk.
 
 ## Clean up completed delivery units
 
-Treat a natural-language request such as “clean up the local worktree and
+Treat a natural-language request such as “clean up the local checkout and
 branch for AEPI-21 after verifying its pull request was merged” as authority
 for local cleanup of that named delivery unit. It does not authorize merging,
-deleting another worktree, or deleting a remote branch.
+deleting the primary checkout directory, deleting another worktree, or
+deleting a remote branch.
 
 Delegate cleanup mechanics to `manage-git-workflow` and require it to:
 
 1. resolve the Jira key, pull request, feature branch, target branch, and
-   linked worktree as one delivery unit;
+   primary or secondary checkout as one delivery unit;
 2. verify the pull request is merged and the target contains its merge result;
-3. verify the worktree is clean and its `HEAD` matches the published feature
-   tip;
-4. remove the linked worktree before deleting the local feature branch;
+3. verify the active checkout is clean and its `HEAD` matches the published
+   feature tip;
+4. restore the primary checkout to its clean workbench (or `main` fallback),
+   or remove the verified secondary worktree, before deleting the local feature
+   branch;
 5. verify squash merges from pull-request and target-branch evidence instead
    of branch ancestry alone;
 6. prune stale worktree metadata and report the remote branch's disposition;
-7. preserve and report any dirty, unmerged, ambiguous, or mismatched target.
+7. verify that the local feature branch is absent; and
+8. preserve and report any dirty, unmerged, ambiguous, or mismatched target.
 
-GitHub cannot delete local worktrees or refs. Run this phase from a local
-agent session after the GitHub merge, or through separately authorized local
-automation.
+Use the deterministic cleanup script bundled with `manage-git-workflow`
+instead of reconstructing these mutations from memory.
+
+GitHub cannot switch a developer's visible checkout or delete local worktrees
+and refs. Run this phase from a local agent session after the GitHub merge, or
+through separately authorized local automation.
 
 ## Maintain traceability
 

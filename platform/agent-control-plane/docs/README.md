@@ -9,6 +9,9 @@ machine-local overlay.
 
 ## Start Here
 
+- [Workbench-to-Delivery Branching](workbench-delivery-branching.md)
+  Defines the clean integration base, private exploratory capture stream,
+  shaped transfer, independent delivery branches, and local commit guardrail.
 - [Feedforward Feedback Change Lifecycle](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.

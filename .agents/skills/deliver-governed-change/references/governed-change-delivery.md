@@ -65,6 +65,15 @@ traceability easy to inspect and does not serve as a numerical quality target.
 
 - For repository changes, inspect repository, branch, worktree, remotes,
   tracking state, and existing pull requests.
+- Treat the session's primary workspace root as the developer-visible checkout
+  unless the developer explicitly identifies another open workspace. Perform
+  ordinary branch switching and implementation there so the IDE and agent see
+  the same files.
+- Keep `main` as the clean integration base. When the outcome was discovered
+  on a private workbench, use `shape-repository-change` to select its evidence,
+  create the ordinary delivery branch from current `main`, and transfer only
+  the selected commits, files, or hunks in that primary checkout. Do not use
+  the workbench as the delivery branch's ancestry base.
 - Before creating or switching to a new Jira-keyed branch or worktree, run
   `python3 platform/agent-control-plane/scripts/governed_task_preflight.py`
   from the repository root. Stop when it reports uncommitted changes, an open
@@ -74,6 +83,14 @@ traceability easy to inspect and does not serve as a numerical quality target.
   committing, stashing, discarding, merging, or deleting work.
 - Create a feature branch named `agent/<JIRA-KEY>-<outcome-slug>` when
   repository-tracked content will change.
+- Prefer sequencing dependencies through merged `main`. Record the dependency,
+  temporary base, merge order, and required retargeting before deliberately
+  stacking a branch; stop when the dependency direction is ambiguous.
+- Use a secondary worktree only for concurrent agents, genuinely parallel
+  delivery, stable long-running processes, or unrelated changes that make
+  switching unsafe. Before editing there, report its exact path, branch,
+  ownership, purpose, and IDE-visibility consequence. Stop on ambiguous
+  ownership or an unintended mismatch with the developer's visible checkout.
 - For external configuration changes, identify the target site, project,
   space, repository, organization, rule, or setting without creating an empty
   Git branch.
@@ -123,27 +140,38 @@ traceability easy to inspect and does not serve as a numerical quality target.
 
 - Start cleanup only from a request that identifies the delivery unit or the
   exact local targets.
-- Resolve the Jira key, pull request, feature branch, target branch, and linked
-  worktree before deleting anything.
+- Delegate the local mechanics to the deterministic cleanup script bundled
+  with `manage-git-workflow`. Run its verification plan first, then execute it
+  without another confirmation when the active request already authorizes
+  local cleanup.
+- Resolve the Jira key, pull request, feature branch, target branch, and active
+  primary or secondary checkout before deleting anything.
 - Confirm the pull request is merged and its merge result is reachable from
   the updated target branch.
-- Confirm the worktree has no tracked, untracked, staged, or conflicted
-  changes and that its `HEAD` matches the published pull-request head.
-- Remove the linked worktree before deleting its local feature branch.
+- Confirm the checkout has no tracked, untracked, staged, or conflicted changes
+  and that its `HEAD` matches the published pull-request head.
+- If it is the primary checkout, switch to local `main`, update it by
+  fast-forward, and return the visible checkout to an existing clean
+  `workbench/local` branch or leave `main` checked out as fallback. Never
+  delete the primary checkout directory.
+- Remove a linked worktree only when it is a verified secondary-worktree
+  exception, then delete its local feature branch.
 - For squash merges, use the verified pull-request state, head identifier,
   merge identifier, and target-branch reachability as evidence. Branch
   ancestry alone cannot establish that the squash result was preserved.
-- Prune stale worktree administration records after the intended worktree is
-  removed.
+- Prune stale worktree administration records after any intended secondary
+  worktree is removed.
 - Read the remote branch state after cleanup. Delete a surviving remote branch
   only when remote cleanup is separately authorized.
+- Re-read local refs and require the feature branch to be absent before
+  reporting cleanup complete.
 - Preserve the worktree and refs when state is dirty, unmerged, ambiguous, or
   mismatched.
 - Record cleanup evidence, then move the Jira task to its completed status.
 
-GitHub-side merge and branch settings cannot remove a developer's local
-worktree directory or local branch. Local cleanup requires a later local agent
-run or separately authorized local automation.
+GitHub-side merge and branch settings cannot switch a developer's visible
+checkout or remove local worktree directories and branches. Local cleanup
+requires a later local agent run or separately authorized local automation.
 
 ## Authority gates
 
@@ -160,7 +188,7 @@ Each gate requires the authority applicable to its system and impact:
 | Push or open a pull request | Publication request |
 | Approve or request changes | Review authority |
 | Merge | Merge request |
-| Remove a local worktree and branch | Local cleanup request naming the delivery unit or targets |
+| Restore a primary checkout or remove a secondary worktree and branch | Local cleanup request naming the delivery unit or targets |
 | Delete a remote branch | Remote cleanup request naming the branch |
 
 Authority for one gate does not approve later gates.
@@ -180,9 +208,10 @@ For repository changes:
    be partitioned, without expanding backfill authority or lifecycle claims.
 3. Inspect existing branches, commits, pull requests, merges, and target-branch
    state before creating new artifacts.
-4. Create or select the Jira-keyed local branch required by the delivery unit.
-   Prefer a separate worktree when the source worktree contains another
-   outcome or unrelated user changes.
+4. Create or select the Jira-keyed local branch required by the delivery unit
+   in the primary developer-visible checkout. Use a separate worktree only
+   when concurrency or unrelated user changes make switching unsafe, and
+   expose that visibility boundary before implementation.
 5. Move only the bounded changes into the isolated delivery unit, verify them,
    and synchronize the branch and evidence to Jira.
 6. Set Jira status to the verified phase. Retrospective task creation alone
