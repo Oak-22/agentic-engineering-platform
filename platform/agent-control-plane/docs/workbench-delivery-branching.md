@@ -145,6 +145,27 @@ After a verified merge and authorized local cleanup:
 
 Never delete the primary checkout directory during delivery cleanup.
 
+### Repository-wide cleanup reconciliation
+
+Per-delivery cleanup remains mandatory after each merge. Repository-wide
+reconciliation is a safety net for local Jira-keyed branches left behind by a
+skipped or interrupted cleanup or by work that predates the current workflow.
+
+Run
+`.agents/skills/manage-git-workflow/scripts/reconcile_local_deliveries.py`
+without `--execute` to fetch current remote state and classify every candidate.
+Only branches with an exact-tip merged pull request, no live remote branch, no
+worktree checkout, and no commits outside `origin/main` are safe automatic
+cleanup candidates. Contained branches without matching pull-request evidence
+require manual review. Checked-out, remote, unmerged, or uniquely committed
+branches must be preserved.
+
+An explicitly authorized `--execute` run deletes only the verified safe set by
+normal branch deletion and verifies final absence. It never force-deletes,
+removes worktrees, deletes remote branches, or changes Jira. Governed-task
+preflight may report safe cleanup debt, but it remains read-only and does not
+block task isolation solely because historical local branches exist.
+
 ## Dependencies and stacked branches
 
 Prefer sequencing over stacking: merge the prerequisite delivery, update
