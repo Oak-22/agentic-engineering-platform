@@ -199,7 +199,7 @@ Resolve and verify the complete target before mutating local state:
    `--execute` to produce a verification plan:
 
    ```bash
-   python3 .agents/skills/manage-git-workflow/scripts/cleanup_merged_delivery.py \
+   python3 .agents/skills/manage-git-workflow/scripts/delivery_cleanup.py pr \
      --pr <NUMBER> \
      --primary-workspace <REPOSITORY_ROOT>
    ```
@@ -248,7 +248,7 @@ skipped, interrupted, or predates the current workflow.
 Run verification mode from the primary repository root:
 
 ```bash
-python3 .agents/skills/manage-git-workflow/scripts/reconcile_local_deliveries.py \
+python3 .agents/skills/manage-git-workflow/scripts/delivery_cleanup.py stale \
   --primary-workspace <REPOSITORY_ROOT>
 ```
 

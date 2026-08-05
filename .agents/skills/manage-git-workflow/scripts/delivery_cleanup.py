@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Verify and clean one merged pull request's local Git delivery state."""
+"""Verify and clean targeted or stale local Git delivery state."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Sequence
 
 
 WORKBENCH_BRANCH = "workbench/local"
+BRANCH_PATTERN = re.compile(r"^(?:agent/)?AEPI-\d+(?:-|$)")
 LOCAL_COMMAND_TIMEOUT_SECONDS = 30.0
 NETWORK_COMMAND_TIMEOUT_SECONDS = 120.0
 
@@ -50,6 +52,29 @@ class CleanupPlan:
     return_branch: str
     deletion_flag: str
     remote_branch_exists: bool
+
+
+@dataclass(frozen=True)
+class Candidate:
+    branch: str
+    head_oid: str
+    classification: str
+    reason: str
+    pull_request: int | None = None
+
+
+@dataclass(frozen=True)
+class ReconciliationReport:
+    base_ref: str
+    candidates: tuple[Candidate, ...]
+
+    @property
+    def safe_to_delete(self) -> tuple[Candidate, ...]:
+        return tuple(
+            candidate
+            for candidate in self.candidates
+            if candidate.classification == "safe-to-delete"
+        )
 
 
 def run(
@@ -113,24 +138,11 @@ def resolve_primary_workspace(path: Path) -> Path:
     return root
 
 
-def load_pull_request(workspace: Path, number: int) -> PullRequest:
-    result = run(
-        [
-            "gh",
-            "pr",
-            "view",
-            str(number),
-            "--json",
-            "number,state,mergedAt,mergeCommit,baseRefName,headRefName,headRefOid,url",
-        ],
-        cwd=workspace,
-        timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
-    )
-    try:
-        data = json.loads(result.stdout)
-    except json.JSONDecodeError as error:
-        raise CleanupError("GitHub returned invalid pull-request data") from error
-
+def pull_request_from_data(
+    data: object,
+    *,
+    expected_number: int | None = None,
+) -> PullRequest:
     if not isinstance(data, dict):
         raise CleanupError("GitHub returned a non-object pull-request response")
 
@@ -145,9 +157,10 @@ def load_pull_request(workspace: Path, number: int) -> PullRequest:
     returned_number = data.get("number")
     if not isinstance(returned_number, int) or isinstance(returned_number, bool):
         raise CleanupError("GitHub pull-request data has invalid or missing number")
-    if returned_number != number:
+    if expected_number is not None and returned_number != expected_number:
         raise CleanupError(
-            f"GitHub returned pull request #{returned_number} for requested #{number}"
+            f"GitHub returned pull request #{returned_number} for requested "
+            f"#{expected_number}"
         )
 
     merged_at = data.get("mergedAt")
@@ -175,6 +188,51 @@ def load_pull_request(workspace: Path, number: int) -> PullRequest:
         head_oid=required_string("headRefOid"),
         url=required_string("url"),
     )
+
+
+def load_pull_request(workspace: Path, number: int) -> PullRequest:
+    result = run(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--json",
+            "number,state,mergedAt,mergeCommit,baseRefName,headRefName,headRefOid,url",
+        ],
+        cwd=workspace,
+        timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
+    )
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise CleanupError("GitHub returned invalid pull-request data") from error
+    return pull_request_from_data(data, expected_number=number)
+
+
+def load_pull_requests(workspace: Path) -> tuple[PullRequest, ...]:
+    result = run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "all",
+            "--limit",
+            "1000",
+            "--json",
+            "number,state,mergedAt,mergeCommit,baseRefName,headRefName,headRefOid,url",
+        ],
+        cwd=workspace,
+        timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
+    )
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise CleanupError("GitHub returned invalid pull-request data") from error
+    if not isinstance(data, list):
+        raise CleanupError("GitHub returned non-list pull-request data")
+    return tuple(pull_request_from_data(item) for item in data)
 
 
 def parse_worktrees(output: str) -> tuple[Worktree, ...]:
@@ -229,23 +287,6 @@ def branch_exists(workspace: Path, branch: str) -> bool:
     return result.returncode == 0
 
 
-def remote_branch_exists(workspace: Path, branch: str) -> bool:
-    result = git(
-        workspace,
-        "ls-remote",
-        "--exit-code",
-        "--heads",
-        "origin",
-        f"refs/heads/{branch}",
-        check=False,
-        timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
-    )
-    if result.returncode not in (0, 2):
-        detail = result.stderr.strip() or "unknown remote inspection failure"
-        raise CleanupError(f"could not inspect remote branch {branch}: {detail}")
-    return result.returncode == 0
-
-
 def current_branch(workspace: Path) -> str:
     branch = git(workspace, "branch", "--show-current").stdout.strip()
     if not branch:
@@ -280,9 +321,234 @@ def is_ancestor(workspace: Path, ancestor: str, descendant: str) -> bool:
     return result.returncode == 0
 
 
+def refresh_remote(workspace: Path) -> None:
+    git(
+        workspace,
+        "fetch",
+        "--prune",
+        "origin",
+        timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
+    )
+
+
+def local_delivery_branches(workspace: Path) -> dict[str, str]:
+    output = git(
+        workspace,
+        "for-each-ref",
+        "--format=%(refname:short)%00%(objectname)",
+        "refs/heads",
+    ).stdout
+    branches: dict[str, str] = {}
+    for line in output.splitlines():
+        branch, separator, oid = line.partition("\0")
+        if separator and BRANCH_PATTERN.match(branch):
+            branches[branch] = oid
+    return branches
+
+
+def live_remote_branches(workspace: Path) -> set[str]:
+    result = git(
+        workspace,
+        "ls-remote",
+        "--heads",
+        "origin",
+        timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
+    )
+    prefix = "refs/heads/"
+    branches: set[str] = set()
+    for line in result.stdout.splitlines():
+        _, _, ref = line.partition("\t")
+        if ref.startswith(prefix):
+            branches.add(ref.removeprefix(prefix))
+    return branches
+
+
+def classify_branch(
+    workspace: Path,
+    *,
+    branch: str,
+    head_oid: str,
+    base_ref: str,
+    worktree_branches: set[str],
+    remote_branches: set[str],
+    pull_requests: Sequence[PullRequest],
+) -> Candidate:
+    if branch in worktree_branches:
+        return Candidate(branch, head_oid, "preserve", "branch is checked out")
+    if branch in remote_branches:
+        return Candidate(branch, head_oid, "preserve", "remote branch still exists")
+    if not is_ancestor(workspace, head_oid, base_ref):
+        return Candidate(
+            branch,
+            head_oid,
+            "preserve",
+            f"branch contains commits not reachable from {base_ref}",
+        )
+
+    matches = tuple(
+        pull_request
+        for pull_request in pull_requests
+        if pull_request.head_branch == branch
+    )
+    if not matches:
+        return Candidate(
+            branch,
+            head_oid,
+            "manual-review",
+            "no associated pull request was found",
+        )
+
+    exact_matches = tuple(
+        pull_request
+        for pull_request in matches
+        if pull_request.head_oid == head_oid
+    )
+    if not exact_matches:
+        return Candidate(
+            branch,
+            head_oid,
+            "manual-review",
+            "local branch tip does not match an associated pull request",
+        )
+
+    merged = tuple(
+        pull_request
+        for pull_request in exact_matches
+        if pull_request.state == "MERGED" and pull_request.merged_at
+    )
+    if not merged:
+        pull_request = exact_matches[0]
+        return Candidate(
+            branch,
+            head_oid,
+            "preserve",
+            f"pull request #{pull_request.number} is not merged",
+            pull_request.number,
+        )
+
+    pull_request = max(merged, key=lambda item: item.number)
+    return Candidate(
+        branch,
+        head_oid,
+        "safe-to-delete",
+        f"merged PR #{pull_request.number}; remote absent; tip reachable from "
+        f"{base_ref}",
+        pull_request.number,
+    )
+
+
+def build_reconciliation_report(
+    workspace: Path,
+    *,
+    base_ref: str = "origin/main",
+    remote_branches: set[str] | None = None,
+    pull_requests: Sequence[PullRequest] | None = None,
+) -> ReconciliationReport:
+    base_check = git(
+        workspace,
+        "show-ref",
+        "--verify",
+        "--quiet",
+        f"refs/remotes/{base_ref}",
+        check=False,
+    )
+    if base_check.returncode not in (0, 1):
+        raise CleanupError(f"could not inspect integration base {base_ref}")
+    if base_check.returncode == 1:
+        raise CleanupError(f"integration base is unavailable: {base_ref}")
+
+    remotes = (
+        live_remote_branches(workspace)
+        if remote_branches is None
+        else remote_branches
+    )
+    prs = load_pull_requests(workspace) if pull_requests is None else pull_requests
+    worktree_branches = {
+        worktree.branch
+        for worktree in inspect_worktrees(workspace)
+        if worktree.branch is not None
+    }
+    candidates = tuple(
+        classify_branch(
+            workspace,
+            branch=branch,
+            head_oid=head_oid,
+            base_ref=base_ref,
+            worktree_branches=worktree_branches,
+            remote_branches=remotes,
+            pull_requests=prs,
+        )
+        for branch, head_oid in sorted(local_delivery_branches(workspace).items())
+    )
+    return ReconciliationReport(base_ref=base_ref, candidates=candidates)
+
+
+def execute_reconciliation(
+    workspace: Path,
+    report: ReconciliationReport,
+) -> None:
+    require_clean(workspace, "primary workspace")
+    for candidate in report.safe_to_delete:
+        git(workspace, "branch", "-d", "--", candidate.branch)
+    git(workspace, "worktree", "prune")
+    remaining = local_delivery_branches(workspace)
+    undeleted = tuple(
+        candidate.branch
+        for candidate in report.safe_to_delete
+        if candidate.branch in remaining
+    )
+    if undeleted:
+        raise CleanupError(
+            "cleanup verification failed; local branches remain: "
+            + ", ".join(undeleted)
+        )
+
+
+def reconciliation_as_json(
+    report: ReconciliationReport,
+    *,
+    executed: bool,
+) -> str:
+    return json.dumps(
+        {
+            "baseRef": report.base_ref,
+            "executed": executed,
+            "candidates": [asdict(candidate) for candidate in report.candidates],
+        },
+        indent=2,
+        sort_keys=True,
+    )
+
+
+def render_reconciliation(
+    report: ReconciliationReport,
+    *,
+    executed: bool,
+) -> str:
+    mode = "executed" if executed else "verified dry run"
+    lines = [f"Local delivery reconciliation {mode} against {report.base_ref}."]
+    if not report.candidates:
+        lines.append("  No Jira-keyed local branches found.")
+    for classification in ("safe-to-delete", "manual-review", "preserve"):
+        matching = tuple(
+            candidate
+            for candidate in report.candidates
+            if candidate.classification == classification
+        )
+        if not matching:
+            continue
+        lines.append(f"  {classification}:")
+        lines.extend(
+            f"    {candidate.branch}: {candidate.reason}" for candidate in matching
+        )
+    return "\n".join(lines)
+
+
 def build_cleanup_plan(
     primary_workspace: Path,
     pull_request: PullRequest,
+    *,
+    remote_branches: set[str] | None = None,
 ) -> CleanupPlan:
     primary = resolve_primary_workspace(primary_workspace)
     if pull_request.state != "MERGED" or not pull_request.merged_at:
@@ -395,6 +661,11 @@ def build_cleanup_plan(
     if not is_ancestor(primary, pull_request.head_oid, remote_base):
         deletion_flag = "-D"
 
+    remotes = (
+        live_remote_branches(primary)
+        if remote_branches is None
+        else remote_branches
+    )
     return CleanupPlan(
         primary_workspace=primary,
         pull_request=pull_request,
@@ -402,9 +673,7 @@ def build_cleanup_plan(
         initial_primary_branch=initial_primary_branch,
         return_branch=return_branch,
         deletion_flag=deletion_flag,
-        remote_branch_exists=remote_branch_exists(
-            primary, pull_request.head_branch
-        ),
+        remote_branch_exists=pull_request.head_branch in remotes,
     )
 
 
@@ -490,19 +759,62 @@ def render_plan(plan: CleanupPlan, *, executed: bool) -> str:
 
 def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Verify and clean one merged pull request's local delivery state."
+        description="Verify and clean targeted or stale local delivery state."
     )
-    parser.add_argument("--pr", type=int, required=True, help="Merged pull request number")
-    parser.add_argument(
+    subparsers = parser.add_subparsers(dest="mode", required=True)
+
+    pr_parser = subparsers.add_parser(
+        "pr",
+        help="Verify and clean one merged pull request",
+    )
+    pr_parser.add_argument(
+        "--pr",
+        type=int,
+        required=True,
+        help="Merged pull request number",
+    )
+    pr_parser.add_argument(
         "--primary-workspace",
         type=Path,
         required=True,
         help="Developer-visible repository root",
     )
-    parser.add_argument(
+    pr_parser.add_argument(
         "--execute",
         action="store_true",
         help="Perform the verified local cleanup; otherwise print a dry-run plan",
+    )
+
+    stale_parser = subparsers.add_parser(
+        "stale",
+        help="Audit and optionally remove stale Jira-keyed local branches",
+    )
+    stale_parser.add_argument(
+        "--primary-workspace",
+        type=Path,
+        required=True,
+        help="Developer-visible repository root",
+    )
+    stale_parser.add_argument(
+        "--base-ref",
+        default="origin/main",
+        help="Updated integration ref used for reachability checks",
+    )
+    stale_parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Delete the verified safe candidates; otherwise report only",
+    )
+    stale_parser.add_argument(
+        "--no-fetch",
+        action="store_true",
+        help="Do not fetch or prune (reserved for read-only preflight use)",
+    )
+    stale_parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format",
     )
     return parser.parse_args(arguments)
 
@@ -511,24 +823,47 @@ def main(arguments: Sequence[str] | None = None) -> int:
     args = parse_args(arguments)
     try:
         primary = resolve_primary_workspace(args.primary_workspace)
-        pull_request = load_pull_request(primary, args.pr)
-        if args.execute:
-            git(
+        if args.mode == "pr":
+            refresh_remote(primary)
+            remotes = live_remote_branches(primary)
+            pull_request = load_pull_request(primary, args.pr)
+            plan = build_cleanup_plan(
                 primary,
-                "fetch",
-                "--prune",
-                "origin",
-                timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
+                pull_request,
+                remote_branches=remotes,
             )
-        plan = build_cleanup_plan(primary, pull_request)
+            if args.execute:
+                execute_cleanup(plan)
+            print(render_plan(plan, executed=args.execute))
+            if not args.execute:
+                print(
+                    "Run again with --execute only after local cleanup is "
+                    "authorized."
+                )
+            return 0
+
+        if not args.no_fetch:
+            refresh_remote(primary)
+        remotes = live_remote_branches(primary)
+        report = build_reconciliation_report(
+            primary,
+            base_ref=args.base_ref,
+            remote_branches=remotes,
+        )
         if args.execute:
-            execute_cleanup(plan)
-        print(render_plan(plan, executed=args.execute))
-        if not args.execute:
-            print("Run again with --execute only after local cleanup is authorized.")
+            execute_reconciliation(primary, report)
+        if args.format == "json":
+            print(reconciliation_as_json(report, executed=args.execute))
+        else:
+            print(render_reconciliation(report, executed=args.execute))
+            if not args.execute and report.safe_to_delete:
+                print(
+                    "Run again with --execute only after global cleanup is "
+                    "authorized."
+                )
         return 0
     except CleanupError as error:
-        print(f"Local cleanup blocked: {error}", file=sys.stderr)
+        print(f"Local delivery cleanup blocked: {error}", file=sys.stderr)
         return 1
 
 
