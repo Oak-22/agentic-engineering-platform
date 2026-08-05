@@ -83,8 +83,9 @@ def inspect_repository(root: Path) -> RepositoryState:
                     / "skills"
                     / "manage-git-workflow"
                     / "scripts"
-                    / "reconcile_local_deliveries.py"
+                    / "delivery_cleanup.py"
                 ),
+                "stale",
                 "--primary-workspace",
                 str(root),
                 "--no-fetch",
@@ -226,7 +227,7 @@ def warnings_for(state: RepositoryState) -> list[str]:
         + "\n".join(
             f"  {branch}" for branch in state.stale_local_delivery_branches
         )
-        + "\nRun reconcile_local_deliveries.py in verification mode, then with "
+        + "\nRun delivery_cleanup.py stale in verification mode, then with "
         "--execute after cleanup is authorized."
     ]
 

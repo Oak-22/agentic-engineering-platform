@@ -1,4 +1,6 @@
+import contextlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -14,9 +16,9 @@ SCRIPT_PATH = (
     / "skills"
     / "manage-git-workflow"
     / "scripts"
-    / "cleanup_merged_delivery.py"
+    / "delivery_cleanup.py"
 )
-SPEC = importlib.util.spec_from_file_location("cleanup_merged_delivery", SCRIPT_PATH)
+SPEC = importlib.util.spec_from_file_location("delivery_cleanup", SCRIPT_PATH)
 assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE
@@ -340,6 +342,294 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
 
         with self.assertRaisesRegex(MODULE.CleanupError, "is not merged"):
             MODULE.build_cleanup_plan(scenario.primary, pull_request)
+
+
+class StaleRepositoryScenario:
+    def __init__(self, root: Path):
+        self.root = root
+        self.origin = root / "origin.git"
+        self.primary = root / "primary"
+        self.git(root, "init", "--bare", "--initial-branch=main", str(self.origin))
+        self.git(root, "clone", str(self.origin), str(self.primary))
+        self.git(self.primary, "config", "user.name", "Reconciliation Test")
+        self.git(
+            self.primary,
+            "config",
+            "user.email",
+            "reconciliation@example.invalid",
+        )
+        (self.primary / "tracked.txt").write_text("main\n", encoding="utf-8")
+        self.git(self.primary, "add", "tracked.txt")
+        self.git(self.primary, "commit", "-m", "Initial")
+        self.git(self.primary, "push", "--set-upstream", "origin", "main")
+
+    def create_branch(self, branch: str, *, unique_commit: bool = False) -> str:
+        self.git(self.primary, "branch", branch, "main")
+        if unique_commit:
+            self.git(self.primary, "switch", branch)
+            path = self.primary / f"{branch.rsplit('/', 1)[-1]}.txt"
+            path.write_text("unique\n", encoding="utf-8")
+            self.git(self.primary, "add", path.name)
+            self.git(self.primary, "commit", "-m", f"Commit {branch}")
+            self.git(self.primary, "switch", "main")
+        return self.rev_parse(branch)
+
+    def rev_parse(self, revision: str) -> str:
+        return self.git(self.primary, "rev-parse", revision).stdout.strip()
+
+    @staticmethod
+    def git(cwd: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+
+class ReconcileLocalDeliveriesTests(unittest.TestCase):
+    def scenario(self):
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        return StaleRepositoryScenario(Path(temporary_directory.name))
+
+    @staticmethod
+    def merged_pr(number: int, branch: str, head_oid: str):
+        return MODULE.PullRequest(
+            number=number,
+            state="MERGED",
+            merged_at="2026-08-05T00:00:00Z",
+            merge_oid=head_oid,
+            base_branch="main",
+            head_branch=branch,
+            head_oid=head_oid,
+            url=f"https://example.invalid/pull/{number}",
+        )
+
+    def report(self, scenario, *, remote_branches=None, pull_requests=()):
+        return MODULE.build_reconciliation_report(
+            scenario.primary,
+            remote_branches=set() if remote_branches is None else remote_branches,
+            pull_requests=pull_requests,
+        )
+
+    def test_merged_remote_absent_branch_is_safe(self):
+        scenario = self.scenario()
+        branch = "agent/AEPI-100-merged"
+        head_oid = scenario.create_branch(branch)
+
+        report = self.report(
+            scenario,
+            pull_requests=(self.merged_pr(100, branch, head_oid),),
+        )
+
+        candidate = report.candidates[0]
+        self.assertEqual(candidate.classification, "safe-to-delete")
+        self.assertEqual(candidate.pull_request, 100)
+
+    def test_no_pr_branch_requires_manual_review(self):
+        scenario = self.scenario()
+        scenario.create_branch("AEPI-101-no-pr")
+
+        report = self.report(scenario)
+
+        self.assertEqual(report.candidates[0].classification, "manual-review")
+        self.assertIn("no associated pull request", report.candidates[0].reason)
+
+    def test_unique_commit_is_preserved(self):
+        scenario = self.scenario()
+        branch = "agent/AEPI-102-unique"
+        head_oid = scenario.create_branch(branch, unique_commit=True)
+
+        report = self.report(
+            scenario,
+            pull_requests=(self.merged_pr(102, branch, head_oid),),
+        )
+
+        self.assertEqual(report.candidates[0].classification, "preserve")
+        self.assertIn("not reachable", report.candidates[0].reason)
+
+    def test_checked_out_branch_is_preserved(self):
+        scenario = self.scenario()
+        branch = "agent/AEPI-103-checked-out"
+        head_oid = scenario.create_branch(branch)
+        scenario.git(scenario.primary, "switch", branch)
+
+        report = self.report(
+            scenario,
+            pull_requests=(self.merged_pr(103, branch, head_oid),),
+        )
+
+        self.assertEqual(report.candidates[0].classification, "preserve")
+        self.assertEqual(report.candidates[0].reason, "branch is checked out")
+
+    def test_live_remote_branch_is_preserved(self):
+        scenario = self.scenario()
+        branch = "agent/AEPI-104-remote"
+        head_oid = scenario.create_branch(branch)
+
+        report = self.report(
+            scenario,
+            remote_branches={branch},
+            pull_requests=(self.merged_pr(104, branch, head_oid),),
+        )
+
+        self.assertEqual(report.candidates[0].classification, "preserve")
+        self.assertEqual(report.candidates[0].reason, "remote branch still exists")
+
+    def test_open_pull_request_is_preserved(self):
+        scenario = self.scenario()
+        branch = "agent/AEPI-105-open"
+        head_oid = scenario.create_branch(branch)
+        pull_request = MODULE.PullRequest(
+            number=105,
+            state="OPEN",
+            merged_at=None,
+            merge_oid=None,
+            base_branch="main",
+            head_branch=branch,
+            head_oid=head_oid,
+            url="https://example.invalid/pull/105",
+        )
+
+        report = self.report(scenario, pull_requests=(pull_request,))
+
+        self.assertEqual(report.candidates[0].classification, "preserve")
+        self.assertIn("not merged", report.candidates[0].reason)
+
+    def test_execution_deletes_only_safe_candidates(self):
+        scenario = self.scenario()
+        safe_branch = "agent/AEPI-106-safe"
+        manual_branch = "AEPI-107-manual"
+        safe_oid = scenario.create_branch(safe_branch)
+        scenario.create_branch(manual_branch)
+        report = self.report(
+            scenario,
+            pull_requests=(self.merged_pr(106, safe_branch, safe_oid),),
+        )
+
+        MODULE.execute_reconciliation(scenario.primary, report)
+
+        branches = MODULE.local_delivery_branches(scenario.primary)
+        self.assertNotIn(safe_branch, branches)
+        self.assertIn(manual_branch, branches)
+
+    def test_execution_rejects_dirty_workspace(self):
+        scenario = self.scenario()
+        branch = "agent/AEPI-108-safe"
+        head_oid = scenario.create_branch(branch)
+        report = self.report(
+            scenario,
+            pull_requests=(self.merged_pr(108, branch, head_oid),),
+        )
+        (scenario.primary / "untracked.txt").write_text(
+            "preserve\n", encoding="utf-8"
+        )
+
+        with self.assertRaisesRegex(MODULE.CleanupError, "workspace is dirty"):
+            MODULE.execute_reconciliation(scenario.primary, report)
+
+        self.assertIn(branch, MODULE.local_delivery_branches(scenario.primary))
+
+
+class CliModeTests(unittest.TestCase):
+    def test_mode_is_required(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                MODULE.parse_args([])
+
+    def test_pr_dry_run_refreshes_remote_before_planning(self):
+        workspace = Path("/mock/workspace")
+        pull_request = mock.sentinel.pull_request
+        plan = mock.sentinel.plan
+        events = []
+
+        with (
+            mock.patch.object(
+                MODULE,
+                "resolve_primary_workspace",
+                return_value=workspace,
+            ),
+            mock.patch.object(
+                MODULE,
+                "refresh_remote",
+                side_effect=lambda _: events.append("refresh"),
+            ),
+            mock.patch.object(
+                MODULE,
+                "live_remote_branches",
+                side_effect=lambda _: events.append("remotes") or set(),
+            ),
+            mock.patch.object(
+                MODULE,
+                "load_pull_request",
+                side_effect=lambda *_: events.append("pull-request")
+                or pull_request,
+            ),
+            mock.patch.object(
+                MODULE,
+                "build_cleanup_plan",
+                side_effect=lambda *_args, **_kwargs: events.append("plan") or plan,
+            ),
+            mock.patch.object(MODULE, "render_plan", return_value="plan"),
+            mock.patch.object(MODULE, "execute_cleanup") as execute_cleanup,
+        ):
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = MODULE.main(
+                    [
+                        "pr",
+                        "--pr",
+                        "19",
+                        "--primary-workspace",
+                        str(workspace),
+                    ]
+                )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(events, ["refresh", "remotes", "pull-request", "plan"])
+        execute_cleanup.assert_not_called()
+
+    def test_stale_no_fetch_is_read_only_by_default(self):
+        workspace = Path("/mock/workspace")
+        report = MODULE.ReconciliationReport(base_ref="origin/main", candidates=())
+
+        with (
+            mock.patch.object(
+                MODULE,
+                "resolve_primary_workspace",
+                return_value=workspace,
+            ),
+            mock.patch.object(MODULE, "refresh_remote") as refresh_remote,
+            mock.patch.object(MODULE, "live_remote_branches", return_value=set()),
+            mock.patch.object(
+                MODULE,
+                "build_reconciliation_report",
+                return_value=report,
+            ),
+            mock.patch.object(MODULE, "execute_reconciliation") as execute,
+            mock.patch.object(
+                MODULE,
+                "reconciliation_as_json",
+                return_value="{}",
+            ),
+        ):
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = MODULE.main(
+                    [
+                        "stale",
+                        "--primary-workspace",
+                        str(workspace),
+                        "--no-fetch",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(result, 0)
+        refresh_remote.assert_not_called()
+        execute.assert_not_called()
 
 
 if __name__ == "__main__":
