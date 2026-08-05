@@ -21,8 +21,11 @@ CLAUDE.md
 .claude/skills/README.md
 .claude/hooks/README.md
 platform/agent-control-plane/agent-assets/instructions
+platform/agent-control-plane/agent-assets/hooks
+platform/agent-control-plane/agent-assets/execution-policies
 platform/agent-control-plane/agent-assets/role-charters
 platform/agent-control-plane/agent-assets/skills
+platform/agent-control-plane/adapters/runtimes
 platform/agent-control-plane/scripts/instruction_manifest_hook.py
 platform/agent-control-plane/scripts/provider_docs_session_start.py
 "

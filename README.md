@@ -46,9 +46,16 @@ agentic-engineering-platform/
 │   └── hooks/
 ├── platform/
 │   ├── agent-control-plane/
-│   │   └── agent-assets/
-│   │       ├── instructions/
-│   │       └── role-charters/
+│   │   ├── adapters/
+│   │   │   └── runtimes/
+│   │   ├── agent-assets/
+│   │   │   ├── execution-policies/
+│   │   │   ├── hooks/
+│   │   │   ├── instructions/
+│   │   │   ├── role-charters/
+│   │   │   └── skills/
+│   │   ├── contracts/
+│   │   └── scripts/
 │   ├── inference-telemetry-observatory/
 │   └── developer-learning-retrieval/
 ├── evidence/
@@ -85,9 +92,12 @@ agentic-engineering-platform/
   used to validate and improve the platform.
 - [`shared/`](shared/) owns cross-domain schemas, contracts, and reusable
   tooling that connect multiple pillars or do not belong to a single platform
-  component.
+  component. Potential reuse alone is not enough; at least two pillars must
+  share the artifact's lifecycle or interface.
 - [`docs/`](docs/) separates architecture, operations, and roadmap material.
-- [`scripts/`](scripts/) is reserved for repository-wide automation.
+- [`scripts/`](scripts/) is reserved for repository-wide integration and
+  maintenance automation. Component-specific scripts remain with their owning
+  platform pillar.
 
 ## Local Knowledge Overlay
 

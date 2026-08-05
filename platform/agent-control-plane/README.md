@@ -156,7 +156,10 @@ inspectable, and increasing reuse of proven engineering practices.
 - [`../../.github/copilot-instructions.md`](../../.github/copilot-instructions.md)
   Root GitHub Copilot routing adapter.
 - [`agent-assets/`](agent-assets/)
-  Canonical shared instructions, skill packages, and role charters.
+  Canonical shared instructions, skill packages, hook definitions, execution
+  policies, and role charters.
+- [`adapters/runtimes/`](adapters/runtimes/)
+  Provider capability declarations, version support, and native renderers.
 - [`../../.agents/`](../../.agents/)
   Codex discovery adapters.
 - [`../../.claude/`](../../.claude/)
@@ -190,8 +193,9 @@ inspectable, and increasing reuse of proven engineering practices.
 Repository-discovered files must be installed relative to the adopting
 repository's Git or workspace root. Keep entrypoints and runtime discovery
 adapters light. Store canonical skill packages, shared instructions, and role
-charters under `agent-assets/`, and expose them through each runtime's native
-root-level discovery paths.
+charters under `agent-assets/`; store canonical hooks and execution policies
+there as they are implemented. Expose those assets through each runtime's
+native root-level discovery paths and provider adapter.
 
 ## Adoption Guidance
 

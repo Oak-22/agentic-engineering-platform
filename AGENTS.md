@@ -33,7 +33,8 @@ grounds.
 - `.github/agents/`, `.github/prompts/`, `.github/skills/`, and
   `.github/hooks/` contain runtime-specific agent assets.
 - `platform/agent-control-plane/agent-assets/` owns canonical shared
-  instructions, skills, and role charters.
+  instructions, skills, hook definitions, execution policies, and role
+  charters.
 - `platform/agent-control-plane/` owns the portable contracts, adapters,
   validation, and explanatory documentation behind those root entrypoints.
 

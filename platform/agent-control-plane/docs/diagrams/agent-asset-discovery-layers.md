@@ -38,6 +38,8 @@ flowchart TB
             direction LR
             I["instructions/"]
             K["skills/"]
+            H["hooks/"]
+            P["execution-policies/"]
             R["role-charters/"]
         end
     end
@@ -52,6 +54,8 @@ flowchart TB
 
     ROOT --> I
     ROOT --> K
+    ROOT --> H
+    ROOT --> P
     ROOT --> R
 
     style ES fill:transparent,stroke:transparent
