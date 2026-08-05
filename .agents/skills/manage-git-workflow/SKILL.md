@@ -238,3 +238,37 @@ Stop without deletion when the pull request is open or unknown, the target
 does not contain the merge result, the active checkout is dirty, its branch or
 `HEAD` does not match the pull request, primary-versus-secondary ownership is
 unclear, or more than one target remains plausible.
+
+## Reconcile repository-wide local cleanup debt
+
+Treat single-PR cleanup as the normal transactional workflow. Use the global
+reconciler only as a backstop for Jira-keyed local branches whose cleanup was
+skipped, interrupted, or predates the current workflow.
+
+Run verification mode from the primary repository root:
+
+```bash
+python3 .agents/skills/manage-git-workflow/scripts/reconcile_local_deliveries.py \
+  --primary-workspace <REPOSITORY_ROOT>
+```
+
+The reconciler fetches and prunes remote-tracking refs, then classifies local
+branches as:
+
+- `safe-to-delete` when an exact-tip merged pull request exists, the remote
+  branch is absent, the branch is not checked out, and its tip is reachable
+  from updated `origin/main`;
+- `manual-review` when the branch is already contained but no exact associated
+  pull request proves its lifecycle; or
+- `preserve` when the branch is checked out, still remote, unmerged, or owns
+  commits outside the integration base.
+
+After global cleanup is explicitly authorized, rerun the same command with
+`--execute`. It deletes only the verified `safe-to-delete` set with
+`git branch -d`, never force-deletes, never removes a worktree, never deletes a
+remote branch, and verifies that every intended local deletion completed.
+
+Governed-task preflight invokes the reconciler with `--no-fetch` and JSON
+output. It reports safe stale branches as cleanup debt but never blocks the new
+task or mutates branch state. Resolve `manual-review` entries deliberately;
+their lack of pull-request evidence is not authority for automatic deletion.

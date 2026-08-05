@@ -26,6 +26,7 @@ class RepositoryState:
     current_branch: str
     current_pull_request_state: str | None
     current_remote_branch_exists: bool
+    stale_local_delivery_branches: tuple[str, ...]
 
 
 class InspectionError(RuntimeError):
@@ -73,6 +74,25 @@ def inspect_repository(root: Path) -> RepositoryState:
             ],
             cwd=root,
         )
+        reconciliation_result = run(
+            [
+                sys.executable,
+                str(
+                    root
+                    / ".agents"
+                    / "skills"
+                    / "manage-git-workflow"
+                    / "scripts"
+                    / "reconcile_local_deliveries.py"
+                ),
+                "--primary-workspace",
+                str(root),
+                "--no-fetch",
+                "--format",
+                "json",
+            ],
+            cwd=root,
+        )
     except FileNotFoundError as error:
         raise InspectionError(f"required executable is unavailable: {error.filename}") from error
     except subprocess.CalledProcessError as error:
@@ -83,6 +103,11 @@ def inspect_repository(root: Path) -> RepositoryState:
         open_pr_data = json.loads(open_prs_result.stdout)
     except json.JSONDecodeError as error:
         raise InspectionError("GitHub returned invalid pull-request data") from error
+    try:
+        reconciliation_data = json.loads(reconciliation_result.stdout)
+        reconciliation_candidates = reconciliation_data["candidates"]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        raise InspectionError("local cleanup audit returned invalid data") from error
 
     open_governed_pull_requests = tuple(
         PullRequest(
@@ -137,6 +162,11 @@ def inspect_repository(root: Path) -> RepositoryState:
         current_branch=branch,
         current_pull_request_state=current_pull_request_state,
         current_remote_branch_exists=current_remote_branch_exists,
+        stale_local_delivery_branches=tuple(
+            str(candidate["branch"])
+            for candidate in reconciliation_candidates
+            if candidate.get("classification") == "safe-to-delete"
+        ),
     )
 
 
@@ -187,6 +217,20 @@ def blockers_for(state: RepositoryState) -> list[str]:
     return blockers
 
 
+def warnings_for(state: RepositoryState) -> list[str]:
+    if not state.stale_local_delivery_branches:
+        return []
+    return [
+        "Local cleanup debt detected. These merged Jira-keyed branches are safe "
+        "reconciliation candidates; preflight will not delete them:\n"
+        + "\n".join(
+            f"  {branch}" for branch in state.stale_local_delivery_branches
+        )
+        + "\nRun reconcile_local_deliveries.py in verification mode, then with "
+        "--execute after cleanup is authorized."
+    ]
+
+
 def main() -> int:
     try:
         root = repository_root(Path.cwd())
@@ -199,6 +243,10 @@ def main() -> int:
     if blockers:
         print("\n\n".join(blockers), file=sys.stderr)
         return 1
+
+    warnings = warnings_for(state)
+    if warnings:
+        print("\n\n".join(warnings), file=sys.stderr)
 
     print(
         "Governed task preflight passed: the working tree is clean and no "

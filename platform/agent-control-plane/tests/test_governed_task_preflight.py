@@ -22,6 +22,7 @@ class GovernedTaskPreflightTests(unittest.TestCase):
             "current_branch": "main",
             "current_pull_request_state": None,
             "current_remote_branch_exists": False,
+            "stale_local_delivery_branches": (),
         }
         values.update(overrides)
         return MODULE.RepositoryState(**values)
@@ -93,6 +94,21 @@ class GovernedTaskPreflightTests(unittest.TestCase):
         )
 
         self.assertEqual(len(blockers), 2)
+
+    def test_stale_local_deliveries_warn_without_blocking(self):
+        state = self.state(
+            stale_local_delivery_branches=(
+                "agent/AEPI-27-old-delivery",
+                "agent/AEPI-28-old-delivery",
+            )
+        )
+
+        self.assertEqual(MODULE.blockers_for(state), [])
+        warnings = MODULE.warnings_for(state)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("cleanup debt", warnings[0])
+        self.assertIn("agent/AEPI-27-old-delivery", warnings[0])
+        self.assertIn("will not delete", warnings[0])
 
 
 if __name__ == "__main__":
