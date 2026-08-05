@@ -1,12 +1,14 @@
 # Shared Agent Assets
 
-This directory owns reusable model-neutral instructions and role charters.
-Canonical skill packages live under the repository-root `.agents/skills/`
-surface; Claude Code and GitHub Copilot link to those packages.
+This directory owns reusable shared instructions, canonical Agent Skill
+packages, and model-neutral role charters. Repository-root runtime discovery
+paths link to these assets.
 
 ## Asset boundaries
 
 - `instructions/` contains shared behavioral and path-oriented guidance.
+- `skills/` contains canonical skill procedures, metadata, scripts,
+  references, and other package resources.
 - `role-charters/` contains runtime-neutral responsibilities, boundaries, and
   accountability definitions for specialized agents.
 
@@ -14,13 +16,11 @@ surface; Claude Code and GitHub Copilot link to those packages.
 
 Runtime-owned paths may import, link, or translate these assets:
 
-- `.agents/` owns canonical provider-neutral skill packages, including
-  colocated workflow references.
+- `.agents/` provides Codex discovery adapters.
 - `.claude/` provides Claude Code discovery adapters.
 - `.github/` provides GitHub Copilot discovery adapters.
 
 Adapters contain only discovery metadata and runtime-specific configuration.
-Canonical shared instructions and role charters remain here. Canonical skill
-procedures and references remain under `.agents/skills/`. Runtime-specific
-permissions, hooks, and enforcement configuration stay in their native
-adapter namespace.
+Canonical shared instructions, skill packages, and role charters remain here.
+Runtime-specific permissions, hooks, and enforcement configuration stay in
+their native adapter namespace.

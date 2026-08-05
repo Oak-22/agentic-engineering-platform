@@ -28,14 +28,12 @@ grounds.
   Codex and other agents that support the AGENTS.md convention.
 - `CLAUDE.md` is the Claude Code repository adapter and imports `AGENTS.md`.
 - `.github/copilot-instructions.md` is the GitHub Copilot repository adapter.
-- `.agents/` owns canonical provider-neutral skill packages for Codex and
-  compatible runtimes.
-- `.claude/` and `.github/` contain thin runtime discovery adapters for
-  Claude Code and GitHub Copilot.
+- `.agents/`, `.claude/`, and `.github/` contain thin runtime discovery
+  adapters for Codex, Claude Code, and GitHub Copilot respectively.
 - `.github/agents/`, `.github/prompts/`, `.github/skills/`, and
   `.github/hooks/` contain runtime-specific agent assets.
 - `platform/agent-control-plane/agent-assets/` owns canonical shared
-  instructions and role charters.
+  instructions, skills, and role charters.
 - `platform/agent-control-plane/` owns the portable contracts, adapters,
   validation, and explanatory documentation behind those root entrypoints.
 

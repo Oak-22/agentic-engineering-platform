@@ -1,10 +1,10 @@
 # Claude Skill Catalog
 
-This directory exposes the canonical packages under `.agents/skills/` to
-Claude Code through relative symlinks. The reference catalog below lists every
-skill published in Anthropic's
-official skills repository so developers can study production and example
-patterns before creating a repository-specific skill.
+This directory exposes the canonical packages under
+`platform/agent-control-plane/agent-assets/skills/` to Claude Code through
+relative symlinks. The reference catalog below lists every skill published in
+Anthropic's official skills repository so developers can study production and
+example patterns before creating a repository-specific skill.
 
 Catalog snapshot: 2026-07-30. A catalog entry is a reference and is not
 installed in this repository. Check the
@@ -19,6 +19,7 @@ across Claude products.
 - `handoff-agent-work` — Preserve intent, evidence, authority, and state when work moves between agents or runtimes.
 - `manage-git-workflow` — Govern branches, commits, pushes, pull requests, merges, and cleanup.
 - `manage-jira-confluence` — Read and update Jira and Confluence as one traceable Atlassian workflow.
+- `shape-repository-change` — Turn repository observations and changes into coherent delivery-unit candidates.
 - `shape-readme-entrypoint` — Keep a repository README focused on orientation and a hands-on quick start.
 
 ## Anthropic reference skills

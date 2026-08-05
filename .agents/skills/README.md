@@ -1,9 +1,10 @@
-# Codex Skill Catalog
+# Codex Skill Discovery Catalog
 
-This directory owns the repository's canonical provider-neutral Agent Skill
-packages. Each skill keeps its procedure, runtime-neutral metadata, and
-supporting references together so other runtimes can use thin adapters.
-The reference catalogs below show the standard skills published by OpenAI so
+This directory exposes the canonical Agent Skill packages under
+`platform/agent-control-plane/agent-assets/skills/` to Codex through relative
+symlinks. Package procedures, metadata, scripts, and references are owned by
+the Agent Control Plane; this root path exists only for Codex discovery.
+``The reference catalogs below show the standard skills published by OpenAI so
 developers can study proven workflow boundaries before creating a
 repository-specific skill.
 

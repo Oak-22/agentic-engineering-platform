@@ -17,18 +17,13 @@ flowchart TB
         end
     end
 
-    subgraph P["CANONICAL — PROVIDER-NEUTRAL SKILL PACKAGES"]
-        direction TB
-        PS[" "]
-        DA[".agents/skills/<br/>Skills and colocated references"]
-    end
-
     subgraph D["LIGHT — RUNTIME DISCOVERY ADAPTERS"]
         direction TB
         DS[" "]
 
         subgraph DR[" "]
             direction LR
+            DO[".agents/<br/>Codex discovery"]
             DC[".claude/<br/>Claude discovery"]
             DG[".github/<br/>Copilot discovery"]
         end
@@ -42,25 +37,24 @@ flowchart TB
         subgraph SR[" "]
             direction LR
             I["instructions/"]
+            K["skills/"]
             R["role-charters/"]
         end
     end
 
-    A --> DA
+    A --> DO
     C --> DC
     G --> DG
 
-    DC --> DA
-    DG --> DA
-    A --> ROOT
+    DO --> ROOT
     DC --> ROOT
     DG --> ROOT
 
     ROOT --> I
+    ROOT --> K
     ROOT --> R
 
     style ES fill:transparent,stroke:transparent
-    style PS fill:transparent,stroke:transparent
     style DS fill:transparent,stroke:transparent
     style SS fill:transparent,stroke:transparent
 
