@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/instruction-evidence-store.schema.json",
+  "title": "Instruction Evidence Store Index",
+  "description": "Generated index describing the project-partitioned instruction-evidence store and the lifecycle of its files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "storeType", "repositoryId", "projectKey", "generatedBy", "fileClasses"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "storeType": {"const": "instruction-evidence"},
+    "repositoryId": {"type": "string", "minLength": 1},
+    "projectKey": {"type": "string", "pattern": "^[0-9a-f]{24}$"},
+    "generatedBy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "artifactKind"],
+      "properties": {
+        "component": {"const": "instruction_manifest_hook.py"},
+        "artifactKind": {"const": "runtime-generated"}
+      }
+    },
+    "fileClasses": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "kind", "scope", "runtimeSource", "retention"],
+        "properties": {
+          "pattern": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["metadata", "index", "session-ledger"]},
+          "scope": {"enum": ["project", "session"]},
+          "runtimeSource": {"type": "string", "minLength": 1},
+          "retention": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["safeToRotate", "safeToDelete", "notes"],
+            "properties": {
+              "safeToRotate": {"type": "boolean"},
+              "safeToDelete": {"type": "boolean"},
+              "notes": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    }
+  }
+}

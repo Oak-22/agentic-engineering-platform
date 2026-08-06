@@ -163,6 +163,55 @@ class InstructionManifestHookTests(unittest.TestCase):
             )
             self.assertEqual(record["citation"]["worktreeState"], "clean")
 
+    def test_store_index_describes_generated_file_classes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            prompted = self.run_hook(
+                "codex",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "index-session",
+                    "turn_id": "turn-1",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            self.assertEqual(prompted.returncode, 0, prompted.stderr)
+            ledger_path = self.ledger_for(storage, "index-session")
+            index = json.loads(
+                (ledger_path.parent / "store-index.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(index["storeType"], "instruction-evidence")
+            self.assertEqual(index["schemaVersion"], 1)
+            self.assertEqual(
+                [file_class["kind"] for file_class in index["fileClasses"]],
+                ["metadata", "index", "session-ledger"],
+            )
+
+    def test_claude_instruction_observation_records_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            observed = self.run_hook(
+                "claude",
+                {
+                    "hook_event_name": "InstructionsLoaded",
+                    "session_id": "claude-session",
+                    "cwd": str(REPOSITORY_ROOT),
+                    "file_path": str(REPOSITORY_ROOT / "AGENTS.md"),
+                },
+                storage,
+            )
+            self.assertEqual(observed.returncode, 0, observed.stderr)
+            events = [
+                json.loads(line)
+                for line in self.ledger_for(storage, "claude-session")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            self.assertEqual(events[0]["runtime"], "claude")
+
     def test_citation_opens_project_scoped_log_view(self):
         with tempfile.TemporaryDirectory() as directory:
             storage = Path(directory)

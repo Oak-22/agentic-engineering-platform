@@ -1,25 +1,44 @@
-# Codex Hook Event Catalog
+# Codex Hooks
 
-This directory contains Codex-specific lifecycle hook commands. The event
-catalog below is exhaustive for the public Codex hook reference as of
-2026-07-30.
+This directory contains Codex-specific lifecycle hook commands.
 
-See the [official Codex hooks reference](https://learn.chatgpt.com/docs/hooks)
-for matchers, input and output schemas, trust behavior, and current release
-support.
+## Diverges from Codex's default layout
 
-- `SessionStart` — Run when a main session starts, resumes, clears, or compacts.
-- `SubagentStart` — Add context when a subagent starts.
-- `UserPromptSubmit` — Inspect, enrich, or block a submitted user prompt.
-- `PreToolUse` — Inspect, rewrite, or deny a supported tool call before execution.
-- `PermissionRequest` — Allow or deny a tool call that requires approval.
-- `PostToolUse` — Inspect a supported tool result and add feedback after execution.
-- `PreCompact` — Run before manual or automatic conversation compaction.
-- `PostCompact` — Run after manual or automatic conversation compaction.
-- `SubagentStop` — Validate a subagent result and request another pass.
-- `Stop` — Validate the main turn result and request continuation.
-- `SessionEnd` — Record or clean up when the main session ends.
+Codex's documented convention saves a hook's script body directly under
+`.codex/hooks/` (for example `.codex/hooks/pre_tool_use_policy.py`) and points
+`hooks.json` at it, resolved from the git root rather than a bare relative
+path. This repository does not follow that half of the convention: every hook
+command actually registered here lives in
+[`platform/agent-control-plane/scripts/`](../../platform/agent-control-plane/scripts/)
+and is invoked from [`../hooks.json`](../hooks.json) by its full repository
+path instead. This directory currently holds no scripts.
 
-The repository currently configures one `SessionStart` hook in
-`../hooks.json`. It loads current artifact-authoring guidance. Catalog entries
-describe available extension points and do not activate hooks by themselves.
+That's a deliberate centralization, not an oversight. The same script bodies
+(`instruction_manifest_hook.py`, `provider_docs_session_start.py`) are also
+invoked from [`../../.claude/settings.json`](../../.claude/settings.json);
+each call selects its runtime with a `--runtime codex` / `--runtime claude`
+flag. A script saved under this directory would be Codex-only and would have
+to be duplicated under `.claude/hooks/` to reach Claude Code — keeping the
+implementation in the provider-neutral `agent-control-plane/scripts/`
+directory instead lets one script serve both. This directory stays reserved
+for the case where a future hook is genuinely Codex-only, with no Claude Code
+equivalent to share.
+
+## Hook events
+
+Hook event names, matcher config, trust behavior, and release support are
+defined by OpenAI and change on OpenAI's schedule, not this repository's.
+Rather than maintain a copy of that list here — which drifts the moment a new
+event ships — consult the source directly:
+
+- [Official Codex hooks reference](https://learn.chatgpt.com/docs/hooks)
+- A local mirror refreshed once per session by
+  [`provider_docs_session_start.py`](../../platform/agent-control-plane/scripts/provider_docs_session_start.py),
+  for offline or greppable lookup
+
+## Activation
+
+This directory does not activate anything by itself. Project hooks become
+active only when registered in [`../hooks.json`](../hooks.json) or a trusted
+plugin-bundled equivalent — read that file directly for this repository's
+actual hook registrations rather than relying on a description of them here.

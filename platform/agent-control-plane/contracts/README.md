@@ -15,6 +15,9 @@ schemas.
   binds each instruction evidence type to the citation fields capable of
   proving that claim. Its compact citation label links to the structured
   project-scoped evidence log containing the record identified by `recordId`.
+- [`instruction-evidence-store.schema.json`](instruction-evidence-store.schema.json)
+  describes the generated project partition, its session-ledger files, and
+  their retention classes. See the [instruction evidence store guide](../docs/instruction-evidence-store.md).
 
 ## Instruction evidence and citations
 

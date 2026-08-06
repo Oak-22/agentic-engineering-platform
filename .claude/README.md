@@ -15,6 +15,7 @@ with provider mappings and renderers under
 Reference inventories:
 
 - [`skills/README.md`](skills/README.md) lists the repository skills and
-  Anthropic's official reference catalog.
-- [`hooks/README.md`](hooks/README.md) lists every supported Claude Code hook
-  event.
+  links to Anthropic's official reference catalog instead of a dated copy of
+  it.
+- [`hooks/README.md`](hooks/README.md) links to the live Claude Code hook
+  event reference instead of a hand-maintained list.
