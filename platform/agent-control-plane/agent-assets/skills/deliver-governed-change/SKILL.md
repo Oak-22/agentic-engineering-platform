@@ -138,7 +138,7 @@ sharing, review scope, or delivery risk.
 ## Clean up completed delivery units
 
 Treat a natural-language request such as “clean up the local checkout and
-branch for AEPI-21 after verifying its pull request was merged” as authority
+branch for PROJ-21 after verifying its pull request was merged” as authority
 for local cleanup of that named delivery unit. It does not authorize merging,
 deleting the primary checkout directory, deleting another worktree, or
 deleting a remote branch.
