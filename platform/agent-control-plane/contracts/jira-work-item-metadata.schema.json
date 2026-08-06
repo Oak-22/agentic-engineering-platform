@@ -20,7 +20,7 @@
     "workItemKey": {
       "type": "string",
       "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$",
-      "description": "Stable Jira issue key, for example AEPI-9."
+      "description": "Stable Jira issue key, for example PROJ-9."
     },
     "accountableHumanId": {
       "type": "string",

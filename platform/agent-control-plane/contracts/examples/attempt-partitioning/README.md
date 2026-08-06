@@ -10,7 +10,7 @@ attempt begins only when the host or orchestrator emits an explicit retry after
 the previous attempt reaches a terminal outcome.
 
 ```text
-AEPI-10
+PROJ-10
 └── run-aepi-10-001
     ├── attempt-001: tool failure
     └── attempt-002: explicit retry, then pass

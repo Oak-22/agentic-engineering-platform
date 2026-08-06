@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "attemptId": "attempt-002",
   "runId": "run-aepi-10-001",
-  "workItemKey": "AEPI-10",
+  "workItemKey": "PROJ-10",
   "sequence": 2,
   "executorType": "agent",
   "executorId": "implementation-agent",

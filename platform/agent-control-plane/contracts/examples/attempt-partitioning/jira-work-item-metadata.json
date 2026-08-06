@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "workItemKey": "AEPI-10",
+  "workItemKey": "PROJ-10",
   "accountableHumanId": "human-operator-001",
   "executionMode": "agent",
   "initiationMode": "human",

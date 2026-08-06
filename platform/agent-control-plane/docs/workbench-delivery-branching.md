@@ -2,25 +2,26 @@
 
 ## Purpose
 
-Keep exploratory capture easy without allowing repository history to outrun
-the delivery model or the agent's edits to outrun the developer's visible
-filesystem. Treat `main`, a private workbench, and delivery branches as three
-different Git roles while using one primary checkout by default.
+Keep continuous capture and stewardship easy without allowing repository
+history to outrun the delivery model or the agent's edits to outrun the
+developer's visible filesystem. Treat `main`, a private workbench, and
+delivery branches as three different Git roles while using one primary
+checkout by default.
 
 ```text
 one primary IDE checkout
 
-  workbench/local       A ─ B ─ C ─ D       capture and shape
+  workbench/local       A ─ B ─ C ─ D       capture, steward, and shape
                           \   \     /
                            selected evidence
                                   │
   main ref              M0 ───────┼──────── M1 ───────── M2
                            \       │          \
-  agent/AEPI-101          delivery A ─ PR ────┘
+  refactor/PROJ-101       delivery A ─ PR ────┘
                                            \
-  agent/AEPI-102                          delivery B ─ PR ─┘
+  feature/PROJ-102                        delivery B ─ PR ─┘
 
-  visible branch: workbench/local ⇄ agent/AEPI-101 ⇄ agent/AEPI-102
+  visible branch: workbench/local ⇄ refactor/PROJ-101 ⇄ feature/PROJ-102
 ```
 
 The IDE and agent operate on the same primary checkout and switch its visible
@@ -51,19 +52,23 @@ ancestry base or merge target.
 - Keep local `main` clean and synchronized with `origin/main`.
 - Derive ordinary delivery branches from current `main`.
 - Merge reviewed delivery branches back into `main`.
-- Do not use `main` for exploratory capture or leave it checked out merely to
+- Do not use `main` for continuous capture or leave it checked out merely to
   prove that it is the integration base. A clean ref can be the base without
   being the visible branch.
 
-### Private workbench: capture stream
+### Private workbench: capture-and-stewardship stream
 
 - Use one unpublished local branch in the primary checkout for low-friction
-  observations, renames, experiments, and chore-like discoveries. Use
-  `workbench/local` as the default name when no other name is required.
+  observations, reports, experiments, semantic cleanup, renames, and other
+  continuous stewardship. Use `workbench/local` as the neutral persistent
+  name.
 - Keep the workbench private. Pushing it changes its role and requires an
   explicit publication decision.
 - Commit each coherent captured idea atomically. Atomic means one explainable
   idea, not that the final delivery boundary is already known.
+- Treat the workbench as evolving developer-intent state, not as an alternate
+  integration branch. Regularly incorporate current `main` into it; never
+  advance `main` by mirroring the workbench wholesale.
 - Do not treat time, directory proximity, or a workbench commit boundary as
   proof that changes belong in one delivery unit.
 
@@ -71,6 +76,10 @@ ancestry base or merge target.
 
 - Create each ordinary delivery branch from current `main`, not from the
   workbench or another feature branch.
+- Name it `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`, using `feature`, `fix`,
+  `bugfix`, `hotfix`, `refactor`, `chore`, `docs`, or `release` to communicate
+  intent. Use the full issue key and keep actor or runtime identity in
+  structured provenance rather than the branch name.
 - Switch the primary checkout to the delivery branch before implementation so
   the IDE immediately reflects the selected delivery unit.
 - Use `shape-repository-change` to partition workbench commits, files, or hunks
@@ -78,6 +87,9 @@ ancestry base or merge target.
 - Transfer only the selected evidence. A full commit may be cherry-picked when
   it maps cleanly to one outcome; otherwise restore selected paths or apply
   selected hunks and create new delivery commits.
+- Deliver foundational semantic changes before branches that rely on them.
+  After a prerequisite merges, create dependent branches from the resulting
+  updated `main`; independent successors may then proceed in parallel.
 - Verify the assembled result against its Jira acceptance criteria. Workbench
   commits are capture checkpoints, while delivery commits describe the final
   implementation structure.

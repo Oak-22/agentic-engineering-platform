@@ -21,6 +21,14 @@ feed improvements back into the Agent Control Plane.
 
 <img alt="Agent Control Plane governs Shared Contracts and Schemas, which flow to Inference Telemetry and Developer Learning; both feed back to the Agent Control Plane, telemetry via a solid line and developer learning via a dotted line." src="agentic-control-plane-diagram.svg">
 
+## Delivery Model
+
+Use `workbench/local` as the private continuous capture-and-stewardship stream.
+Shape coherent outcomes from that stream, then transfer selected commits,
+files, or hunks in dependency order to Jira-keyed branches created from
+current `main`. Reviewed pull requests advance `main`; the workbench does not.
+See the [governed repository delivery guide](docs/operations/governed-repository-delivery.md).
+
 ## Repository Structure
 
 ```text

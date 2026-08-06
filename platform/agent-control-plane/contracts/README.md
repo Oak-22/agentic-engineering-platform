@@ -61,6 +61,13 @@ Execution describes who performs the work; accountability identifies the
 natural person responsible for it. A team may provide supplemental ownership
 context but does not replace the accountable human.
 
+This is not a durable `humanId -> agentId` ownership mapping. One work item has
+one accountable human and may have many attempt records; each attempt records
+its executor independently. A human may oversee many work items, and the same
+agent executor may participate in work overseen by different humans. The
+resulting human-agent participation is many-to-many through work items and
+attempts, while accountability remains singular at the work-item boundary.
+
 The attempt store remains authoritative for attempt history. Runtime outcomes,
 failure classifications, and attempt identifiers must not be projected into
 Jira until the telemetry subsystem can supply them from trustworthy evidence.
