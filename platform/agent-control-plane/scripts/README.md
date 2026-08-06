@@ -30,7 +30,7 @@ python3 platform/agent-control-plane/scripts/governed_task_preflight.py
 The preflight blocks task isolation when:
 
 - the working tree has staged, unstaged, untracked, or conflicted changes;
-- an `agent/` pull request remains open;
+- an intent-categorized Jira-keyed pull request remains open;
 - a published feature branch has no pull request; or
 - the current merged delivery still has a remote feature branch requiring
   authorized cleanup.

@@ -15,7 +15,12 @@ from typing import Sequence
 
 
 WORKBENCH_BRANCH = "workbench/local"
-BRANCH_PATTERN = re.compile(r"^(?:agent/)?AEPI-\d+(?:-|$)")
+JIRA_ISSUE_KEY_PATTERN = r"[A-Z][A-Z0-9_]*-[1-9][0-9]*"
+BRANCH_PATTERN = re.compile(
+    rf"^(?:(?:feature|fix|bugfix|hotfix|refactor|chore|docs|release)/"
+    rf"{JIRA_ISSUE_KEY_PATTERN}|agent/{JIRA_ISSUE_KEY_PATTERN}|"
+    rf"{JIRA_ISSUE_KEY_PATTERN})(?:-|$)"
+)
 LOCAL_COMMAND_TIMEOUT_SECONDS = 30.0
 NETWORK_COMMAND_TIMEOUT_SECONDS = 120.0
 

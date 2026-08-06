@@ -18,8 +18,8 @@ mutation.
 
 Read
 [the workbench-to-delivery branching contract](../../../platform/agent-control-plane/docs/workbench-delivery-branching.md)
-when exploratory capture, workbench commits, selective transfer, dependencies,
-or stacked branches are in scope.
+when continuous capture or stewardship, workbench commits, selective transfer,
+dependencies, or stacked branches are in scope.
 
 ## Resolve scope first
 
@@ -47,12 +47,16 @@ or stacked branches are in scope.
 
 - Keep `main` as the clean integration base and ordinary pull-request target.
 - Use a private, unpublished `workbench/local` branch in the primary checkout
-  for exploratory capture. Commit each coherent idea atomically without
+  for continuous capture and stewardship, including experiments, reports,
+  semantic cleanup, and renames. Commit each coherent idea atomically without
   assuming that capture commits are final delivery units.
 - Use `shape-repository-change` to partition workbench evidence before
   delivery. Switch that same primary checkout to an ordinary Jira-keyed branch
   created from current `main`, then transfer only the selected commits, files,
   or hunks. `main` remains the base even when it is not checked out.
+- Deliver foundational semantic changes first. Create dependent branches from
+  updated `main` after their prerequisites merge; branches that share only the
+  merged prerequisite may then proceed independently.
 - Use a secondary worktree only for concurrent agents, genuinely parallel
   delivery, stable long-running processes, or unsafe branch switching caused
   by unrelated work. Before editing there, disclose its exact path, branch,
@@ -99,11 +103,19 @@ commit, or perform operations beyond those explicitly requested.
 ## Link Jira work through branch names
 
 When a Jira work item governs the change, include its key in the feature
-branch name:
+branch name and use the category that describes the change's intent:
 
 ```text
-agent/AEPI-16-neutral-agent-assets
+<category>/<JIRA-ISSUE-KEY>-<outcome-slug>
 ```
+
+Use the full Jira issue key, including its numeric issue identifier. The
+canonical form is `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`, with one of
+`feature`, `fix`, `bugfix`, `hotfix`, `refactor`, `chore`, `docs`, or `release`
+as the category. Keep project names, actor identities, runtime names, spaces,
+and parenthetical expansions out of branch names. Cleanup tooling may
+recognize retired repository conventions for backward compatibility; do not
+use them for new delivery units.
 
 Keep commit subjects concise, imperative, and outcome-oriented. Leave Jira
 keys and model or runtime names out of commit subjects unless the user

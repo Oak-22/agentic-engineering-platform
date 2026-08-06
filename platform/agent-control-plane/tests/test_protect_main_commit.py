@@ -26,7 +26,7 @@ class ProtectMainCommitTests(unittest.TestCase):
         self.assertFalse(MODULE.should_block("main", "1"))
 
     def test_non_main_branch_is_allowed(self):
-        self.assertFalse(MODULE.should_block("agent/AEPI-33-example", None))
+        self.assertFalse(MODULE.should_block("feature/PROJ-33-example", None))
 
     def test_hook_blocks_main_and_allows_explicit_bypass(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

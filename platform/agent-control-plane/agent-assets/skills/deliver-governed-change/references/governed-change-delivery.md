@@ -81,8 +81,12 @@ traceability easy to inspect and does not serve as a numerical quality target.
   for the current merged delivery.
 - Treat this preflight as read-only. Never satisfy it by automatically
   committing, stashing, discarding, merging, or deleting work.
-- Create a feature branch named `agent/<JIRA-KEY>-<outcome-slug>` when
-  repository-tracked content will change.
+- Create a branch named
+  `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>` when repository-tracked content
+  will change. Use `feature`, `fix`, `bugfix`, `hotfix`, `refactor`, `chore`,
+  `docs`, or `release` as the intent category. Use the full Jira issue key,
+  including its number; keep actor and runtime identity in structured
+  provenance rather than the branch name.
 - Prefer sequencing dependencies through merged `main`. Record the dependency,
   temporary base, merge order, and required retargeting before deliberately
   stacking a branch; stop when the dependency direction is ambiguous.

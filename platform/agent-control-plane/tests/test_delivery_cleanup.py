@@ -30,7 +30,7 @@ class RepositoryScenario:
         self.root = root
         self.origin = root / "origin.git"
         self.primary = root / "primary"
-        self.feature_branch = "agent/AEPI-999-cleanup-test"
+        self.feature_branch = "chore/PROJ-999-cleanup-test"
 
         self.git(root, "init", "--bare", "--initial-branch=main", str(self.origin))
         self.git(root, "clone", str(self.origin), str(self.primary))
@@ -108,7 +108,7 @@ class LoadPullRequestTests(unittest.TestCase):
             "mergedAt": "2026-08-04T00:00:00Z",
             "mergeCommit": {"oid": "1234567890abcdef"},
             "baseRefName": "main",
-            "headRefName": "agent/AEPI-999-cleanup-test",
+            "headRefName": "chore/PROJ-999-cleanup-test",
             "headRefOid": "fedcba0987654321",
             "url": "https://example.invalid/pull/999",
         }
@@ -415,9 +415,25 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
             pull_requests=pull_requests,
         )
 
+    def test_branch_pattern_accepts_project_scoped_intent_names(self):
+        self.assertIsNotNone(
+            MODULE.BRANCH_PATTERN.match("chore/TEAM-42-update-dependencies")
+        )
+        self.assertIsNotNone(
+            MODULE.BRANCH_PATTERN.match("refactor/PROJ-43-telemetry-layout")
+        )
+        self.assertIsNone(MODULE.BRANCH_PATTERN.match("fix/PROJ-login-timeout"))
+        self.assertIsNone(MODULE.BRANCH_PATTERN.match("feature/user-authentication"))
+
+    def test_branch_pattern_retains_legacy_cleanup_compatibility(self):
+        self.assertIsNotNone(
+            MODULE.BRANCH_PATTERN.match("agent/PROJ-38-agent-control-plane")
+        )
+        self.assertIsNotNone(MODULE.BRANCH_PATTERN.match("PROJ-37-older-delivery"))
+
     def test_merged_remote_absent_branch_is_safe(self):
         scenario = self.scenario()
-        branch = "agent/AEPI-100-merged"
+        branch = "feature/PROJ-100-merged"
         head_oid = scenario.create_branch(branch)
 
         report = self.report(
@@ -431,7 +447,7 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
     def test_no_pr_branch_requires_manual_review(self):
         scenario = self.scenario()
-        scenario.create_branch("AEPI-101-no-pr")
+        scenario.create_branch("PROJ-101-no-pr")
 
         report = self.report(scenario)
 
@@ -440,7 +456,7 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
     def test_unique_commit_is_preserved(self):
         scenario = self.scenario()
-        branch = "agent/AEPI-102-unique"
+        branch = "fix/PROJ-102-unique"
         head_oid = scenario.create_branch(branch, unique_commit=True)
 
         report = self.report(
@@ -453,7 +469,7 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
     def test_checked_out_branch_is_preserved(self):
         scenario = self.scenario()
-        branch = "agent/AEPI-103-checked-out"
+        branch = "bugfix/PROJ-103-checked-out"
         head_oid = scenario.create_branch(branch)
         scenario.git(scenario.primary, "switch", branch)
 
@@ -467,7 +483,7 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
     def test_live_remote_branch_is_preserved(self):
         scenario = self.scenario()
-        branch = "agent/AEPI-104-remote"
+        branch = "hotfix/PROJ-104-remote"
         head_oid = scenario.create_branch(branch)
 
         report = self.report(
@@ -481,7 +497,7 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
     def test_open_pull_request_is_preserved(self):
         scenario = self.scenario()
-        branch = "agent/AEPI-105-open"
+        branch = "refactor/PROJ-105-open"
         head_oid = scenario.create_branch(branch)
         pull_request = MODULE.PullRequest(
             number=105,
@@ -501,8 +517,8 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
     def test_execution_deletes_only_safe_candidates(self):
         scenario = self.scenario()
-        safe_branch = "agent/AEPI-106-safe"
-        manual_branch = "AEPI-107-manual"
+        safe_branch = "docs/PROJ-106-safe"
+        manual_branch = "PROJ-107-manual"
         safe_oid = scenario.create_branch(safe_branch)
         scenario.create_branch(manual_branch)
         report = self.report(
@@ -518,7 +534,7 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
     def test_execution_rejects_dirty_workspace(self):
         scenario = self.scenario()
-        branch = "agent/AEPI-108-safe"
+        branch = "release/PROJ-108-safe"
         head_oid = scenario.create_branch(branch)
         report = self.report(
             scenario,

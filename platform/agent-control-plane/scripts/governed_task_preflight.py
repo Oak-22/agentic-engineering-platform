@@ -4,11 +4,30 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
+
+
+JIRA_ISSUE_KEY_PATTERN = r"[A-Z][A-Z0-9_]*-[1-9][0-9]*"
+DELIVERY_BRANCH_PATTERN = re.compile(
+    rf"^(?:feature|fix|bugfix|hotfix|refactor|chore|docs|release)/"
+    rf"{JIRA_ISSUE_KEY_PATTERN}(?:-|$)"
+)
+LEGACY_AGENT_BRANCH_PATTERN = re.compile(
+    rf"^agent/{JIRA_ISSUE_KEY_PATTERN}(?:-|$)"
+)
+
+
+def is_governed_delivery_branch(branch: str) -> bool:
+    """Recognize current delivery branches and historical agent-prefixed refs."""
+    return bool(
+        DELIVERY_BRANCH_PATTERN.match(branch)
+        or LEGACY_AGENT_BRANCH_PATTERN.match(branch)
+    )
 
 
 @dataclass(frozen=True)
@@ -118,12 +137,12 @@ def inspect_repository(root: Path) -> RepositoryState:
             url=str(item["url"]),
         )
         for item in open_pr_data
-        if str(item.get("headRefName", "")).startswith("agent/")
+        if is_governed_delivery_branch(str(item.get("headRefName", "")))
     )
 
     current_pull_request_state: str | None = None
     current_remote_branch_exists = False
-    if branch.startswith("agent/"):
+    if is_governed_delivery_branch(branch):
         pr_result = run(
             [
                 "gh",
@@ -194,7 +213,7 @@ def blockers_for(state: RepositoryState) -> list[str]:
         )
 
     if (
-        state.current_branch.startswith("agent/")
+        is_governed_delivery_branch(state.current_branch)
         and state.current_pull_request_state == "MERGED"
         and state.current_remote_branch_exists
     ):
@@ -205,7 +224,7 @@ def blockers_for(state: RepositoryState) -> list[str]:
         )
 
     if (
-        state.current_branch.startswith("agent/")
+        is_governed_delivery_branch(state.current_branch)
         and state.current_pull_request_state is None
         and state.current_remote_branch_exists
     ):
@@ -251,7 +270,7 @@ def main() -> int:
 
     print(
         "Governed task preflight passed: the working tree is clean and no "
-        "outstanding agent pull request blocks task isolation."
+        "outstanding governed pull request blocks task isolation."
     )
     return 0
 
