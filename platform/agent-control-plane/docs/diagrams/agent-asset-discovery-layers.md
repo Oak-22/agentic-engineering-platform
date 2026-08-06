@@ -1,7 +1,7 @@
 # Agent Asset Discovery Layers
 
-This diagram separates lightweight repository entrypoints and runtime
-adapters from canonical skill packages and other shared agent assets.
+This diagram separates lightweight repository entrypoints / runtime-native
+installation surfaces from provider translation and canonical agent assets.
 
 ```mermaid
 flowchart TB
@@ -17,17 +17,20 @@ flowchart TB
         end
     end
 
-    subgraph D["LIGHT — RUNTIME DISCOVERY ADAPTERS"]
+    subgraph D["LIGHT — RUNTIME-NATIVE INSTALLATION SURFACES"]
         direction TB
         DS[" "]
 
         subgraph DR[" "]
             direction LR
-            DO[".agents/<br/>Codex discovery"]
+            DO[".agents/skills/<br/>Codex skill discovery"]
+            CO[".codex/<br/>Codex config + hooks"]
             DC[".claude/<br/>Claude discovery"]
-            DG[".github/<br/>Copilot discovery"]
+            DG["agent-related .github/<br/>Copilot discovery"]
         end
     end
+
+    RT["platform/agent-control-plane/<br/>adapters/runtimes/<br/>capability mappings + renderers"]
 
     subgraph S["HEAVY — SHARED REPOSITORY ASSETS"]
         direction TB
@@ -45,12 +48,19 @@ flowchart TB
     end
 
     A --> DO
+    CO --> ROOT
     C --> DC
     G --> DG
 
     DO --> ROOT
     DC --> ROOT
     DG --> ROOT
+
+    ROOT --> RT
+    RT -.-> DO
+    RT -.-> CO
+    RT -.-> DC
+    RT -.-> DG
 
     ROOT --> I
     ROOT --> K

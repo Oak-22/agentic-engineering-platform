@@ -10,8 +10,8 @@ preserving safe migration semantics.
 1. Lightweight repository entrypoints load shared, always-applicable rules.
 2. Canonical provider-neutral skill packages live under
    `platform/agent-control-plane/agent-assets/skills/`.
-3. Lightweight Codex, Claude Code, and GitHub Copilot adapters satisfy native
-   discovery contracts.
+3. Lightweight Codex, Claude Code, and GitHub Copilot installation surfaces
+   satisfy native discovery contracts.
 4. Shared agent assets hold reusable instructions, skill packages, hook
    definitions, execution policies, and role charters.
 5. Provider runtime adapters map canonical intent into native discovery,
@@ -21,7 +21,10 @@ preserving safe migration semantics.
 
 ## Discovery boundary
 
-Runtime-discovered entrypoints and adapters belong at the repository root.
+Runtime-discovered entrypoints and runtime-native installation surfaces belong
+at the repository root. Those surfaces contain only provider-required
+locators, selectors, links, generated projections, or explicitly approved
+native configuration; they do not own portable behavior.
 Canonical reusable instructions, skill packages, hook definitions, execution
 policies, and role charters belong under
 `platform/agent-control-plane/agent-assets/`. Provider capability mappings and

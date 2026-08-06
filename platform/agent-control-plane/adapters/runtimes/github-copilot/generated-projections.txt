@@ -1,0 +1,2 @@
+# Checked-in GitHub Copilot projections generated into agent-related .github/ paths.
+# Add one repository-relative path per line when a renderer is implemented.

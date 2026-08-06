@@ -2,8 +2,9 @@
 
 This folder holds explanatory material for the agent control plane. It is not
 the minimum install surface. Runtime-discovered entrypoints live at the
-repository root in `AGENTS.md`, `CLAUDE.md`, `.agents/`, `.claude/`, and
-`.github/`. Canonical reusable content lives in `../agent-assets/`; an
+repository root in `AGENTS.md`, `CLAUDE.md`, `.agents/`, `.codex/`, `.claude/`,
+and the agent-related `.github/` paths. Canonical reusable content lives in
+`../agent-assets/`; an
 `engineering-knowledge-base/` may be mounted separately as a private,
 machine-local overlay.
 
@@ -45,8 +46,9 @@ machine-local overlay.
 
 ## Placement Rules
 
-- Keep runtime-discovered repository adapters at root `AGENTS.md` and
-  runtime-owned `.agents/`, `.claude/`, and `.github/` paths.
+- Keep runtime-discovered entrypoints and runtime-native installation surfaces
+  at root `AGENTS.md`, `.agents/`, `.codex/`, `.claude/`, and the agent-related
+  `.github/` paths.
 - Keep canonical skill packages, shared instructions, hook definitions,
   execution policies, and role charters under `../agent-assets/`.
 - Keep provider capability/version mappings and renderers under

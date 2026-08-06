@@ -26,6 +26,12 @@ platform/agent-control-plane/agent-assets/execution-policies
 platform/agent-control-plane/agent-assets/role-charters
 platform/agent-control-plane/agent-assets/skills
 platform/agent-control-plane/adapters/runtimes
+platform/agent-control-plane/adapters/runtimes/codex/README.md
+platform/agent-control-plane/adapters/runtimes/codex/generated-projections.txt
+platform/agent-control-plane/adapters/runtimes/claude/README.md
+platform/agent-control-plane/adapters/runtimes/claude/generated-projections.txt
+platform/agent-control-plane/adapters/runtimes/github-copilot/README.md
+platform/agent-control-plane/adapters/runtimes/github-copilot/generated-projections.txt
 platform/agent-control-plane/scripts/instruction_manifest_hook.py
 platform/agent-control-plane/scripts/provider_docs_session_start.py
 "
@@ -53,6 +59,105 @@ if [ -d platform/agent-control-plane/.github ]; then
   echo "nested runtime tree must not exist: platform/agent-control-plane/.github" >&2
   exit 1
 fi
+
+# Runtime-native paths are installation surfaces, not alternate canonical
+# stores. Every checked-in file in these surfaces must be a discovery link, a
+# canonical instruction import, or an explicitly approved native config or
+# documentation file. Additions require an intentional allowlist change.
+native_surface_roots="
+.agents
+.codex
+.claude
+.github/agents
+.github/hooks
+.github/instructions
+.github/prompts
+.github/skills
+"
+
+generated_projection_manifests="
+platform/agent-control-plane/adapters/runtimes/codex/generated-projections.txt
+platform/agent-control-plane/adapters/runtimes/claude/generated-projections.txt
+platform/agent-control-plane/adapters/runtimes/github-copilot/generated-projections.txt
+"
+
+for generated_projection_manifest in $generated_projection_manifests; do
+  while IFS= read -r generated_projection; do
+    case "$generated_projection" in
+      ""|\#*)
+        continue
+        ;;
+    esac
+
+    case "$generated_projection_manifest:$generated_projection" in
+      *runtimes/codex/generated-projections.txt:.agents/* \
+        |*runtimes/codex/generated-projections.txt:.codex/* \
+        |*runtimes/claude/generated-projections.txt:.claude/* \
+        |*runtimes/github-copilot/generated-projections.txt:.github/agents/* \
+        |*runtimes/github-copilot/generated-projections.txt:.github/hooks/* \
+        |*runtimes/github-copilot/generated-projections.txt:.github/instructions/* \
+        |*runtimes/github-copilot/generated-projections.txt:.github/prompts/* \
+        |*runtimes/github-copilot/generated-projections.txt:.github/skills/*)
+        ;;
+      *)
+        echo "generated projection is outside its runtime-native surface: $generated_projection" >&2
+        exit 1
+        ;;
+    esac
+
+    if [ ! -e "$generated_projection" ] && [ ! -L "$generated_projection" ]; then
+      echo "declared generated projection is missing: $generated_projection" >&2
+      exit 1
+    fi
+  done < "$generated_projection_manifest"
+done
+
+is_declared_generated_projection() {
+  projection_path=$1
+
+  for projection_manifest in $generated_projection_manifests; do
+    if grep -Fqx "$projection_path" "$projection_manifest"; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+for native_surface_root in $native_surface_roots; do
+  find "$native_surface_root" \( -type f -o -type l \) -print
+done | while IFS= read -r native_path; do
+  case "$native_path" in
+    .agents/skills/README.md \
+      |.codex/README.md \
+      |.codex/hooks.json \
+      |.codex/hooks/README.md \
+      |.claude/README.md \
+      |.claude/settings.json \
+      |.claude/hooks/README.md \
+      |.claude/skills/README.md \
+      |.github/agents/README.md \
+      |.github/hooks/README.md \
+      |.github/prompts/README.md \
+      |.github/skills/README.md)
+      ;;
+    .agents/skills/*|.claude/skills/*|.github/prompts/*|.github/skills/*)
+      if [ ! -L "$native_path" ]; then
+        echo "runtime discovery projection must be a symlink: $native_path" >&2
+        exit 1
+      fi
+      ;;
+    .claude/rules/*.md|.github/instructions/*.instructions.md)
+      # Canonical imports are resolved and validated below.
+      ;;
+    *)
+      if ! is_declared_generated_projection "$native_path"; then
+        echo "unclassified runtime-native installation file: $native_path" >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
 
 canonical_skills_dir="platform/agent-control-plane/agent-assets/skills"
 runtime_skill_dirs=".agents/skills .claude/skills .github/skills"
@@ -136,8 +241,9 @@ if [ ! -L "$workflow_adapter" ] || [ "$(readlink "$workflow_adapter")" != "$work
   exit 1
 fi
 
-if ! grep -q '^@AGENTS.md$' CLAUDE.md; then
-  echo "CLAUDE.md must import AGENTS.md" >&2
+if ! grep -q '^@AGENTS.md$' CLAUDE.md \
+  || ! grep -q '^@AGENTS.md$' .github/copilot-instructions.md; then
+  echo "runtime entrypoints must import AGENTS.md" >&2
   exit 1
 fi
 

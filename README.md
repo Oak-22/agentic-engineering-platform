@@ -19,11 +19,7 @@ Learning turns validated signals into reinforced understanding. Shared
 Contracts & Schemas connect the three components, and telemetry and learning
 feed improvements back into the Agent Control Plane.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="control-plane-diagram-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="control-plane-diagram-light.svg">
-  <img alt="Agent Control Plane governs Shared Contracts and Schemas, which flow to Inference Telemetry and Developer Learning; both feed back to the Agent Control Plane, telemetry via a solid line and developer learning via a dotted line." src="control-plane-diagram-light.svg">
-</picture>
+<img alt="Agent Control Plane governs Shared Contracts and Schemas, which flow to Inference Telemetry and Developer Learning; both feed back to the Agent Control Plane, telemetry via a solid line and developer learning via a dotted line." src="agentic-control-plane-diagram.svg">
 
 ## Repository Structure
 
@@ -33,6 +29,9 @@ agentic-engineering-platform/
 ├── CLAUDE.md
 ├── .agents/
 │   └── skills/
+├── .codex/
+│   ├── hooks/
+│   └── hooks.json
 ├── .claude/
 │   ├── hooks/
 │   ├── rules/
@@ -47,11 +46,16 @@ agentic-engineering-platform/
 ├── platform/
 │   ├── agent-control-plane/
 │   │   ├── adapters/
+│   │   │   ├── jira/
 │   │   │   └── runtimes/
+│   │   │       ├── claude/
+│   │   │       ├── codex/
+│   │   │       └── github-copilot/
 │   │   ├── agent-assets/
 │   │   │   ├── execution-policies/
 │   │   │   ├── hooks/
 │   │   │   ├── instructions/
+│   │   │   ├── mcp-servers/
 │   │   │   ├── role-charters/
 │   │   │   └── skills/
 │   │   ├── contracts/
@@ -85,8 +89,10 @@ agentic-engineering-platform/
 
 ### Supporting boundaries
 
-- [`AGENTS.md`](AGENTS.md) and [`.github/`](.github/) are the repository-root
-  runtime discovery surface. Their portable contracts, adapters, and design
+- [`AGENTS.md`](AGENTS.md), [`.agents/`](.agents/), [`.codex/`](.codex/),
+  [`.claude/`](.claude/), and the agent-related paths under
+  [`.github/`](.github/) are repository-root runtime-native installation
+  surfaces. Their portable contracts, canonical assets, adapters, and design
   documentation remain owned by the Agent Control Plane component.
 - [`evidence/`](evidence/) contains applied human-AI collaboration case studies
   used to validate and improve the platform.

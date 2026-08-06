@@ -15,17 +15,21 @@ paths link to these assets.
   instances.
 - `role-charters/` contains runtime-neutral responsibilities, boundaries, and
   accountability definitions for specialized agents.
+- `mcp-servers/` contains provider-neutral MCP server definitions — tool and
+  resource connectors an agent may use.
 
 ## Adapter rule
 
-Runtime-owned paths may import, link, or translate these assets:
+Runtime-native installation surfaces may import, link, or translate these
+assets:
 
-- `.agents/` provides Codex discovery adapters.
+- `.agents/` provides Codex skill discovery links.
+- `.codex/` provides Codex project configuration and lifecycle hooks.
 - `.claude/` provides Claude Code discovery adapters.
-- `.github/` provides GitHub Copilot discovery adapters.
+- Agent-related `.github/` paths provide GitHub Copilot discovery adapters.
 
 Adapters contain only discovery metadata and runtime-specific configuration.
 Canonical shared instructions, skill packages, hook definitions, execution
 policies, and role charters remain here. Runtime-specific discovery,
-permissions, hooks, and enforcement configuration stay in their native
-adapter namespace or are rendered by `../adapters/runtimes/`.
+permissions, hooks, and enforcement configuration stay in their runtime-native
+installation surface or are rendered by `../adapters/runtimes/`.
