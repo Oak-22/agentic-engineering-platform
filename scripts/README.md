@@ -1,4 +1,6 @@
 # Repository Scripts
 
-Repository-wide automation belongs here. Component-specific scripts should
-remain inside the component that owns them.
+Repository-wide integration and maintenance automation belongs here.
+Component-specific scripts remain inside the component that owns them, while
+independently packageable cross-pillar command-line tools belong under
+`shared/tooling/`.

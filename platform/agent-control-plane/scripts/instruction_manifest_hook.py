@@ -24,6 +24,49 @@ EVIDENCE_LABELS = {
     "Read during turn",
     "Declared",
 }
+STORE_INDEX = {
+    "schemaVersion": 1,
+    "storeType": "instruction-evidence",
+    "generatedBy": {
+        "component": "instruction_manifest_hook.py",
+        "artifactKind": "runtime-generated",
+    },
+    "fileClasses": [
+        {
+            "pattern": "repository.json",
+            "kind": "metadata",
+            "scope": "project",
+            "runtimeSource": "hook storage initialization",
+            "retention": {
+                "safeToRotate": True,
+                "safeToDelete": True,
+                "notes": "Recreated from repository identity when the project partition is initialized.",
+            },
+        },
+        {
+            "pattern": "store-index.json",
+            "kind": "index",
+            "scope": "project",
+            "runtimeSource": "hook storage initialization",
+            "retention": {
+                "safeToRotate": True,
+                "safeToDelete": True,
+                "notes": "Descriptive metadata; regenerated from the hook implementation.",
+            },
+        },
+        {
+            "pattern": "<session-id>.jsonl",
+            "kind": "session-ledger",
+            "scope": "session",
+            "runtimeSource": "runtime recorded in each JSONL event",
+            "retention": {
+                "safeToRotate": True,
+                "safeToDelete": True,
+                "notes": "Retain until citation, investigation, or reproducibility dependencies end.",
+            },
+        },
+    ],
+}
 
 
 def repository_root(start: Path) -> Path:
@@ -145,6 +188,21 @@ def project_storage_root(root: Path) -> Path:
         metadata.write_text(
             json.dumps(
                 {
+                    "repositoryId": repository_id(root),
+                    "projectKey": project_key,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    index = project_root / "store-index.json"
+    if not index.exists():
+        index.write_text(
+            json.dumps(
+                {
+                    **STORE_INDEX,
                     "repositoryId": repository_id(root),
                     "projectKey": project_key,
                 },
@@ -322,6 +380,7 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
                 session_id,
                 {
                     "event": "instruction_loaded",
+                    "runtime": "claude",
                     "observation_id": (
                         "obs_"
                         + hashlib.sha256(observation_seed.encode()).hexdigest()[:24]

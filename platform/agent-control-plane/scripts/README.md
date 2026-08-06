@@ -51,3 +51,5 @@ Canonical logs are partitioned by repository identity under
 testing. The evidence label and citation are generated from the same record
 defined by
 `../contracts/instruction-evidence-record.schema.json`.
+The generated `store-index.json` describes which files are metadata, indexes,
+or session ledgers; see [`../docs/instruction-evidence-store.md`](../docs/instruction-evidence-store.md).

@@ -1,5 +1,10 @@
 # Repository Context Handoff Experiment
 
+> **Status: deferred.** This experiment is not part of normal contributor
+> onboarding and is not required before Claude works in this repository. Run
+> Claude directly from the current checkout; resume this harness only when a
+> task explicitly reopens the experiment and its comparison questions.
+
 Model providers are increasingly interchangeable. Session memory, instruction
 systems, and local histories are not. This experiment tests whether a governed
 handoff built from historical **Codex** sessions improves a fresh **Claude**

@@ -12,4 +12,7 @@ the Agentic Engineering Platform.
 
 These three pillars remain independently testable and packageable. Shared data
 schemas, interface contracts, and cross-cutting tools belong under
-[`../shared/`](../shared/).
+[`../shared/`](../shared/) only when multiple pillars concretely share their
+lifecycle or interface. Repository-wide integration commands remain under
+[`../scripts/`](../scripts/); component implementation scripts remain with
+their owning pillar.

@@ -3,6 +3,7 @@ paths:
   - "AGENTS.md"
   - "CLAUDE.md"
   - ".agents/**"
+  - ".codex/**"
   - ".claude/**"
   - ".github/**"
   - "platform/agent-control-plane/**"

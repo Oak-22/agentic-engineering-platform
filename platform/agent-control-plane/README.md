@@ -24,6 +24,18 @@ observe outcomes and feed validated lessons back into this control surface.
 Shared contracts and schemas define concrete interfaces between the three
 pillars without becoming another control plane.
 
+The control plane organizes agent customization from governing intent through
+runtime operation:
+
+```text
+Responsibility → assumed roles / role charters
+Authority      → execution policies
+Behavior       → instructions
+Procedure      → skills
+Capability     → MCP server declarations
+Lifecycle      → hooks
+```
+
 It formalizes five core needs:
 
 - deterministic instruction discovery for AI coding agents
@@ -53,7 +65,8 @@ These rules do not require a generalized work-event, routing-decision, or
 delivery-receipt schema. Add a shared schema only when a concrete producer and
 consumer need a versioned cross-pillar interface.
 
-The monorepo installs runtime-discovered adapters at repository root. Run
+The monorepo installs runtime-native discovery and configuration surfaces at
+repository root. Run
 [`../../scripts/check-agent-discovery-layout.sh`](../../scripts/check-agent-discovery-layout.sh)
 to verify that they have not drifted back into the component directory.
 
@@ -156,11 +169,16 @@ inspectable, and increasing reuse of proven engineering practices.
 - [`../../.github/copilot-instructions.md`](../../.github/copilot-instructions.md)
   Root GitHub Copilot routing adapter.
 - [`agent-assets/`](agent-assets/)
-  Canonical shared instructions and role charters.
+  Canonical shared instructions, skill packages, hook definitions, execution
+  policies, and role charters.
+- [`adapters/runtimes/`](adapters/runtimes/)
+  Provider capability declarations, version support, and native renderers.
 - [`../../.agents/`](../../.agents/)
-  Canonical provider-neutral skill packages and Codex discovery.
+  Codex Agent Skill discovery links.
+- [`../../.codex/`](../../.codex/)
+  Codex-native project configuration and lifecycle hooks.
 - [`../../.claude/`](../../.claude/)
-  Claude Code discovery adapters.
+  Claude Code-native installation surface.
 - [`../../.github/instructions/`](../../.github/instructions/)
   Path-specific GitHub Copilot adapters.
 - [`../../.github/agents/`](../../.github/agents/)
@@ -185,13 +203,17 @@ inspectable, and increasing reuse of proven engineering practices.
 - [`docs/strategy/`](docs/strategy/)
   Domain-agnostic strategic rationale.
 
-## Runtime discovery boundary
+## Runtime-native installation boundary
 
 Repository-discovered files must be installed relative to the adopting
-repository's Git or workspace root. Keep entrypoints and runtime discovery
-adapters light. Store canonical skill packages under `.agents/skills/`, store
-shared instructions and role charters under `agent-assets/`, and expose them
-through each runtime's native root-level discovery paths.
+repository's Git or workspace root. Keep entrypoints and runtime-native
+installation surfaces light: they may contain provider-required locators,
+selectors, links, generated projections, and explicitly approved native
+configuration, but they do not own portable behavior. Store canonical skill
+packages, shared instructions, and role charters under `agent-assets/`; store
+canonical hooks and execution policies there as they are implemented. Expose
+those assets through each runtime's native root-level paths and provider
+adapter.
 
 ## Adoption Guidance
 
@@ -205,11 +227,13 @@ surface:
 1. Add root `AGENTS.md` for shared agent guidance.
 2. Add root `CLAUDE.md` and `.github/copilot-instructions.md` as lightweight
    runtime entrypoints.
-3. Add canonical skill packages under `.agents/skills/` and other reusable
-   content under `agent-assets/`.
-4. Add `.claude/` and `.github/` discovery adapters only for supported
-   runtimes.
-5. Keep hooks, permissions, and enforcement configuration runtime-owned.
+3. Add canonical skill packages and other reusable content under
+   `agent-assets/`.
+4. Add `.agents/`, `.codex/`, `.claude/`, and agent-related `.github/`
+   installation surfaces only for supported runtimes.
+5. Keep provider-specific hook registration, permissions, and enforcement
+   configuration runtime-native while keeping portable intent under
+   `agent-assets/`.
 6. Add task-relevant artifacts only when they describe reusable
   behavior.
 

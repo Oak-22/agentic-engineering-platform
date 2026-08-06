@@ -121,12 +121,11 @@ long-term retention than passive review.
 
 The platform provides the structural prerequisites for this service:
 
-- `.agents/skills/` defines canonical provider-neutral skill packages and
-  colocated workflow references for the AI-human operating control plane
-- `platform/agent-control-plane/agent-assets/` defines reusable instructions
-  and role charters
-- `.claude/` and `.github/` expose those assets through runtime-native
-  discovery adapters and enforcement surfaces
+- `platform/agent-control-plane/agent-assets/` defines canonical reusable
+  instructions, skill packages, colocated workflow references, and role
+  charters
+- `.agents/`, `.claude/`, and `.github/` expose those assets through
+  runtime-native discovery adapters and enforcement surfaces
 - an optional, machine-local `engineering-knowledge-base/` provides
   private capture locations for workflow-derived learning artifacts
 - `docs/` can hold higher-level rationale and design notes

@@ -1,1 +1,1 @@
-../../.agents/skills/manage-git-workflow/references/git-foundations.md
+../../platform/agent-control-plane/agent-assets/skills/manage-git-workflow/references/git-foundations.md

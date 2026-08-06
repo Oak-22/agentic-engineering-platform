@@ -1,7 +1,7 @@
 # Agent Asset Discovery Layers
 
-This diagram separates lightweight repository entrypoints and runtime
-adapters from canonical skill packages and other shared agent assets.
+This diagram separates lightweight repository entrypoints / runtime-native
+installation surfaces from provider translation and canonical agent assets.
 
 ```mermaid
 flowchart TB
@@ -17,22 +17,20 @@ flowchart TB
         end
     end
 
-    subgraph P["CANONICAL — PROVIDER-NEUTRAL SKILL PACKAGES"]
-        direction TB
-        PS[" "]
-        DA[".agents/skills/<br/>Skills and colocated references"]
-    end
-
-    subgraph D["LIGHT — RUNTIME DISCOVERY ADAPTERS"]
+    subgraph D["LIGHT — RUNTIME-NATIVE INSTALLATION SURFACES"]
         direction TB
         DS[" "]
 
         subgraph DR[" "]
             direction LR
+            DO[".agents/skills/<br/>Codex skill discovery"]
+            CO[".codex/<br/>Codex config + hooks"]
             DC[".claude/<br/>Claude discovery"]
-            DG[".github/<br/>Copilot discovery"]
+            DG["agent-related .github/<br/>Copilot discovery"]
         end
     end
+
+    RT["platform/agent-control-plane/<br/>adapters/runtimes/<br/>capability mappings + renderers"]
 
     subgraph S["HEAVY — SHARED REPOSITORY ASSETS"]
         direction TB
@@ -42,25 +40,35 @@ flowchart TB
         subgraph SR[" "]
             direction LR
             I["instructions/"]
+            K["skills/"]
+            H["hooks/"]
+            P["execution-policies/"]
             R["role-charters/"]
         end
     end
 
-    A --> DA
+    A --> DO
+    CO --> ROOT
     C --> DC
     G --> DG
 
-    DC --> DA
-    DG --> DA
-    A --> ROOT
+    DO --> ROOT
     DC --> ROOT
     DG --> ROOT
 
+    ROOT --> RT
+    RT -.-> DO
+    RT -.-> CO
+    RT -.-> DC
+    RT -.-> DG
+
     ROOT --> I
+    ROOT --> K
+    ROOT --> H
+    ROOT --> P
     ROOT --> R
 
     style ES fill:transparent,stroke:transparent
-    style PS fill:transparent,stroke:transparent
     style DS fill:transparent,stroke:transparent
     style SS fill:transparent,stroke:transparent
 
