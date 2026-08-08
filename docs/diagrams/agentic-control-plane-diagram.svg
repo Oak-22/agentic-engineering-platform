@@ -25,6 +25,8 @@
     </marker>
   </defs>
 
+  <rect x="0" y="-48" width="780" height="1158" fill="#0b0f14" />
+
   <text x="390" y="-20" font-size="24" font-weight="700" text-anchor="middle" fill="#e8edf5" letter-spacing="0.2">Agentic Engineering Platform</text>
 
   <text x="390" y="14" class="tag" font-size="9.5" text-anchor="middle" letter-spacing="1.2">DIVERGENT MODEL CONTRIBUTIONS</text>
