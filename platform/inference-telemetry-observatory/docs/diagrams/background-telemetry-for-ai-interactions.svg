@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1020" viewBox="0 0 1500 1020" role="img" aria-labelledby="title description">
-  <title id="title">Transparent observability flow with interaction adapter</title>
+  <title id="title">Background Telemetry for AI Interactions</title>
   <desc id="description">Four user interaction surfaces send requests through a transparent interaction adapter. The adapter forwards normal traffic to the model API endpoint and silently emits telemetry to the local Observatory daemon, then PostgreSQL and Grafana.</desc>
   <defs>
     <marker id="arrow-request" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker>
@@ -21,7 +21,7 @@
   </defs>
 
   <rect width="1500" height="1020" fill="#f8fafc"/>
-  <text x="750" y="66" text-anchor="middle" class="heading" font-size="36" font-weight="700">Transparent observability flow</text>
+  <text x="750" y="66" text-anchor="middle" class="heading" font-size="36" font-weight="700">Background Telemetry for AI Interactions</text>
   <text x="750" y="102" text-anchor="middle" class="heading" font-size="19" fill="#475569">Normal interactions stay in the foreground; observability is collected locally and silently.</text>
 
   <text x="310" y="156" text-anchor="middle" class="heading" font-size="17" font-weight="700" fill="#2563eb">USER INTERACTION PATH</text>
