@@ -19,7 +19,7 @@ diagram-editing workflow rather than define the canonical architecture.
 
 ## Parent and Detail Views
 
-`full-diagram.svg` is the system-level view. Its “Interface to Feedforward /
+`docs/diagrams/full-diagram.svg` is the retired detailed system-level reference. Its “Interface to Feedforward /
 Feedback Lifecycle” section summarizes two boundary flows:
 
 - governed instructions, prompts, skills, hooks, standards, and retrieval

@@ -69,8 +69,8 @@
   <path fill="none" stroke="#e2574c" stroke-width="1.75" marker-end="url(#arrow-warning)" d="M 40,900 L 40,928" />
   <polygon points="40,935 33,948 47,948" fill="none" stroke="#e2574c" stroke-width="1.3" />
   <text x="40" y="946" font-size="8" fill="#e2574c" text-anchor="middle" font-weight="700">!</text>
-  <text x="40" y="965" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">residual risk:</text>
-  <text x="40" y="976" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">ungoverned delivery</text>
+  <text x="55" y="965" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">residual risk:</text>
+  <text x="55" y="976" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">ungoverned delivery</text>
 
   <!-- ============ Agent Control Plane (aperture) ============ -->
   <rect x="170" y="150" width="440" height="100" rx="10" fill="#202a35" stroke="#85a4e8" stroke-width="1.6" />
