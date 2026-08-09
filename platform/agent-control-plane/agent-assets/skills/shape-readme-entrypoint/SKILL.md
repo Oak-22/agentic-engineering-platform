@@ -49,6 +49,17 @@ deleting it.
   compatibility documentation; keep the entry path clear and route detail
   behind links.
 
+Divide human-facing Markdown into two groups:
+
+- substantial documentation that explains architecture, workflows, concepts,
+  or operating models;
+- small, reference-only, generated, or self-explanatory documentation.
+
+For the first group, prefer a visual orientation aid—such as a diagram,
+workflow screenshot, architecture map, timeline, or table—when it materially
+reduces cognitive load. For the second group, no visual is needed. This is a
+design heuristic, not a requirement for every README.
+
 Use this routing question for each paragraph:
 
 > Does a new reader need this before successfully using or evaluating the
