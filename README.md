@@ -19,7 +19,7 @@ Learning turns validated signals into reinforced understanding. Shared
 Contracts & Schemas connect the three components, and telemetry and learning
 feed improvements back into the Agent Control Plane.
 
-<img alt="Agent Control Plane governs Shared Contracts and Schemas, which flow to Inference Telemetry and Developer Learning; both feed back to the Agent Control Plane via dotted lines." src="agentic-control-plane-diagram-v2.svg">
+<img alt="Agentic Engineering Platform: Agent Control Plane governs Shared Contracts and Schemas, which flow to Inference Telemetry and Developer Learning; both feed back to the Agent Control Plane via dotted lines." src="docs/diagrams/agentic-engineering-platform-diagram.svg">
 
 ## Delivery Model
 

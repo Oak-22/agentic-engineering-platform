@@ -11,7 +11,7 @@ Visual source:
 
 Related context:
 - `platform/developer-learning-retrieval/design.md`
-- `platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/full-diagram.svg`
+- `docs/diagrams/full-diagram.svg`
 - `platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/`
 - `README.md`
 
