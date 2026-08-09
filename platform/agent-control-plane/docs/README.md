@@ -16,7 +16,7 @@ machine-local overlay.
   delivery branches, and local commit guardrail. Start with the
   [human operating guide](../../../docs/operations/governed-repository-delivery.md)
   when the detailed Git contract is not yet needed.
-- [Feedforward Feedback Change Lifecycle](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
+- [Agent Control Plane](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/agent-control-plane.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.
 - [Developer Learning Retrieval Service](../../developer-learning-retrieval/design.md)
@@ -28,9 +28,9 @@ machine-local overlay.
 - [Agent Asset Discovery Layers](diagrams/agent-asset-discovery-layers.md)
   Separates lightweight shared entrypoints and runtime adapters from the
   content-heavy canonical agent assets.
-- [feedforward-feedback-change-lifecycle.excalidraw](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.excalidraw)
+- [agent-control-plane.excalidraw](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/agent-control-plane.excalidraw)
   Source file for the lifecycle diagram.
-- [feedforward-feedback-change-lifecycle.png](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
+- [agent-control-plane.png](diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/agent-control-plane.png)
   Exported image for docs, portfolio use, and review.
 - [AI Knowledge Promotion Diagram](diagrams/ai-knowledge-promotion/README.md)
   Diagram family for personal/team/org knowledge capture, promotion,

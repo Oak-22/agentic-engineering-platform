@@ -8,7 +8,7 @@ documentation surface.
 The subject under manipulation is the agent control plane's
 [AI knowledge promotion diagram](../../../platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/README.md).
 Its feedforward/feedback section is a boundary-level representation whose
-[detailed lifecycle diagram](../../../platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/feedforward-feedback-change-lifecycle.png)
+[detailed lifecycle diagram](../../../platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/agent-control-plane.png)
 expands the execution, review, correction, and promotion loop. Runs should
 preserve that parent/detail relationship even when only the full diagram is
 being edited.

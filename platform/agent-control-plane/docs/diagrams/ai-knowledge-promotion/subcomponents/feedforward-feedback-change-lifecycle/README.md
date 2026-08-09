@@ -15,8 +15,8 @@ decision, and validation through the harness pipeline.
 
 ## Artifacts
 
-- `feedforward-feedback-change-lifecycle.excalidraw`: editable source.
-- `feedforward-feedback-change-lifecycle.png`: rendered reference.
+- `agent-control-plane.excalidraw`: canonical editable source.
+- `agent-control-plane.png`: canonical rendered reference.
 
 When changing this diagram, verify that its external inputs and outputs remain
 consistent with the parent diagram. Internal detail and layout may evolve
