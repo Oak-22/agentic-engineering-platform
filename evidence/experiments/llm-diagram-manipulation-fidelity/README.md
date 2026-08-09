@@ -5,13 +5,11 @@ Excalidraw-native LLM diagram updates. It is evidence about model and workflow
 fidelity, rather than part of the agent control plane's runtime or canonical
 documentation surface.
 
-The subject under manipulation is the agent control plane's
-[AI knowledge promotion diagram](../../../platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/README.md).
+The subject under manipulation is the
+[Agent Control Plane diagram](../../../platform/agent-control-plane/docs/diagrams/agent-control-plane.png).
 Its feedforward/feedback section is a boundary-level representation whose
-[detailed lifecycle diagram](../../../platform/agent-control-plane/docs/diagrams/ai-knowledge-promotion/subcomponents/feedforward-feedback-change-lifecycle/agent-control-plane.png)
-expands the execution, review, correction, and promotion loop. Runs should
-preserve that parent/detail relationship even when only the full diagram is
-being edited.
+execution, review, correction, and promotion loop is evaluated by this
+experiment.
 
 The protocol is in [`experiment-design.md`](experiment-design.md).
 
