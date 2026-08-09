@@ -1,7 +1,19 @@
 # Agent Asset Discovery Layers
 
-This diagram separates lightweight repository entrypoints / runtime-native
-installation surfaces from provider translation and canonical agent assets.
+This diagram shows how agent guidance moves through four layers:
+
+1. **Repository entrypoints** — shared files such as `AGENTS.md`.
+2. **Runtime surfaces** — provider-specific discovery locations such as
+   `.codex/`, `.claude/`, and `.github/`.
+3. **Provider adapters** — runtime mappings and renderers.
+4. **Canonical agent assets** — reusable instructions, skills, hooks,
+   policies, and role charters.
+
+The first two layers stay lightweight. The canonical assets contain the
+substantive reusable behavior.
+
+It explains ownership and routing; it is not the conformance check. Validate
+the live layout with [`scripts/check-agent-discovery-layout.sh`](../../../scripts/check-agent-discovery-layout.sh).
 
 ```mermaid
 flowchart TB
