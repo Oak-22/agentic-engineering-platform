@@ -8,9 +8,9 @@
     <style>
       .heading { font-family: Arial, Helvetica, sans-serif; fill: #0f172a; }
       .label { font-family: Arial, Helvetica, sans-serif; fill: #0f172a; font-size: 23px; font-weight: 700; }
-      .sub { font-family: Arial, Helvetica, sans-serif; fill: #475569; font-size: 16px; }
-      .note { font-family: Arial, Helvetica, sans-serif; fill: #475569; font-size: 15px; }
-      .surface { font-family: Arial, Helvetica, sans-serif; fill: #1e293b; font-size: 17px; font-weight: 600; }
+      .sub { font-family: Arial, Helvetica, sans-serif; fill: #475569; font-size: 19px; }
+      .note { font-family: Arial, Helvetica, sans-serif; fill: #475569; font-size: 18px; }
+      .surface { font-family: Arial, Helvetica, sans-serif; fill: #1e293b; font-size: 19px; font-weight: 600; }
       .solid { fill: #ffffff; stroke: #334155; stroke-width: 2.5; }
       .transparent { fill: #f8fafc; fill-opacity: 0.45; stroke: #7c3aed; stroke-width: 2.5; stroke-dasharray: 10 8; }
       .surface-box { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.8; }
@@ -24,6 +24,7 @@
   <text x="750" y="66" text-anchor="middle" class="heading" font-size="36" font-weight="700">Background Telemetry for AI Interactions</text>
   <text x="750" y="102" text-anchor="middle" class="heading" font-size="19" fill="#475569">Normal interactions stay in the foreground; observability is collected locally and silently.</text>
 
+  <g transform="translate(0 25)">
   <text x="310" y="156" text-anchor="middle" class="heading" font-size="17" font-weight="700" fill="#2563eb">USER INTERACTION PATH</text>
   <text x="1088" y="156" text-anchor="middle" class="heading" font-size="17" font-weight="700" fill="#7c3aed">LOCAL OBSERVABILITY PATH</text>
 
@@ -73,9 +74,18 @@
   <path d="M1285 434 L1285 560" class="telemetry"/>
   <path d="M1285 664 L1285 760" class="telemetry"/>
 
+  <text x="750" y="866" text-anchor="middle" class="heading" font-size="17" font-weight="700">ARROW KEY</text>
+  <path d="M430 895 L480 895" class="request"/>
+  <text x="490" y="901" class="note" fill="#2563eb">request / interaction</text>
+  <path d="M740 895 L790 895" class="response"/>
+  <text x="800" y="901" class="note" fill="#059669">model response</text>
+  <path d="M1010 895 L1060 895" class="telemetry"/>
+  <text x="1070" y="901" class="note" fill="#6d28d9">telemetry event</text>
+
   <line x1="580" y1="145" x2="580" y2="900" stroke="#cbd5e1" stroke-width="2"/>
   <line x1="1065" y1="145" x2="1065" y2="900" stroke="#cbd5e1" stroke-width="2"/>
-  <text x="330" y="935" text-anchor="middle" class="note">foreground interaction</text>
-  <text x="830" y="935" text-anchor="middle" class="note">transparent adapter</text>
-  <text x="1285" y="935" text-anchor="middle" class="note">silent background collection</text>
+  <text x="330" y="960" text-anchor="middle" class="note">foreground interaction</text>
+  <text x="830" y="960" text-anchor="middle" class="note">transparent adapter</text>
+  <text x="1285" y="960" text-anchor="middle" class="note">silent background collection</text>
+  </g>
 </svg>
