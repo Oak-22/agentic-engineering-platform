@@ -1,6 +1,7 @@
 # Claude Code Hooks
 
-This directory is reserved for repository-owned Claude Code hook commands.
+This directory contains Claude-specific lifecycle hook commands.
+
 
 ## Diverges from Anthropic's default layout
 
@@ -13,7 +14,7 @@ actually registered here lives in
 and is invoked from [`../settings.json`](../settings.json) by its full
 repository path instead. This directory currently holds no scripts.
 
-That's a deliberate centralization, not an oversight. The same script bodies
+That's a deliberate centralization. The same script bodies
 (`instruction_manifest_hook.py`, `provider_docs_session_start.py`) are also
 invoked from [`../../.codex/hooks.json`](../../.codex/hooks.json); each call
 selects its runtime with a `--runtime claude` / `--runtime codex` flag. A
