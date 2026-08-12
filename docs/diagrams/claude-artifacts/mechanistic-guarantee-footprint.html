@@ -1,0 +1,335 @@
+<title>Mechanistic Guarantee — Footprint vs. Goal</title>
+<style>
+  :root {
+    --paper: #edeeea;
+    --paper-raised: #e3e5df;
+    --ink: #14181c;
+    --ink-soft: #4a5157;
+    --rule: #b7bdb9;
+    --rule-strong: #8d9598;
+    --warm: #b1650f;
+    --cool: #0f6e64;
+    --cool-fill: #0f6e6414;
+    --goal: #a83a2c;
+    --goal-fill: #a83a2c0d;
+    --ring: #14181c;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14181a;
+      --paper-raised: #1b2022;
+      --ink: #ece9e2;
+      --ink-soft: #a9b0ac;
+      --rule: #3c4345;
+      --rule-strong: #565f61;
+      --warm: #e0973f;
+      --cool: #4fbfae;
+      --cool-fill: #4fbfae1f;
+      --goal: #e2695a;
+      --goal-fill: #e2695a14;
+      --ring: #ece9e2;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #14181a;
+    --paper-raised: #1b2022;
+    --ink: #ece9e2;
+    --ink-soft: #a9b0ac;
+    --rule: #3c4345;
+    --rule-strong: #565f61;
+    --warm: #e0973f;
+    --cool: #4fbfae;
+    --cool-fill: #4fbfae1f;
+    --goal: #e2695a;
+    --goal-fill: #e2695a14;
+    --ring: #ece9e2;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+
+  .sheet {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 4rem 1.75rem 5rem;
+  }
+
+  .kicker {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 0.9rem;
+  }
+
+  h1 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: clamp(1.5rem, 3.2vw, 2.05rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 1.1rem;
+    max-width: 24ch;
+  }
+
+  .dek {
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 2.6rem;
+  }
+
+  .dek strong { color: var(--ink); font-weight: 600; }
+  .dek code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.92em;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.05em 0.35em;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 2.6rem;
+  }
+
+  figure { margin: 0 0 1.1rem; }
+
+  .diagram-frame {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.6rem 1.2rem 1.2rem;
+  }
+
+  svg { display: block; width: 100%; height: auto; }
+
+  .ring-label {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 15px;
+    font-weight: 600;
+    fill: var(--ink);
+  }
+
+  .ring-sub {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 10.5px;
+    fill: var(--ink-soft);
+  }
+
+  .callout {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 11px;
+    fill: var(--goal);
+  }
+
+  .callout-sub {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 10px;
+    fill: var(--ink-soft);
+  }
+
+  .core-label {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    fill: var(--cool);
+    text-anchor: middle;
+  }
+
+  figcaption {
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 2.8rem;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin: -0.6rem 0 3.2rem;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 0.55rem; }
+
+  .table-head {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 1rem;
+  }
+
+  ol.path {
+    margin: 0 0 3rem;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--rule);
+    counter-reset: step;
+  }
+
+  ol.path > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  ol.path > li::before {
+    content: counter(step);
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.85rem;
+    color: var(--cool);
+    font-weight: 700;
+  }
+
+  ol.path > li > div {
+    min-width: 0;
+  }
+
+  ol.path dt {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 0.25rem;
+  }
+
+  ol.path dd {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+  }
+
+  footer {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 620px) {
+    .diagram-frame { padding: 1.2rem 0.7rem 1rem; }
+  }
+</style>
+
+<div class="sheet">
+  <p class="kicker">Agent Control Plane — Governance Model, Conceptual Goal</p>
+  <h1>Grow the mechanistic core</h1>
+  <p class="dek">
+    Not the current state — the target. Each ring narrows in scope the way
+    <strong>deep learning</strong> sits inside <strong>machine learning</strong>
+    inside <strong>artificial intelligence</strong>: every inner category is a
+    stricter subset of the one around it. Right now the solid core — the part
+    with an actual mechanical guarantee, not just a stated rule — is small and
+    limited to <code>hooks</code>. The goal is to grow that core outward, into
+    <code>role-charters</code> and the structurally-checkable parts of
+    <code>execution-policies</code>, without pretending judgment calls can be
+    mechanized away entirely.
+  </p>
+  <hr class="divider" />
+
+  <figure>
+    <div class="diagram-frame">
+      <svg viewBox="0 0 1000 780" role="img" aria-label="Four concentric rings — instructions and skills, execution policies, role charters and MCP server definitions, and hooks — nested from broadest and most interpretive to narrowest and most mechanistic, in the manner of deep learning nested inside machine learning nested inside artificial intelligence. A small solid circle marks the current mechanistic guarantee, limited to hooks. A larger dashed circle marks the goal: growing that guarantee outward to cover role charters and the structurally checkable parts of execution policies.">
+
+        <!-- outer to inner rings, shared center -->
+        <circle cx="480" cy="440" r="380" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+        <circle cx="480" cy="440" r="290" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+        <circle cx="480" cy="440" r="205" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+
+        <!-- goal ring: dashed, semantic red, fill wash -->
+        <circle cx="480" cy="440" r="150" fill="var(--goal-fill)" stroke="var(--goal)" stroke-width="2" stroke-dasharray="6 5" />
+
+        <!-- current mechanistic core: solid, cool fill -->
+        <circle cx="480" cy="440" r="72" fill="var(--cool-fill)" stroke="var(--cool)" stroke-width="2.5" />
+        <text x="480" y="436" class="core-label">HOOKS</text>
+        <text x="480" y="450" class="core-label" style="font-weight:400; font-size:9.5px;">today's guarantee</text>
+
+        <!-- ring labels, stacked at top of each ring -->
+        <text x="480" y="86" text-anchor="middle" class="ring-label">Instructions / Skills</text>
+        <text x="480" y="104" text-anchor="middle" class="ring-sub">broadest — read and chosen, never mechanized</text>
+
+        <text x="480" y="176" text-anchor="middle" class="ring-label">Execution Policies</text>
+        <text x="480" y="194" text-anchor="middle" class="ring-sub">tiers, authorization, evidence rules</text>
+
+        <text x="480" y="261" text-anchor="middle" class="ring-label">Role Charters / MCP Definitions</text>
+        <text x="480" y="279" text-anchor="middle" class="ring-sub">scoped by identity and capability surface</text>
+
+        <!-- goal callout, leader line to right edge of dashed ring -->
+        <line x1="630" y1="440" x2="690" y2="440" stroke="var(--goal)" stroke-width="1.25" stroke-dasharray="3 3" />
+        <text x="700" y="424" class="callout">goal: mechanistic</text>
+        <text x="700" y="438" class="callout">guarantee (not built)</text>
+        <text x="700" y="456" class="callout-sub">structural checks reaching</text>
+        <text x="700" y="470" class="callout-sub">into charters + policy tiers</text>
+
+        <!-- current-core callout, leader line down-left -->
+        <line x1="428" y1="480" x2="330" y2="560" stroke="var(--cool)" stroke-width="1.25" stroke-dasharray="3 3" />
+        <text x="320" y="580" text-anchor="end" class="callout" style="fill:var(--cool);">current: 1 mechanism</text>
+        <text x="320" y="594" text-anchor="end" class="callout-sub">protect_main_commit.py only</text>
+      </svg>
+    </div>
+  </figure>
+  <figcaption>
+    The two circles at the center are the actual claim: the solid ring is what
+    has a mechanical guarantee today; the dashed ring is how far that
+    guarantee should reach once policies and charters carry their own
+    structural checks. The outer two rings — instructions/skills and the
+    unchecked remainder of execution policies — are not targets for
+    mechanization. Some governance has to stay judgment, by design.
+  </figcaption>
+
+  <div class="legend">
+    <div class="legend-item">
+      <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="var(--cool-fill)" stroke="var(--cool)" stroke-width="2" /></svg>
+      current mechanistic guarantee
+    </div>
+    <div class="legend-item">
+      <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="var(--goal-fill)" stroke="var(--goal)" stroke-width="2" stroke-dasharray="3 2" /></svg>
+      goal footprint (conceptual, not built)
+    </div>
+    <div class="legend-item">
+      <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" /></svg>
+      category boundary (scope, not enforcement)
+    </div>
+  </div>
+
+  <p class="table-head">What "growing the core" would actually require</p>
+  <ol class="path">
+    <li><div>
+      <dt>Role charters — bind identity, not just document it</dt>
+      <dd>Today a charter states who's accountable in prose. A mechanized version would tie a charter to something checkable at runtime — a required approver on the record, not just named in a document.</dd>
+    </div></li>
+    <li><div>
+      <dt>Execution policies — mechanize the checkable slice</dt>
+      <dd>Authorization ("did the user actually say this") stays a judgment call. But evidence presence — a linked pull request, a citation, a re-read confirmation — is structurally checkable, and could gate completion the way a hook gates a commit.</dd>
+    </div></li>
+    <li><div>
+      <dt>Leave the outer ring alone</dt>
+      <dd>Instructions and skills exist precisely because not everything should be mechanized. Growing the core means shrinking the gap identified for policies and charters — not erasing the interpretive layer entirely.</dd>
+    </div></li>
+  </ol>
+
+  <footer>
+    companion to the interpretation → enforcement gradient chart · conceptual target state, not a canonical asset
+  </footer>
+</div>
