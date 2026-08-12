@@ -8,7 +8,8 @@ paths link to these assets.
 
 - `instructions/` contains shared behavioral and path-oriented guidance.
 - `skills/` contains canonical skill procedures, metadata, scripts,
-  references, and other package resources.
+  references, and other package resources. Its README defines the shared
+  skill-composition pattern.
 - `hooks/` contains provider-neutral lifecycle definitions and intrinsic
   portable hook resources.
 - `execution-policies/` contains provider-neutral bounded-execution policy
@@ -33,3 +34,16 @@ Canonical shared instructions, skill packages, hook definitions, execution
 policies, and role charters remain here. Runtime-specific discovery,
 permissions, hooks, and enforcement configuration stay in their runtime-native
 installation surface or are rendered by `../adapters/runtimes/`.
+
+## Control-plane hierarchy
+
+```text
+canonical asset  = behavioral source of truth
+registry         = inventory and expected relationships
+runtime config   = provider-authoritative activation
+validator        = drift detector
+```
+
+Registries are colocated with their asset category. They document and validate
+relationships; they do not replace canonical behavior or become runtime import
+dependencies.

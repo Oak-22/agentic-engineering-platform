@@ -332,8 +332,6 @@ core identity.
 High-level rationale for the control-plane pattern lives in
 [`docs/strategy/`](docs/strategy/).
 
-The broad thesis is documented in
-[`docs/strategy/invisible-systems-thesis.md`](docs/strategy/invisible-systems-thesis.md).
 Domain-specific extensions, such as biohealth governance and clinical
 translation boundaries, should live in the downstream repository that
 owns that domain surface.

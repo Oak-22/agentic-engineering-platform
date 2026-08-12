@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+
+SCRIPT_PATH = (
+    Path(__file__).parents[1] / "scripts" / "archive_artifact_publish.py"
+)
+SPEC = importlib.util.spec_from_file_location("archive_artifact_publish", SCRIPT_PATH)
+assert SPEC and SPEC.loader
+archiver = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = archiver
+SPEC.loader.exec_module(archiver)
+
+
+class ArchiveArtifactPublishTests(unittest.TestCase):
+    def test_ignores_events_other_than_post_tool_use(self):
+        result = archiver.handle(
+            {"hook_event_name": "PreToolUse", "tool_name": "Artifact"},
+            project_dir=None,
+        )
+        self.assertIsNone(result)
+
+    def test_ignores_tools_other_than_artifact(self):
+        result = archiver.handle(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": "/tmp/whatever.html"},
+            },
+            project_dir=None,
+        )
+        self.assertIsNone(result)
+
+    def test_missing_file_path_is_a_noop(self):
+        result = archiver.handle(
+            {"hook_event_name": "PostToolUse", "tool_name": "Artifact", "tool_input": {}},
+            project_dir=None,
+        )
+        self.assertIsNone(result)
+
+    def test_missing_source_file_reports_skip_without_raising(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "gone.html"
+            result = archiver.handle(
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "Artifact",
+                    "tool_input": {"file_path": str(source)},
+                },
+                project_dir=None,
+            )
+            self.assertIn("skipped", result["hookSpecificOutput"]["additionalContext"])
+
+    def test_mirrors_published_file_into_project_scoped_archive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_dir = root / "scratchpad"
+            source_dir.mkdir()
+            source = source_dir / "diagram.html"
+            source.write_text("<title>Diagram</title>", encoding="utf-8")
+
+            project_dir = root / "repo-checkout"
+            project_dir.mkdir()
+            archive_base = root / "home"
+
+            original_resolve = archiver.resolve_archive_root
+            archiver.resolve_archive_root = lambda **kwargs: original_resolve(
+                project_dir=kwargs["project_dir"], archive_base=archive_base
+            )
+            try:
+                result = archiver.handle(
+                    {
+                        "hook_event_name": "PostToolUse",
+                        "tool_name": "Artifact",
+                        "tool_input": {"file_path": str(source)},
+                    },
+                    project_dir=project_dir,
+                )
+            finally:
+                archiver.resolve_archive_root = original_resolve
+
+            expected_destination = (
+                archive_base
+                / archiver.DEFAULT_ARCHIVE_DIRNAME
+                / "repo-checkout"
+                / "diagram.html"
+            )
+            self.assertTrue(expected_destination.is_file())
+            self.assertEqual(
+                expected_destination.read_text(encoding="utf-8"),
+                "<title>Diagram</title>",
+            )
+            self.assertIn(
+                str(expected_destination),
+                result["hookSpecificOutput"]["additionalContext"],
+            )
+
+    def test_republish_overwrites_previous_archive_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "diagram.html"
+            archive_root = root / "archive"
+            source.write_text("v1", encoding="utf-8")
+            first = archiver.archive_file(source, archive_root)
+            source.write_text("v2", encoding="utf-8")
+            second = archiver.archive_file(source, archive_root)
+
+            self.assertEqual(first, second)
+            self.assertEqual(second.read_text(encoding="utf-8"), "v2")
+
+
+if __name__ == "__main__":
+    unittest.main()

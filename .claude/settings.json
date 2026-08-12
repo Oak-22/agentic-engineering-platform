@@ -35,6 +35,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Artifact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/archive_artifact_publish.py\"",
+            "timeout": 10,
+            "statusMessage": "Archiving published artifact"
+          }
+        ]
+      }
     ]
   }
 }

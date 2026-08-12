@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "description": "Canonical inventory of centralized and runtime-owned Agent Control Plane hooks.",
+  "sourceOfTruth": "platform/agent-control-plane/agent-assets/hooks/hooks_registry.json",
+  "hooks": [
+    {
+      "id": "instruction-manifest",
+      "ownership": "centralized",
+      "implementation": "platform/agent-control-plane/scripts/instruction_manifest_hook.py",
+      "runtimes": [
+        {
+          "runtime": "codex",
+          "registration": ".codex/hooks.json",
+          "events": ["UserPromptSubmit"]
+        },
+        {
+          "runtime": "claude",
+          "registration": ".claude/settings.json",
+          "events": ["InstructionsLoaded", "UserPromptSubmit"]
+        }
+      ],
+      "documentation": "platform/agent-control-plane/agent-assets/instructions/prompt-instruction-manifest.md"
+    },
+    {
+      "id": "provider-docs-session-start",
+      "ownership": "centralized",
+      "implementation": "platform/agent-control-plane/scripts/provider_docs_session_start.py",
+      "runtimes": [
+        {
+          "runtime": "codex",
+          "registration": ".codex/hooks.json",
+          "events": ["SessionStart"]
+        },
+        {
+          "runtime": "claude",
+          "registration": ".claude/settings.json",
+          "events": ["SessionStart"]
+        }
+      ],
+      "documentation": "platform/agent-control-plane/agent-assets/hooks/README.md"
+    },
+    {
+      "id": "protect-main-commit",
+      "ownership": "centralized",
+      "implementation": "platform/agent-control-plane/scripts/protect_main_commit.py",
+      "runtimes": [
+        {
+          "runtime": "git",
+          "registration": ".githooks/pre-commit",
+          "events": ["pre-commit"]
+        }
+      ],
+      "documentation": "platform/agent-control-plane/scripts/README.md"
+    },
+    {
+      "id": "artifact-archive",
+      "ownership": "runtime-owned",
+      "runtime": "claude",
+      "portableEquivalent": false,
+      "implementation": "platform/agent-control-plane/scripts/archive_artifact_publish.py",
+      "registration": ".claude/settings.json",
+      "events": ["PostToolUse"],
+      "matcher": "Artifact",
+      "documentation": ".claude/hooks/README.md"
+    }
+  ]
+}

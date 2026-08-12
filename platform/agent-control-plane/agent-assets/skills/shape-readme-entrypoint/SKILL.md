@@ -66,22 +66,3 @@ Use this routing question for each paragraph:
 > project?
 
 Keep it in the README when the answer is yes. Route it when the answer is no.
-
-## Product Thesis Shape
-
-When conceptual material warrants `docs/product-thesis.md`, use only the
-sections supported by the source material:
-
-```markdown
-# Product Thesis
-
-## Thesis
-## Problem
-## Positioning
-## System Value
-## Boundaries
-## Direction
-```
-
-Treat the product thesis as durable conceptual onboarding, not a second
-README. Report which material moved and which commands were verified.
