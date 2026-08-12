@@ -13,3 +13,23 @@ supported versions, and renderers belong in
 Generated provider configuration must preserve the canonical security intent.
 An adapter must reject or explicitly report unsupported requirements instead
 of silently weakening them.
+
+## Asset index
+
+- [`governed-repository-change.md`](governed-repository-change.md) — action
+  tiers, authorization and evidence requirements, and fail-closed handling
+  for repository and linked external-system (Jira, Confluence, GitHub
+  configuration) mutation. Implemented for by `deliver-governed-change`,
+  `manage-git-workflow`, and `manage-jira-confluence`.
+
+## Placement guidance
+
+A policy states the boundary a skill's procedural instructions must operate
+inside — resource boundaries, authorization tiers, bypass restrictions, and
+evidence requirements that would otherwise be silently re-derived by each
+skill that needs them. It does not restate a skill's steps, tool-specific
+mechanics, or anything true of one workflow but not the domain generally;
+that content stays in the skill. Add a new policy instance only when a
+boundary is genuinely cross-cutting across more than one skill or is likely
+to be — a boundary used by exactly one skill and unlikely to be reused
+belongs in that skill instead.

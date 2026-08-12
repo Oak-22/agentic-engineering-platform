@@ -22,6 +22,9 @@ machine-local overlay.
 - [Developer Learning Retrieval Service](../../developer-learning-retrieval/design.md)
   Describes a future extension for turning engineering activity into
   learning and retrieval signals.
+- [Local Documentation and Artifact Mirrors](local-doc-mirrors.md)
+  Distinguishes the automatic provider-docs mirror, the automatic artifact
+  archive, and manual artifact promotion into the repository.
 
 ## Diagrams
 
@@ -40,9 +43,6 @@ machine-local overlay.
 
 - [Strategy Notes](strategy/README.md)
   Index for domain-agnostic strategy notes.
-- [Invisible Systems Thesis](strategy/invisible-systems-thesis.md)
-  The broad thesis behind making authority, evidence, provenance,
-  uncertainty, review, and consequences explicit enough to govern.
 
 ## Placement Rules
 

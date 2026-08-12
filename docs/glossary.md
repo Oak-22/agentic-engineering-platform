@@ -27,6 +27,22 @@ implementation work.
 A Jira-native identifier in `PROJECT-NUMBER` form. Portable artifacts represent
 it as `<JIRA-ISSUE-KEY>` or use a neutral example such as `PROJ-123`.
 
+## Agent-context terms
+
+### Runtime
+
+The agent host product executing an agent in this repository — for example
+Claude Code, Codex, or GitHub Copilot. This is distinct from other common
+senses of "runtime": it does not mean an inference/model-serving runtime, nor
+a language execution engine (Bun, Node, the JVM, etc.). Compound terms follow
+the same sense: a `runtime adapter` maps canonical intent into one runtime's
+native discovery and configuration; `runtime-native` describes a surface only
+that runtime's installation contract requires; the `--runtime` flag on shared
+scripts (for example `provider_docs_session_start.py`) selects which
+runtime's own resources to act on. See
+[Agent Context Routing](../platform/agent-control-plane/agent-assets/instructions/agent-context-routing.md)
+for how runtime adapters fit the layer model.
+
 ## Delivery terms
 
 ### `workbench/local`

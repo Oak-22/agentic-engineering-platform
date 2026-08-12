@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "description": "Canonical inventory of reusable instructions and runtime adapter imports.",
+  "sourceOfTruth": "platform/agent-control-plane/agent-assets/instructions",
+  "instructions": [
+    {"id": "agent-context-routing", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/agent-context-routing.md", "runtimeAdapters": [".github/instructions/agent-context-routing.instructions.md", ".claude/rules/agent-context-routing.md"]},
+    {"id": "artifact-formatting", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/artifact-formatting.md", "runtimeAdapters": [".github/instructions/artifact-formatting.instructions.md", ".claude/rules/artifact-formatting.md"]},
+    {"id": "general-agent", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/general-agent.md", "runtimeAdapters": [".github/instructions/general-agent.instructions.md", ".claude/rules/general-agent.md"]},
+    {"id": "prompt-instruction-manifest", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/prompt-instruction-manifest.md", "runtimeAdapters": [".github/instructions/prompt-instruction-manifest.instructions.md", ".claude/rules/prompt-instruction-manifest.md"]},
+    {"id": "prose-writing-rules", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/prose-writing-rules.md", "runtimeAdapters": []},
+    {"id": "python", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/python.md", "runtimeAdapters": [".github/instructions/python.instructions.md", ".claude/rules/python.md"]}
+  ]
+}

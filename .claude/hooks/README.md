@@ -1,6 +1,25 @@
 # Claude Code Hooks
 
-This directory contains Claude-specific lifecycle hook commands.
+This directory documents Claude-specific lifecycle hook commands.
+
+The centralized hook registry is
+[`platform/agent-control-plane/agent-assets/hooks/README.md`](../../platform/agent-control-plane/agent-assets/hooks/README.md).
+This runtime README owns only Claude-specific activation, payload, and
+provider-capability details.
+
+## Runtime-owned hooks
+
+### Artifact archive
+
+Claude Code's `PostToolUse` event with the `Artifact` matcher invokes
+[`archive_artifact_publish.py`](../../platform/agent-control-plane/scripts/archive_artifact_publish.py)
+from [`settings.json`](../settings.json). The hook copies the exact published
+file to a local archive outside the repository so it survives session end.
+
+This is intentionally Claude-only. Codex has no corresponding `Artifact`
+event contract, so it has no registration or claimed parity for this hook.
+The archive is a local convenience mirror, not a portable skill or a
+repository-write hook.
 
 
 ## Diverges from Anthropic's default layout

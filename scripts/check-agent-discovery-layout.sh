@@ -34,6 +34,10 @@ platform/agent-control-plane/adapters/runtimes/github-copilot/README.md
 platform/agent-control-plane/adapters/runtimes/github-copilot/generated-projections.txt
 platform/agent-control-plane/scripts/instruction_manifest_hook.py
 platform/agent-control-plane/scripts/provider_docs_session_start.py
+platform/agent-control-plane/scripts/validate_asset_registries.py
+platform/agent-control-plane/agent-assets/hooks/hooks_registry.json
+platform/agent-control-plane/agent-assets/skills/skills_registry.json
+platform/agent-control-plane/agent-assets/instructions/instructions_registry.json
 "
 
 for required_path in $required_paths; do
@@ -45,6 +49,7 @@ done
 
 python3 -m json.tool .codex/hooks.json >/dev/null
 python3 -m json.tool .claude/settings.json >/dev/null
+python3 platform/agent-control-plane/scripts/validate_asset_registries.py
 
 if ! grep -q '"SessionStart"' .claude/settings.json \
   || ! grep -q '"InstructionsLoaded"' .claude/settings.json \
