@@ -6,3 +6,8 @@ engineering-knowledge-base
 .aep/
 product-demo
 portfolio-loom-demo-script-scratch.txt
+agent-control-plane-completion-plan.md
+claude-skills-UI-bug-report.md
+__pycache__/
+*.py[cod]
+.pytest_cache/

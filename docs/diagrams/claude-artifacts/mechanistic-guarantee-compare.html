@@ -1,0 +1,362 @@
+<title>This Repo Today vs. the Goal</title>
+<style>
+  :root {
+    --paper: #edeeea;
+    --paper-raised: #e3e5df;
+    --ink: #14181c;
+    --ink-soft: #4a5157;
+    --rule: #b7bdb9;
+    --rule-strong: #8d9598;
+    --cool: #0f6e64;
+    --cool-fill: #0f6e6420;
+    --cool-fill-soft: #0f6e6410;
+    --goal: #a83a2c;
+    --ring: #14181c;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14181a;
+      --paper-raised: #1b2022;
+      --ink: #ece9e2;
+      --ink-soft: #a9b0ac;
+      --rule: #3c4345;
+      --rule-strong: #565f61;
+      --cool: #4fbfae;
+      --cool-fill: #4fbfae2b;
+      --cool-fill-soft: #4fbfae16;
+      --goal: #e2695a;
+      --ring: #ece9e2;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #14181a;
+    --paper-raised: #1b2022;
+    --ink: #ece9e2;
+    --ink-soft: #a9b0ac;
+    --rule: #3c4345;
+    --rule-strong: #565f61;
+    --cool: #4fbfae;
+    --cool-fill: #4fbfae2b;
+    --cool-fill-soft: #4fbfae16;
+    --goal: #e2695a;
+    --ring: #ece9e2;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+
+  .sheet {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 4rem 1.75rem 5rem;
+  }
+
+  .kicker {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 0.9rem;
+  }
+
+  h1 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: clamp(1.5rem, 3.2vw, 2.05rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 1.1rem;
+    max-width: 26ch;
+  }
+
+  .dek {
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 0 0 2.6rem;
+  }
+
+  .dek strong { color: var(--ink); font-weight: 600; }
+  .dek code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.92em;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.05em 0.35em;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 2.6rem;
+  }
+
+  figure { margin: 0 0 1.1rem; }
+
+  .compare {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.4rem 1rem 1rem;
+    overflow-x: auto;
+  }
+
+  .panel {
+    flex: 1 1 0;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 0.4rem 0.6rem;
+  }
+
+  .panel-title {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .panel-title.goal { color: var(--goal); }
+
+  .panel-note {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+  }
+
+  svg { display: block; width: 100%; height: auto; }
+
+  .seam {
+    flex: 0 0 auto;
+    width: 108px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.25rem;
+  }
+
+  .ring-label {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    fill: var(--ink);
+  }
+
+  .ring-sub {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 9.5px;
+    fill: var(--ink-soft);
+  }
+
+  .core-label {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    text-anchor: middle;
+  }
+
+  figcaption {
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 1rem 0 2.8rem;
+  }
+
+  .table-head {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 1rem;
+  }
+
+  ol.path {
+    margin: 0 0 3rem;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--rule);
+    counter-reset: step;
+  }
+
+  ol.path > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  ol.path > li::before {
+    content: counter(step);
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.85rem;
+    color: var(--cool);
+    font-weight: 700;
+  }
+
+  ol.path > li > div {
+    min-width: 0;
+  }
+
+  ol.path dt {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 0.25rem;
+  }
+
+  ol.path dd {
+    margin: 0;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+  }
+
+  footer {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 720px) {
+    .compare { flex-direction: column; }
+    .seam { width: 100%; padding: 0.75rem 0; }
+    .seam svg { transform: rotate(90deg); width: 64px; }
+  }
+</style>
+
+<div class="sheet">
+  <p class="kicker">Agent Control Plane — Governance Model, Today vs. Goal</p>
+  <h1>Shrink the probabilistic surface</h1>
+  <p class="dek">
+    Almost everywhere in an agent's action space, behavior is
+    <strong>probabilistic</strong> by default: it follows a skill or policy
+    because it was asked to and chose to, not because anything stops it from
+    doing otherwise. A mechanistic guarantee is the rare exception — a hook,
+    or any future structural check, that holds regardless of what the agent
+    infers. <strong>Left</strong> is how much of that space this repository
+    actually locks down today. <strong>Right</strong> is the goal: expand
+    mechanistic guarantees across more of that probabilistic space, without
+    pretending judgment calls like <code>was this authorized</code> can be
+    mechanized away.
+  </p>
+  <hr class="divider" />
+
+  <figure>
+    <div class="compare">
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">This repo, today</span>
+          <span class="panel-note">observed</span>
+        </div>
+        <svg viewBox="0 0 620 700" role="img" aria-label="Nested rings — instructions and skills, execution policies, role charters and MCP server definitions — surrounding a small solid core labeled hooks, representing this repository's actual mechanistic guarantee today: narrow, and confined to one git hook.">
+          <circle cx="310" cy="380" r="260" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+          <circle cx="310" cy="380" r="195" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+          <circle cx="310" cy="380" r="137" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+
+          <circle cx="310" cy="380" r="45" fill="var(--cool-fill)" stroke="var(--cool)" stroke-width="2.5" />
+
+          <text x="310" y="150" text-anchor="middle" class="ring-label">Instructions / Skills</text>
+          <text x="310" y="166" text-anchor="middle" class="ring-sub">read and chosen</text>
+
+          <text x="310" y="212" text-anchor="middle" class="ring-label">Execution Policies</text>
+          <text x="310" y="228" text-anchor="middle" class="ring-sub">tiers, authorization, evidence</text>
+
+          <text x="310" y="270" text-anchor="middle" class="ring-label">Role Charters / MCP</text>
+          <text x="310" y="286" text-anchor="middle" class="ring-sub">scoped by identity</text>
+
+          <text x="310" y="376" class="core-label" style="font-size:12px; font-weight:700; fill: var(--cool);">HOOKS</text>
+          <text x="310" y="392" class="core-label" style="font-size:9px; fill: var(--ink-soft);">1 mechanism, opt-in</text>
+
+          <line x1="266" y1="410" x2="180" y2="520" stroke="var(--cool)" stroke-width="1.25" stroke-dasharray="3 3" />
+          <text x="170" y="536" text-anchor="end" style="font-family: ui-monospace, monospace; font-size:10.5px; fill: var(--cool); font-weight:600;">protect_main_commit.py</text>
+          <text x="170" y="550" text-anchor="end" style="font-family: ui-monospace, monospace; font-size:9.5px; fill: var(--ink-soft);">default-branch commits only</text>
+        </svg>
+      </div>
+
+      <div class="seam" aria-hidden="true">
+        <svg width="108" height="200" viewBox="0 0 108 200">
+          <line x1="10" y1="100" x2="90" y2="100" stroke="var(--goal)" stroke-width="2" />
+          <polygon points="90,100 78,93 78,107" fill="var(--goal)" />
+        </svg>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title goal">The goal</span>
+          <span class="panel-note">not built</span>
+        </div>
+        <svg viewBox="0 0 620 700" role="img" aria-label="The same nested rings, with the solid mechanistic core grown well past the hooks-only boundary, now reaching through role charters and MCP definitions and into the structurally checkable part of execution policies — the goal state, not yet built.">
+          <circle cx="310" cy="380" r="260" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+          <circle cx="310" cy="380" r="195" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" />
+          <circle cx="310" cy="380" r="137" fill="none" stroke="var(--rule-strong)" stroke-width="1.5" stroke-dasharray="4 3" />
+
+          <circle cx="310" cy="380" r="155" fill="var(--cool-fill-soft)" stroke="var(--goal)" stroke-width="2.5" stroke-dasharray="7 5" />
+          <circle cx="310" cy="380" r="45" fill="var(--cool-fill)" stroke="var(--cool)" stroke-width="2" />
+
+          <text x="310" y="150" text-anchor="middle" class="ring-label" style="opacity:.55;">Instructions / Skills</text>
+          <text x="310" y="212" text-anchor="middle" class="ring-label" style="opacity:.55;">Execution Policies</text>
+          <text x="310" y="270" text-anchor="middle" class="ring-label" style="opacity:.55;">Role Charters / MCP</text>
+
+          <text x="310" y="376" class="core-label" style="font-size:11px; font-weight:700; fill: var(--cool);">HOOKS</text>
+
+          <line x1="404" y1="430" x2="470" y2="500" stroke="var(--goal)" stroke-width="1.25" stroke-dasharray="3 3" />
+          <text x="480" y="500" style="font-family: ui-monospace, monospace; font-size:10.5px; fill: var(--goal); font-weight:600;">+ structural checks</text>
+          <text x="480" y="516" style="font-family: ui-monospace, monospace; font-size:9.5px; fill: var(--ink-soft);">charter binding, evidence</text>
+          <text x="480" y="530" style="font-family: ui-monospace, monospace; font-size:9.5px; fill: var(--ink-soft);">gates on policy tiers</text>
+        </svg>
+      </div>
+    </div>
+  </figure>
+  <figcaption>
+    Ring boundaries mark scope, not enforcement — they're identical in both
+    panels. What changes is the filled core: today it stops at the hooks
+    boundary; the goal pushes it out to also cover role charters and the
+    checkable slice of execution policies. The outermost ring — instructions
+    and skills — never gets filled in either panel. That's not an oversight;
+    it's the part of the space that should stay probabilistic.
+  </figcaption>
+
+  <p class="table-head">What closes the gap between the two panels</p>
+  <ol class="path">
+    <li><div>
+      <dt>Role charters — bind identity, not just document it</dt>
+      <dd>Today a charter states who's accountable in prose. A mechanized version would tie a charter to something checkable at runtime — a required approver on the record, not just named in a document.</dd>
+    </div></li>
+    <li><div>
+      <dt>Execution policies — mechanize the checkable slice</dt>
+      <dd>Authorization ("did the user actually say this") stays a judgment call. But evidence presence — a linked pull request, a citation, a re-read confirmation — is structurally checkable, and could gate completion the way a hook gates a commit.</dd>
+    </div></li>
+    <li><div>
+      <dt>Leave the outer ring alone</dt>
+      <dd>Instructions and skills exist precisely because not everything should be mechanized. The goal shrinks the gap already identified for policies and charters — it doesn't erase the interpretive layer.</dd>
+    </div></li>
+  </ol>
+
+  <footer>
+    companion to the interpretation → enforcement gradient chart · conceptual target state, not a canonical asset
+  </footer>
+</div>
