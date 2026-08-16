@@ -79,6 +79,73 @@ Atomic workbench commits are capture boundaries, not guaranteed Jira or pull
 request boundaries. Cherry-pick a commit when it maps cleanly to one outcome;
 otherwise transfer selected paths or hunks and create a clean delivery commit.
 
+## Reusable Codex delivery prompt
+
+Use the following prompt when asking Codex to apply this repository's delivery
+model:
+
+```text
+Use the repository's canonical governed-delivery workflow for this outcome.
+
+First inspect the repository root, active branch, worktree, remotes, current
+main, and existing delivery state. Preserve unrelated, user-authored,
+generated, cache, scratch, and secret-like files unless they are explicitly
+within scope.
+
+Shape the work into bounded delivery units before changing Git or external
+systems. Each unit must have one accountable outcome, explicit inclusions and
+exclusions, dependencies, acceptance criteria, verification checks, and a
+clear review boundary. Split independently valuable, reviewable, reversible,
+or separately owned work into separate units.
+
+Use the private `workbench/local` branch for continuous capture and
+stewardship. Commit each coherent idea atomically there: one explainable
+change per commit. Treat those commits as capture evidence, not automatically
+as final delivery boundaries.
+
+For each shaped repository outcome, use the default relationship:
+
+1 Jira task : 1 Jira-keyed semantic feature branch : 1 pull request : X
+coherent commits : Y tracked file changes
+
+Keep `main` as the clean integration base. Run governed-task preflight before
+creating or switching to a Jira-keyed branch. Create each delivery branch from
+current `main`, using:
+
+`<category>/<JIRA-KEY>-<outcome-slug>`
+
+Transfer only the selected workbench commits, files, or hunks into that
+branch. Preserve commit boundaries when they map cleanly to the outcome;
+otherwise reconstruct focused delivery commits without rewriting or
+discarding unrelated work. Deliver foundational outcomes before dependent
+outcomes, preferably by merging the prerequisite and branching from updated
+`main`.
+
+Use explicit paths for staging. Keep commit subjects concise, imperative, and
+outcome-oriented; do not put Jira keys or runtime identity in commit subjects.
+Run the smallest relevant checks before committing and publishing.
+
+Maintain traceability across Jira, Git, GitHub, Confluence, and telemetry:
+outcome, acceptance criteria, owner, Jira key, durable authority, branch
+names, commits, checks, pull request, review state, merge result, cleanup
+state, and residual work.
+
+Advance only through the gates authorized by the request:
+Shape -> Isolate -> Implement -> Commit -> Publish -> Review -> Merge -> Clean up.
+
+Do not infer authorization for commits, pushes, pull requests, merges, branch
+deletion, worktree removal, Jira transitions, or external configuration
+changes. Report the next unapproved gate instead.
+
+Use the specialized repository skills for shaping, Jira/Confluence,
+Git/GitHub, and cleanup. Stop for a human decision if scope, ownership,
+dependency direction, safe isolation, target branch, or review authority is
+ambiguous. After a verified merge and explicit cleanup authorization, use the
+deterministic cleanup procedure, preserve dirty or mismatched state, restore
+the primary checkout to `workbench/local` or `main`, and verify local ref
+cleanup.
+```
+
 ## Dependency example
 
 ```text
