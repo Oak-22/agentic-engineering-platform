@@ -217,7 +217,7 @@ def project_storage_root(root: Path) -> Path:
 
 def project_view(root: Path, canonical_root: Path) -> Path:
     configured = os.environ.get("AEP_INSTRUCTION_EVIDENCE_VIEW")
-    view = Path(configured) if configured else root / ".aep" / "instruction-evidence"
+    view = Path(configured) if configured else root / ".local-mirrors" / "instruction-evidence"
     view.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if not view.exists() and not view.is_symlink():
         view.symlink_to(canonical_root, target_is_directory=True)

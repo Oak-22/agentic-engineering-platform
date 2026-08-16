@@ -211,7 +211,7 @@ Resolve and verify the complete target before mutating local state:
    `--execute` to produce a verification plan:
 
    ```bash
-   python3 .agents/skills/manage-git-workflow/scripts/delivery_cleanup.py pr \
+   python3 platform/agent-control-plane/agent-assets/skills/manage-git-workflow/scripts/delivery_cleanup.py pr \
      --pr <NUMBER> \
      --primary-workspace <REPOSITORY_ROOT>
    ```
@@ -260,7 +260,7 @@ skipped, interrupted, or predates the current workflow.
 Run verification mode from the primary repository root:
 
 ```bash
-python3 .agents/skills/manage-git-workflow/scripts/delivery_cleanup.py stale \
+python3 platform/agent-control-plane/agent-assets/skills/manage-git-workflow/scripts/delivery_cleanup.py stale \
   --primary-workspace <REPOSITORY_ROOT>
 ```
 

@@ -43,4 +43,4 @@ grounds.
 
 When changing the agent customization system, read
 `platform/agent-control-plane/README.md` and
-`.github/instructions/agent-context-routing.instructions.md`.
+`platform/agent-control-plane/agent-assets/instructions/agent-context-routing.md`.

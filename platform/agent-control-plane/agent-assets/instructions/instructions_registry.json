@@ -1,13 +1,19 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "description": "Canonical inventory of reusable instructions and runtime adapter imports.",
   "sourceOfTruth": "platform/agent-control-plane/agent-assets/instructions",
+  "fields": {
+    "kind": "map = describes repo/system structure (where things live, how discovery works); behavior = prescribes what an agent should do on a task",
+    "trigger": "always = applies to every task; otherwise a short description of the condition under which the instruction is relevant",
+    "scopeGlobs": "ordered glob list; the single source both Claude's `paths:` frontmatter and Copilot's `applyTo:` frontmatter are generated from. Present only for instructions with non-empty runtimeAdapters.",
+    "copilotDescription": "the one-line description rendered into Copilot's `description:` frontmatter. Claude's frontmatter has no description field and does not use this value. Present only for instructions with non-empty runtimeAdapters."
+  },
   "instructions": [
-    {"id": "agent-context-routing", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/agent-context-routing.md", "runtimeAdapters": [".github/instructions/agent-context-routing.instructions.md", ".claude/rules/agent-context-routing.md"]},
-    {"id": "artifact-formatting", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/artifact-formatting.md", "runtimeAdapters": [".github/instructions/artifact-formatting.instructions.md", ".claude/rules/artifact-formatting.md"]},
-    {"id": "general-agent", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/general-agent.md", "runtimeAdapters": [".github/instructions/general-agent.instructions.md", ".claude/rules/general-agent.md"]},
-    {"id": "prompt-instruction-manifest", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/prompt-instruction-manifest.md", "runtimeAdapters": [".github/instructions/prompt-instruction-manifest.instructions.md", ".claude/rules/prompt-instruction-manifest.md"]},
-    {"id": "prose-writing-rules", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/prose-writing-rules.md", "runtimeAdapters": []},
-    {"id": "python", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/python.md", "runtimeAdapters": [".github/instructions/python.instructions.md", ".claude/rules/python.md"]}
+    {"id": "agent-context-routing", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/agent-context-routing.md", "kind": "map", "trigger": "changes to the instruction/skill/routing system itself", "scopeGlobs": ["AGENTS.md", "CLAUDE.md", ".agents/**", ".codex/**", ".claude/**", ".github/**", "platform/agent-control-plane/**", "docs/**"], "copilotDescription": "Use when changing instruction layering, agent roles, prompt artifacts, skills, hooks, or migration boundaries.", "runtimeAdapters": [".github/instructions/agent-context-routing.instructions.md", ".claude/rules/agent-context-routing.md"]},
+    {"id": "artifact-formatting", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/artifact-formatting.md", "kind": "behavior", "trigger": "authoring or editing human-reviewed documentation or generated artifacts", "scopeGlobs": ["**/*.md", "**/*.json", "**/*.yml", "**/*.yaml", "**/*.toml", "**/*.py", "**/*.sh"], "copilotDescription": "Formatting guidance for code-adjacent artifacts, docs, and agent-facing outputs.", "runtimeAdapters": [".github/instructions/artifact-formatting.instructions.md", ".claude/rules/artifact-formatting.md"]},
+    {"id": "general-agent", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/general-agent.md", "kind": "behavior", "trigger": "always", "scopeGlobs": ["**/*"], "copilotDescription": "Portable general AI-agent collaboration rules.", "runtimeAdapters": [".github/instructions/general-agent.instructions.md", ".claude/rules/general-agent.md"]},
+    {"id": "prompt-instruction-manifest", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/prompt-instruction-manifest.md", "kind": "behavior", "trigger": "always", "scopeGlobs": ["**/*"], "copilotDescription": "Require a compact instruction-reference manifest for each completed prompt.", "runtimeAdapters": [".github/instructions/prompt-instruction-manifest.instructions.md", ".claude/rules/prompt-instruction-manifest.md"]},
+    {"id": "prose-writing-rules", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/prose-writing-rules.md", "kind": "behavior", "trigger": "writing prose content", "runtimeAdapters": []},
+    {"id": "python", "canonicalPath": "platform/agent-control-plane/agent-assets/instructions/python.md", "kind": "behavior", "trigger": "editing Python files", "scopeGlobs": ["**/*.py"], "copilotDescription": "Portable Python code standards", "runtimeAdapters": [".github/instructions/python.instructions.md", ".claude/rules/python.md"]}
   ]
 }
