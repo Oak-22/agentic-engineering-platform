@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import time
 from typing import Any, Callable
@@ -133,6 +134,34 @@ def ensure_manual(
         return manual_path, "unavailable; refresh failed"
 
 
+def repository_root(start: Path) -> Path:
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=start,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return Path(result.stdout.strip()).resolve() if result.returncode == 0 else start.resolve()
+
+
+def provider_docs_view(repo_root: Path, canonical_root: Path) -> Path:
+    """Return a repo-local view of canonical_root, creating a symlink at
+    <repo_root>/.local-mirrors/provider-docs if one doesn't exist yet.
+
+    Mirrors instruction_manifest_hook.py's project_view() and show-me's
+    capture_project_view(). Falls back to canonical_root if a view already
+    exists at that path and points elsewhere. No content is written here —
+    this only exposes a second access path to the same files."""
+    view = repo_root / ".local-mirrors" / "provider-docs"
+    view.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not view.exists() and not view.is_symlink():
+        view.symlink_to(canonical_root, target_is_directory=True)
+    if view.resolve(strict=False) == canonical_root.resolve():
+        return view
+    return canonical_root
+
+
 def context_for(runtime: str, manual_path: Path, status: str) -> str:
     provider = PROVIDERS[runtime]
     availability = (
@@ -159,6 +188,9 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     if event_name and event_name != "SessionStart":
         return None
     manual_path, status = ensure_manual(runtime)
+    cwd = Path(payload.get("cwd") or os.getcwd())
+    repo_root = repository_root(cwd)
+    provider_docs_view(repo_root, manual_path.parent)
     return {
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",

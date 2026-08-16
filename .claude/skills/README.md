@@ -12,6 +12,7 @@ relative symlinks.
 - `manage-jira-confluence` — Read and update Jira and Confluence as one traceable Atlassian workflow.
 - `shape-repository-change` — Turn repository observations and changes into coherent delivery-unit candidates.
 - `shape-readme-entrypoint` — Keep a repository README focused on orientation and a hands-on quick start.
+- `show-me` — Capture a diagram and explanation of a resolved or in-progress mechanism into a personal, machine-local knowledge base.
 
 ## Anthropic reference skills
 

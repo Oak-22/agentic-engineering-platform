@@ -25,9 +25,18 @@ DEFAULT_ARCHIVE_DIRNAME = "artifact-archive"
 def resolve_archive_root(
     *, project_dir: Path | None, archive_base: Path | None = None
 ) -> Path:
-    """Return the per-project archive directory, outside the repository."""
+    """Return the per-project archive directory, outside the repository.
+
+    Defaults under the provider-neutral XDG `aep` namespace, not `~/.claude/`
+    — even though this feature is Claude-specific today (no Codex Artifact
+    tool exists to be agnostic between), the storage location shouldn't
+    depend on a directory this platform doesn't own and doesn't control the
+    evolution of."""
     base = archive_base or Path(
-        os.environ.get("AEP_ARTIFACT_ARCHIVE_DIR", Path.home() / ".claude")
+        os.environ.get(
+            "AEP_ARTIFACT_ARCHIVE_DIR",
+            Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aep",
+        )
     ).expanduser()
     project_slug = project_dir.name if project_dir else "unknown-project"
     return base / DEFAULT_ARCHIVE_DIRNAME / project_slug

@@ -89,7 +89,7 @@ Runtime evidence retains its source:
 
 The shared hook writes a session ledger with one snapshot per prompt to a
 canonical local-data store partitioned by repository identity. An ignored
-`.aep/instruction-evidence` symlink exposes only the active project's logs so
+`.local-mirrors/instruction-evidence` symlink exposes only the active project's logs so
 citation clicks open the relevant JSONL file directly. Set
 `AEP_INSTRUCTION_MANIFEST_DIR` to choose another canonical location. Prompt
 text is excluded from the ledger.

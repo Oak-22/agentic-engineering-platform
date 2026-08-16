@@ -144,7 +144,7 @@ their own deliberate decision.
 After a verified merge and authorized local cleanup:
 
 1. run the verification and execution modes of
-   `.agents/skills/manage-git-workflow/scripts/delivery_cleanup.py pr` from the
+   `platform/agent-control-plane/agent-assets/skills/manage-git-workflow/scripts/delivery_cleanup.py pr` from the
    disclosed primary workspace;
 2. require a clean delivery checkout whose `HEAD` matches the published pull
    request head;
@@ -163,7 +163,7 @@ Per-delivery cleanup remains mandatory after each merge. Repository-wide
 reconciliation is a safety net for local Jira-keyed branches left behind by a
 skipped or interrupted cleanup or by work that predates the current workflow.
 
-Run `.agents/skills/manage-git-workflow/scripts/delivery_cleanup.py stale`
+Run `platform/agent-control-plane/agent-assets/skills/manage-git-workflow/scripts/delivery_cleanup.py stale`
 without `--execute` to fetch current remote state and classify every candidate.
 Only branches with an exact-tip merged pull request, no live remote branch, no
 worktree checkout, and no commits outside `origin/main` are safe automatic

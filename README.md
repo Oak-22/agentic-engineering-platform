@@ -33,55 +33,31 @@ See the [governed repository delivery guide](docs/operations/governed-repository
 
 ```text
 agentic-engineering-platform/
-├── AGENTS.md
-├── CLAUDE.md
-├── .agents/
-│   └── skills/
-├── .codex/
-│   ├── hooks/
-│   └── hooks.json
-├── .claude/
-│   ├── hooks/
-│   ├── rules/
-│   └── skills/
-├── .github/
-│   ├── copilot-instructions.md
-│   ├── instructions/
-│   ├── agents/
-│   ├── prompts/
-│   ├── skills/
-│   └── hooks/
-├── platform/
-│   ├── agent-control-plane/
-│   │   ├── adapters/
-│   │   │   ├── jira/
-│   │   │   └── runtimes/
-│   │   │       ├── claude/
-│   │   │       ├── codex/
-│   │   │       └── github-copilot/
-│   │   ├── agent-assets/
-│   │   │   ├── execution-policies/
-│   │   │   ├── hooks/
-│   │   │   ├── instructions/
-│   │   │   ├── mcp-servers/
-│   │   │   ├── role-charters/
-│   │   │   └── skills/
-│   │   ├── contracts/
-│   │   └── scripts/
-│   ├── inference-telemetry-observatory/
-│   └── developer-learning-retrieval/
-├── evidence/
+├── AGENTS.md                         # Shared agent guidance (required)
+├── CLAUDE.md                         # Claude Code routing adapter
+├── .agents/skills/                   # Codex Agent Skill discovery links
+├── .codex/                           # Codex project config and hooks
+├── .claude/                          # Claude Code rules, skills, and hooks
+├── .github/                          # GitHub Copilot definitions and hooks
+├── platform/                         # Canonical platform components
+│   ├── agent-control-plane/           # Governed instructions and execution
+│   │   ├── adapters/                  # Runtime and destination integrations
+│   │   ├── agent-assets/              # Portable policies, instructions, skills
+│   │   ├── contracts/                 # Control-plane interfaces
+│   │   └── scripts/                   # Component validation and automation
+│   ├── inference-telemetry-observatory/ # Usage and execution observations
+│   └── developer-learning-retrieval/  # Learning signals from engineering work
+├── evidence/                         # Applied human-AI workflow evidence
 │   └── human-ai-collaboration-case-studies/
-├── shared/
+├── shared/                           # Cross-component contracts and tooling
 │   ├── schemas/
 │   ├── contracts/
 │   └── tooling/
-│       └── folder-structure-visualizer/
-├── docs/
+├── docs/                             # Architecture, operations, and roadmap
 │   ├── architecture/
 │   ├── operations/
 │   └── roadmap/
-└── scripts/
+└── scripts/                          # Repository-wide automation
 ```
 
 ### Platform domains

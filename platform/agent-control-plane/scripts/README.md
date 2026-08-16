@@ -38,6 +38,25 @@ The preflight blocks task isolation when:
 The command reports the exact remaining work and exits nonzero. It is read-only:
 it never commits, stashes, discards, merges, or deletes anything automatically.
 
+## Instruction adapter generation
+
+Instruction frontmatter for `.claude/rules/<id>.md` and
+`.github/instructions/<id>.instructions.md` is generated from
+`instructions_registry.json`'s `scopeGlobs` and `copilotDescription` fields
+rather than hand-duplicated. Edit the registry, then regenerate:
+
+```bash
+python3 platform/agent-control-plane/scripts/generate_instruction_adapters.py
+```
+
+- Renders both adapters' frontmatter from one canonical glob list per
+  instruction; the shared `@`-import body line is unchanged.
+- Only rewrites files whose rendered content differs from what's on disk.
+- Skips instructions with empty `runtimeAdapters` (e.g.
+  `prose-writing-rules`) rather than erroring.
+- `--check` renders without writing and exits nonzero if any adapter file is
+  stale relative to the registry.
+
 ## Prompt instruction evidence
 
 `instruction_manifest_hook.py` records typed, content-addressed instruction
@@ -45,7 +64,7 @@ evidence and renders a compact local-file citation for each hook-seeded row.
 Canonical logs are partitioned by repository identity under
 `$XDG_DATA_HOME/aep/instruction-evidence` (or
 `~/.local/share/aep/instruction-evidence`) and exposed through the ignored
-`.aep/instruction-evidence` project view. Set
+`.local-mirrors/instruction-evidence` project view. Set
 `AEP_INSTRUCTION_MANIFEST_DIR` to move the canonical store or
 `AEP_INSTRUCTION_EVIDENCE_VIEW` to provide another project-local view during
 testing. The evidence label and citation are generated from the same record

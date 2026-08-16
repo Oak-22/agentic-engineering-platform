@@ -3,7 +3,7 @@
 The instruction-evidence store is generated local runtime evidence. It is not
 an authored repository knowledge base and it does not contain prompt text.
 Canonical data is kept outside the repository, partitioned by repository
-identity. The ignored `.aep/instruction-evidence` path is a project-local view
+identity. The ignored `.local-mirrors/instruction-evidence` path is a project-local view
 of that partition.
 
 ![Example instruction-reference output in a developer terminal](assets/instruction-evidence-store-workflow.png)

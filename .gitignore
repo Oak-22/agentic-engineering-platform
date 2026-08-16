@@ -3,7 +3,7 @@
 **/.venv/
 **/node_modules/
 engineering-knowledge-base
-.aep/
+.local-mirrors/
 product-demo
 portfolio-loom-demo-script-scratch.txt
 agent-control-plane-completion-plan.md
@@ -11,3 +11,4 @@ claude-skills-UI-bug-report.md
 __pycache__/
 *.py[cod]
 .pytest_cache/
+/evidence/model-bug-reports/

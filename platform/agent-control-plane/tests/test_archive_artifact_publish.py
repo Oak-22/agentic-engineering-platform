@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT_PATH = (
@@ -15,6 +17,17 @@ assert SPEC and SPEC.loader
 archiver = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = archiver
 SPEC.loader.exec_module(archiver)
+
+
+class ResolveArchiveRootTests(unittest.TestCase):
+    def test_default_base_uses_xdg_data_home_directory_not_claude(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("AEP_ARTIFACT_ARCHIVE_DIR", None)
+            os.environ.pop("XDG_DATA_HOME", None)
+            root = archiver.resolve_archive_root(project_dir=Path("/repo/myHealth"))
+        self.assertEqual(
+            root, Path.home() / ".local" / "share" / "aep" / "artifact-archive" / "myHealth"
+        )
 
 
 class ArchiveArtifactPublishTests(unittest.TestCase):

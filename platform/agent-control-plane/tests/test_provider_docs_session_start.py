@@ -91,15 +91,22 @@ class ProviderDocsSessionStartTests(unittest.TestCase):
     def test_hook_output_is_compact_and_runtime_specific(self):
         for runtime in ("codex", "claude"):
             with self.subTest(runtime=runtime):
-                manual = Path(f"/tmp/{runtime}-manual.md")
-                with mock.patch.object(
-                    provider_docs,
-                    "ensure_manual",
-                    return_value=(manual, "fresh local cache"),
-                ):
-                    output = provider_docs.handle(
-                        runtime, {"hook_event_name": "SessionStart"}
-                    )
+                with tempfile.TemporaryDirectory() as directory:
+                    fake_repo = Path(directory) / "repo"
+                    fake_repo.mkdir()
+                    docs_root = Path(directory) / "docs-cache"
+                    docs_root.mkdir()
+                    manual = docs_root / f"{runtime}-manual.md"
+                    manual.write_text("manual", encoding="utf-8")
+                    with mock.patch.object(
+                        provider_docs,
+                        "ensure_manual",
+                        return_value=(manual, "fresh local cache"),
+                    ):
+                        output = provider_docs.handle(
+                            runtime,
+                            {"hook_event_name": "SessionStart", "cwd": str(fake_repo)},
+                        )
 
                 assert output is not None
                 hook_output = output["hookSpecificOutput"]
@@ -108,6 +115,40 @@ class ProviderDocsSessionStartTests(unittest.TestCase):
                 self.assertIn(str(manual), context)
                 self.assertIn("Consult the local manual first", context)
                 self.assertLess(len(context), 1_000)
+
+
+class ProviderDocsViewTests(unittest.TestCase):
+    def test_creates_symlink_on_first_call(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            canonical_root = root / "docs-cache"
+            canonical_root.mkdir()
+
+            view = provider_docs.provider_docs_view(repo_root, canonical_root)
+
+            self.assertEqual(view, repo_root / ".local-mirrors" / "provider-docs")
+            self.assertTrue(view.is_symlink())
+            self.assertEqual(view.resolve(), canonical_root.resolve())
+
+    def test_falls_back_to_canonical_root_when_view_points_elsewhere(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo_root = root / "repo"
+            repo_root.mkdir()
+            canonical_root = root / "docs-cache"
+            canonical_root.mkdir()
+            other_root = root / "other"
+            other_root.mkdir()
+
+            view_path = repo_root / ".local-mirrors" / "provider-docs"
+            view_path.parent.mkdir(parents=True)
+            view_path.symlink_to(other_root, target_is_directory=True)
+
+            result = provider_docs.provider_docs_view(repo_root, canonical_root)
+
+            self.assertEqual(result, canonical_root)
 
 
 if __name__ == "__main__":

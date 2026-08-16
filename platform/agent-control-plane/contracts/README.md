@@ -40,7 +40,7 @@ identifies the instruction source, so a source loaded from another repository
 cannot appear project-local merely because its content hash is valid.
 
 The canonical logs live outside the working tree in a directory partitioned by
-repository identity. The hook creates an ignored `.aep/instruction-evidence`
+repository identity. The hook creates an ignored `.local-mirrors/instruction-evidence`
 view in the active repository that points to only that project's partition.
 Clicking a citation therefore opens the relevant local JSONL log without
 publishing prompt history or machine-specific paths.
