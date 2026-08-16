@@ -1,0 +1,4 @@
+interface:
+  display_name: "Show Me"
+  short_description: "Capture a diagram and explanation of a mechanism into a personal knowledge base"
+  default_prompt: "Use $show-me to capture a diagram and explanation of the mechanism we're discussing into my local engineering knowledge base. Note: without an Artifact tool, this produces Markdown with embedded Mermaid rather than a rendered diagram."
