@@ -18,7 +18,8 @@ Validate the implemented discovery layout from the repository root with
 
 ## Historical diagram context
 
-- [Historical full diagram](../../../../docs/diagrams/full-diagram.svg) — retired
-  detailed system view for the broader AI knowledge promotion model.
-- [LLM Diagram Manipulation Fidelity Experiment](../../../../evidence/experiments/llm-diagram-manipulation-fidelity/README.md)
-  — evidence and update briefs that evaluate edits to that historical view.
+The retired full system view for the broader AI knowledge promotion model is
+no longer tracked; it was removed as superseded. The
+[LLM Diagram Manipulation Fidelity Experiment](../../../../evidence/experiments/llm-diagram-manipulation-fidelity/README.md)
+retains its own frozen baseline copies along with the update briefs that
+evaluate edits to that view.
