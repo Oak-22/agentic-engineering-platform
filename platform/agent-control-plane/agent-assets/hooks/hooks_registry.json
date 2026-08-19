@@ -16,7 +16,13 @@
         {
           "runtime": "claude",
           "registration": ".claude/settings.json",
-          "events": ["InstructionsLoaded", "UserPromptSubmit"]
+          "events": [
+            "InstructionsLoaded",
+            "UserPromptExpansion",
+            "PreToolUse",
+            "PostToolUse",
+            "UserPromptSubmit"
+          ]
         }
       ],
       "documentation": "platform/agent-control-plane/agent-assets/instructions/prompt-instruction-manifest.md"

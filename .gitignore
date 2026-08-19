@@ -12,3 +12,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 /evidence/model-bug-reports/
+prompt-scratch.md
+*.egg-info/
+.claude/settings.local.json

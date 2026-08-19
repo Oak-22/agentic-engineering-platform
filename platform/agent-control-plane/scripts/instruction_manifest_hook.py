@@ -17,6 +17,16 @@ CONTRACT_PATH = (
     "platform/agent-control-plane/agent-assets/instructions/"
     "prompt-instruction-manifest.md"
 )
+INSTRUCTIONS_REGISTRY = (
+    "platform/agent-control-plane/agent-assets/instructions/instructions_registry.json"
+)
+SKILLS_REGISTRY = (
+    "platform/agent-control-plane/agent-assets/skills/skills_registry.json"
+)
+ADAPTER_SURFACES = {
+    "claude": (".claude/", "claude-rules-adapter"),
+    "codex": (".codex/", "codex-instruction-adapter"),
+}
 EVIDENCE_LABELS = {
     "Observed",
     "Runtime baseline",
@@ -122,7 +132,7 @@ def evidence_record(
     reason: str,
     proof: dict[str, Any],
     identity_seed: dict[str, Any],
-    log_path: Path,
+    log_href: str,
 ) -> dict[str, Any]:
     source_path = root / instruction
     content = source_path.read_bytes()
@@ -154,7 +164,7 @@ def evidence_record(
         "reason": reason,
         "citation": {
             "label": label,
-            "href": log_path.absolute().as_posix(),
+            "href": log_href,
             "activeRepositoryId": repository,
             "repositoryId": repository,
             "baseRevision": revision,
@@ -249,8 +259,158 @@ def read_events(root: Path, session_id: str) -> list[dict[str, Any]]:
     return events
 
 
+def load_registry(root: Path, relative: str) -> dict[str, Any]:
+    try:
+        return json.loads((root / relative).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def registered_instructions(root: Path) -> list[dict[str, Any]]:
+    return load_registry(root, INSTRUCTIONS_REGISTRY).get("instructions", [])
+
+
+def registered_skills(root: Path) -> dict[str, str]:
+    skills = load_registry(root, SKILLS_REGISTRY).get("skills", [])
+    return {skill["id"]: skill["skillFile"] for skill in skills if skill.get("skillFile")}
+
+
+def instruction_sources(root: Path) -> set[str]:
+    """Repository-relative paths that count as instruction sources."""
+    sources = {
+        instruction["canonicalPath"]
+        for instruction in registered_instructions(root)
+        if instruction.get("canonicalPath")
+    }
+    sources.update(registered_skills(root).values())
+    return sources
+
+
+def skill_name_from_tool_input(tool_input: Any, known: dict[str, str]) -> str | None:
+    if not isinstance(tool_input, dict):
+        return None
+    for key in ("skill", "skill_name", "name", "command"):
+        value = tool_input.get(key)
+        if isinstance(value, str) and value in known:
+            return value
+    for value in tool_input.values():
+        if isinstance(value, str) and value in known:
+            return value
+    return None
+
+
+def digest_id(prefix: str, seed: dict[str, Any]) -> str:
+    payload = json.dumps(seed, sort_keys=True, separators=(",", ":"))
+    return f"{prefix}_{hashlib.sha256(payload.encode()).hexdigest()[:24]}"
+
+
+def events_since_last_manifest(
+    events: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Events recorded after the previous manifest, i.e. during the last turn.
+
+    Skill invocations and instruction reads are stamped with the prompt that
+    was already manifested when they occurred, so selecting them by the current
+    prompt identifier would strand them permanently. Position in the ledger,
+    not prompt identity, is what places them in the turn that just completed.
+    """
+    for index in range(len(events) - 1, -1, -1):
+        if events[index].get("event") == "prompt_manifest":
+            return events[index + 1:]
+    return events
+
+
+def claude_explicitly_invoked(
+    root: Path,
+    events: list[dict[str, Any]],
+    log_href: str,
+) -> list[dict[str, Any]]:
+    known = registered_skills(root)
+    sources: dict[str, dict[str, Any]] = {}
+    for event in events_since_last_manifest(events):
+        if event.get("event") != "skill_invoked":
+            continue
+        instruction = known.get(str(event.get("skill") or ""))
+        invocation_id = str(event.get("invocation_id") or "")
+        if not instruction or not invocation_id:
+            continue
+        sources[instruction] = evidence_record(
+            root,
+            instruction,
+            "Explicitly invoked",
+            f"Skill {event.get('skill')} invoked via {event.get('path')}",
+            {"invocationId": invocation_id, "invocationKind": "skill"},
+            {"invocationId": invocation_id},
+            log_href,
+        )
+    return list(sources.values())
+
+
+def claude_read_during_turn(
+    root: Path,
+    events: list[dict[str, Any]],
+    log_href: str,
+) -> list[dict[str, Any]]:
+    sources: dict[str, dict[str, Any]] = {}
+    for event in events_since_last_manifest(events):
+        if event.get("event") != "instruction_read":
+            continue
+        instruction = event.get("instruction")
+        tool_event_id = str(event.get("tool_event_id") or "")
+        if not instruction or not tool_event_id:
+            continue
+        sources[instruction] = evidence_record(
+            root,
+            instruction,
+            "Read during turn",
+            "Instruction source opened by the Read tool during this turn",
+            {"runtime": "claude", "toolEventId": tool_event_id},
+            {"toolEventId": tool_event_id},
+            log_href,
+        )
+    return list(sources.values())
+
+
+def declared_adapters(
+    root: Path,
+    runtime: str,
+    covered: set[str],
+    log_href: str,
+) -> list[dict[str, Any]]:
+    """Instructions a runtime adapter requires but the runtime never announced."""
+    surface = ADAPTER_SURFACES.get(runtime)
+    if surface is None:
+        return []
+    prefix, declaration_kind = surface
+    records = []
+    for instruction in registered_instructions(root):
+        canonical = instruction.get("canonicalPath")
+        if not canonical or canonical in covered:
+            continue
+        adapters = [
+            adapter
+            for adapter in instruction.get("runtimeAdapters", [])
+            if adapter.startswith(prefix)
+        ]
+        if not adapters:
+            continue
+        adapter_path = adapters[0]
+        records.append(
+            evidence_record(
+                root,
+                canonical,
+                "Declared",
+                f"Required by {adapter_path} without an authoritative load event",
+                {"adapterPath": adapter_path, "declarationKind": declaration_kind},
+                {"adapterPath": adapter_path},
+                log_href,
+            )
+        )
+    return records
+
+
 def codex_baselines(
-    root: Path, cwd: Path, log_path: Path
+    root: Path, cwd: Path, log_href: str
 ) -> list[dict[str, Any]]:
     try:
         relative = cwd.resolve().relative_to(root)
@@ -285,7 +445,7 @@ def codex_baselines(
                         else "."
                     ),
                 },
-                log_path,
+                log_href,
             )
         )
     return records
@@ -295,7 +455,7 @@ def claude_observed(
     root: Path,
     events: list[dict[str, Any]],
     prompt_id: str | None,
-    log_path: Path,
+    log_href: str,
 ) -> list[dict[str, Any]]:
     sources: dict[str, dict[str, Any]] = {}
     for event in events:
@@ -319,7 +479,7 @@ def claude_observed(
                     "loadReason": event.get("load_reason"),
                 },
                 {"observationId": observation_id},
-                log_path,
+                log_href,
             )
     return list(sources.values())
 
@@ -328,7 +488,7 @@ def additional_context(runtime: str, sources: list[dict[str, Any]]) -> str:
     rows = "\n".join(
         (
             f"| {source['instruction']} | {source['evidenceType']} | "
-            f"[{source['citation']['label']}](<{source['citation']['href']}>) | "
+            f"`{source['citation']['href']}` | "
             f"{source['reason']} |"
         )
         for source in sources
@@ -393,16 +553,96 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
             )
         return None
 
+    if runtime == "claude" and event_name == "UserPromptExpansion":
+        command_name = str(payload.get("command_name") or "")
+        if command_name in registered_skills(root):
+            append_event(
+                root,
+                session_id,
+                {
+                    "event": "skill_invoked",
+                    "runtime": "claude",
+                    "skill": command_name,
+                    "path": "user-typed-command",
+                    "invocation_id": digest_id(
+                        "inv",
+                        {
+                            "session_id": session_id,
+                            "prompt_id": payload.get("prompt_id"),
+                            "command_name": command_name,
+                        },
+                    ),
+                    "prompt_id": payload.get("prompt_id"),
+                },
+            )
+        return None
+
+    if runtime == "claude" and event_name == "PreToolUse":
+        skill = skill_name_from_tool_input(
+            payload.get("tool_input"), registered_skills(root)
+        )
+        tool_use_id = str(payload.get("tool_use_id") or "")
+        if skill and tool_use_id:
+            append_event(
+                root,
+                session_id,
+                {
+                    "event": "skill_invoked",
+                    "runtime": "claude",
+                    "skill": skill,
+                    "path": "skill-tool",
+                    "invocation_id": tool_use_id,
+                    "prompt_id": payload.get("prompt_id"),
+                },
+            )
+        return None
+
+    if runtime == "claude" and event_name == "PostToolUse":
+        tool_input = payload.get("tool_input")
+        file_path = tool_input.get("file_path") if isinstance(tool_input, dict) else None
+        tool_use_id = str(payload.get("tool_use_id") or "")
+        if file_path and tool_use_id:
+            instruction = display_path(str(file_path), root)
+            if instruction in instruction_sources(root):
+                append_event(
+                    root,
+                    session_id,
+                    {
+                        "event": "instruction_read",
+                        "runtime": "claude",
+                        "instruction": instruction,
+                        "tool_event_id": tool_use_id,
+                        "prompt_id": payload.get("prompt_id"),
+                    },
+                )
+        return None
+
     if event_name and event_name != "UserPromptSubmit":
         return None
 
     prompt_id = payload.get("prompt_id") or payload.get("turn_id")
-    sources = (
-        claude_observed(
-            root, read_events(root, session_id), prompt_id, log_path
-        )
-        if runtime == "claude"
-        else codex_baselines(root, cwd, log_path)
+    events = read_events(root, session_id)
+    # Every record in this manifest lands on the single ledger line the manifest
+    # is about to occupy, so a citation opens the log at the record itself.
+    # Repository-relative so the citation stays a workspace file reference. An
+    # absolute path is routed to the external-program handler, which requires a
+    # URL scheme and rejects a line suffix.
+    try:
+        log_reference = log_path.absolute().relative_to(root).as_posix()
+    except ValueError:
+        log_reference = log_path.absolute().as_posix()
+    log_href = f"{log_reference}:{len(events) + 1}"
+    if runtime == "claude":
+        sources = claude_observed(root, events, prompt_id, log_href)
+        sources += claude_explicitly_invoked(root, events, log_href)
+        sources += claude_read_during_turn(root, events, log_href)
+    else:
+        sources = codex_baselines(root, cwd, log_href)
+    sources += declared_adapters(
+        root,
+        runtime,
+        {source["instruction"] for source in sources},
+        log_href,
     )
     append_event(
         root,

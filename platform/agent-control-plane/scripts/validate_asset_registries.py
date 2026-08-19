@@ -90,15 +90,55 @@ def validate_instructions() -> int:
     return len(entries)
 
 
+def validate_contract_surface() -> int:
+    """Every contract compiles, and every evidence type has a producer."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import validate_contracts
+
+    try:
+        names = validate_contracts.schema_names()
+        for name in names:
+            validate_contracts.validator_for(name)
+    except validate_contracts.ContractUnavailableError as error:
+        raise ValueError(str(error)) from error
+
+    import instruction_manifest_hook
+
+    index = {
+        **instruction_manifest_hook.STORE_INDEX,
+        "repositoryId": "git:validation",
+        "projectKey": "0" * 24,
+    }
+    errors = validate_contracts.validate_store_index(index)
+    if errors:
+        raise ValueError(f"store index does not conform: {'; '.join(errors)}")
+
+    hook_source = Path(instruction_manifest_hook.__file__).read_text(encoding="utf-8")
+    unproduced = [
+        evidence_type
+        for evidence_type in validate_contracts.evidence_types()
+        if f'"{evidence_type}"' not in hook_source
+    ]
+    if unproduced:
+        raise ValueError(
+            f"evidence types declared in the contract without a producer: {unproduced}"
+        )
+    return len(names)
+
+
 def main() -> int:
     try:
         hooks = validate_hooks()
         skills = validate_skills()
         instructions = validate_instructions()
+        contracts = validate_contract_surface()
     except ValueError as error:
         print(f"asset registry validation failed: {error}", file=sys.stderr)
         return 1
-    print(f"asset registries valid: {hooks} hooks, {skills} skills, {instructions} instructions")
+    print(
+        f"asset registries valid: {hooks} hooks, {skills} skills, "
+        f"{instructions} instructions, {contracts} contracts"
+    )
     return 0
 
 

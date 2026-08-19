@@ -13,8 +13,9 @@ schemas.
   immutable record for one execution attempt.
 - [`instruction-evidence-record.schema.json`](instruction-evidence-record.schema.json)
   binds each instruction evidence type to the citation fields capable of
-  proving that claim. Its compact citation label links to the structured
-  project-scoped evidence log containing the record identified by `recordId`.
+  proving that claim. Its citation is a workspace file reference to the
+  structured project-scoped evidence log as `path:line`, opening it at the
+  ledger line holding the record identified by `recordId`.
 - [`instruction-evidence-store.schema.json`](instruction-evidence-store.schema.json)
   describes the generated project partition, its session-ledger files, and
   their retention classes. See the [instruction evidence store guide](../docs/instruction-evidence-store.md).
@@ -22,19 +23,43 @@ schemas.
 ## Instruction evidence and citations
 
 Instruction evidence is a discriminated record rather than an independently
-selected label and citation. Each evidence type has a distinct proof contract:
+selected label and citation. Each evidence type has a distinct proof contract,
+and each has a runtime producer in
+[`../scripts/instruction_manifest_hook.py`](../scripts/instruction_manifest_hook.py):
 
-- `Observed` requires an authoritative runtime event observation.
-- `Runtime baseline` requires a named runtime discovery mechanism and scope.
-- `Explicitly invoked` requires a captured skill or instruction invocation.
-- `Read during turn` requires a runtime tool-read event.
-- `Declared` requires the adapter that made the declaration.
+- `Observed` requires an authoritative runtime event observation, from
+  `InstructionsLoaded`.
+- `Runtime baseline` requires a named runtime discovery mechanism and scope,
+  from Codex `AGENTS.md` scope discovery.
+- `Explicitly invoked` requires a captured skill or instruction invocation, from
+  `UserPromptExpansion` for a user-typed command and `PreToolUse` on the `Skill`
+  tool for a model-invoked one. Both paths are registered because
+  `UserPromptExpansion` does not fire when the model invokes a skill itself.
+- `Read during turn` requires a runtime tool-read event, from `PostToolUse` on
+  the `Read` tool, filtered to paths registered as instruction sources.
+- `Declared` requires the adapter that made the declaration, resolved at
+  `UserPromptSubmit` for every registry instruction whose runtime adapter
+  requires it and for which the runtime produced no observation.
+
+Enforcement lives in two places. The test suite validates every record the hook
+writes against these schemas, and
+[`../scripts/validate_asset_registries.py`](../scripts/validate_asset_registries.py)
+compiles each schema, checks the generated store index against its contract, and
+fails when an `evidenceType` is declared without a producer.
+
+Runtime capability differs by provider. Claude Code exposes the events behind
+all five types. Codex exposes prompt-scope discovery only, so Codex sessions
+produce `Runtime baseline` records and no invocation or tool-read evidence.
 
 Every variant also cites the project-qualified source using repository
 identity, base revision, repository-relative path, SHA-256 digest, Git blob
-identity, and worktree state. Consumers render `citation.label` as a local file
-link to `citation.href`; both values come from the same validated record as
-`evidenceType`, preventing unsupported evidence-citation combinations.
+identity, and worktree state. Consumers render `citation.href` as a bare
+`path:line` reference rather than a link: an absolute path or a URL is handed
+to an external-program handler, which requires a scheme and rejects the line
+suffix, so only a workspace-relative reference opens the log in an editor.
+`citation.label` remains the compact provenance summary. Both come from the
+same validated record as `evidenceType`, preventing unsupported
+evidence-citation combinations.
 `activeRepositoryId` identifies the governed project while `repositoryId`
 identifies the instruction source, so a source loaded from another repository
 cannot appear project-local merely because its content hash is valid.

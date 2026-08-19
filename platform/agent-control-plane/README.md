@@ -48,6 +48,22 @@ Portable work-governance contracts live in [`contracts/`](contracts/).
 The Jira work-item contract keeps board-facing operational metadata separate
 from immutable agent-run attempt history and detailed telemetry.
 
+## Contract validation environment
+
+Contract validation uses `jsonschema` so the schema files under
+[`contracts/`](contracts/) stay the single source of truth. Hooks run under the
+runtime's bare `python3`, so they import no third-party package; validation runs
+from the test suite and the registry validator instead.
+
+```bash
+cd platform/agent-control-plane
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[validation]"
+
+.venv/bin/python -m unittest discover -s tests
+.venv/bin/python scripts/validate_asset_registries.py
+```
+
 ## Governed action safety
 
 The control plane owns routing and authorization for governed engineering
@@ -322,7 +338,7 @@ This repository is a template scaffold, not a full implementation of
 workflow-derived retrieval.
 
 A related design direction is documented in
-[`../developer-learning-retrieval/design.md`](../developer-learning-retrieval/design.md).
+[`../developer-learning-retrieval/docs/design.md`](../developer-learning-retrieval/docs/design.md).
 That note explains how workflow telemetry and retrieval practice could
 extend this template in future systems without changing the template's
 core identity.
