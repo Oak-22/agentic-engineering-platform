@@ -102,34 +102,40 @@ a one-off decision per file, distinct from the archive hook above, which
 mirrors *every* published artifact regardless of whether it is ever meant
 to be kept.
 
-## Mermaid promotion
+A promoted `.html` artifact is durable by placement. It does not need an
+inbound link from prose to justify sitting in `docs/diagrams/`: the file
+is a self-contained visual object that opens directly in a browser, and
+being tracked there is itself the statement that it was worth keeping.
+See `docs/diagrams/README.md` for the resulting index.
 
-`show-me`'s fallback path — used whenever the current session exposes no
-native artifact-creation tool (Codex, Copilot, or any runtime without one;
-Claude Code's `Artifact` tool is the one native-tool exception known today)
-— also produces a self-contained `.html` capture — the
-diagram is Mermaid source rendered client-side via a CDN script, rather
-than hand-composed inline SVG, but the file on disk is still one
-self-contained HTML page (see "Show-me viewing cache" below). Writing a
-bare `.md` with an embedded Mermaid fence is a deprecated last resort, not
-the default. Either way, the Mermaid diagram *source* embedded in that
-capture (inside a `<pre class="mermaid">` block, or a fenced code block in
-the deprecated `.md` case) isn't a self-contained visual object the way a
-published Artifact's inline SVG is; it only means something next to the
-prose explaining what it shows. Dropping the whole capture as a standalone
-file into `docs/diagrams/` would sit oddly next to a directory of binary
-renders, with nothing ever linking to it.
+## Mermaid captures
 
-So Mermaid promotion means something different: a human copies the
-Mermaid diagram source out of the capture (out of the `<pre class="mermaid">`
-block, or the fenced code block in the deprecated `.md` case) and pastes
-it as a proper ` ```mermaid ` fence inline into whichever existing (or new)
-doc already discusses that mechanism — not a file move into
-`docs/diagrams/`. Same deliberate, one-off, manual judgment call as
-Artifact promotion above, and the same no-attribution stance once
-promoted: no comment noting which runtime generated it, since promotion
-already implies the quality bar for being indistinguishable from
-human-authored content has been met.
+Runtimes with no native artifact-creation tool (Codex, Copilot, or any
+runtime without one; Claude Code's `Artifact` tool is the one native-tool
+exception known today) express the diagram as Mermaid instead of
+hand-composed inline SVG. This is an equal-standing path, not a degraded
+one: a GitHub Copilot agent with no artifact tooling produced a
+satisfactory diagram plus expository writing through it. Any runtime
+without strong visualization tooling out of the box should reach for it
+directly.
+
+How the capture is written — a self-contained HTML page rendering the
+Mermaid client-side, a Markdown file with a fenced ` ```mermaid ` block,
+or whatever the session can actually render — is an execution decision
+for the invoking agent, not a policy this document fixes in advance. The
+general instruction is only that the capture stand on its own well enough
+for a human to open and read later.
+
+Promotion follows the same rule as above, with one added judgment: a
+Mermaid diagram often means less on its own than next to the prose
+explaining it. So promoting one may mean moving the capture file into
+`docs/diagrams/`, or it may mean pasting the Mermaid source as a fence
+inline into whichever doc already discusses that mechanism — whichever
+leaves the reader with something that reads completely. Either way it is
+the same deliberate, one-off, manual judgment call, with the same
+no-attribution stance once promoted: no comment noting which runtime
+generated it, since promotion already implies the quality bar for being
+indistinguishable from human-authored content has been met.
 
 ## Show-me viewing cache
 
@@ -151,10 +157,10 @@ same provider-neutral `aep` namespace `instruction_manifest_hook.py`'s
 This is the single, canonical destination `show-me` writes to — one write,
 per capture, regardless of which runtime invoked the skill. It is purely a
 local viewing convenience, never tracked in any repository. Each capture
-gets its own `<date>-<runtime>-<topic-slug>.html` filename, with a `-2`,
-`-3` suffix on same-day collisions rather than overwriting — every runtime
-now produces `.html`; a bare `.md` only appears for the deprecated
-last-resort path (see "Mermaid promotion" above). A `latest.html` symlink
+gets its own `<date>-<runtime>-<topic-slug>.<ext>` filename, with a `-2`,
+`-3` suffix on same-day collisions rather than overwriting — `.html` in
+the common case, `.md` where the session writes a Mermaid fence instead
+(see "Mermaid captures" above). A `latest.<ext>` symlink
 pointer is refreshed on every capture, for opening the most recent one
 from a terminal (e.g. `open -a Safari <path>/latest.html`) without needing
 the current dated filename — this is a fallback for sidestepping an
