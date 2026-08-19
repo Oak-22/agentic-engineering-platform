@@ -1,6 +1,6 @@
-<svg viewBox="0 -66 780 1072" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Agent Control Plane: coherence-transforming system diagram</title>
-  <desc id="desc">Codex, Claude, and open-source agent runtimes produce divergent contributions. Most pass through the Agent Control Plane, a governance aperture that turns them into coherent, aligned execution; some bypass it entirely and drift, and — in one flagged case — two separate drift vectors from Codex converge on the same ungoverned outcome: one that never enters the Agent Control Plane at all, and one that passes through it yet still crosses the delivery boundary ungoverned as residual risk. The Agent Control Plane, Inference Telemetry, and Developer Learning are three peer platform domains, drawn with the same card treatment, linked by a Shared Contracts and Schemas interface layer that provides versioned interfaces for concrete cross-platform-domain exchanges rather than a universal type system. Inside the Agent Control Plane, control artifacts sit on an assurance spectrum whose positions — interpretive, procedural, machine-validated, mechanically enforced — are places a control can occupy rather than stages it converts through; moving rightward buys stronger assurance at the cost of narrower judgment, so the weakest position a control's risk tolerates is the correct one. The Agent Control Plane also owns portable contracts that MCP adapters project outward to external systems such as Jira and GitHub, drawn as a dashed outbound path to an external adapter node. The mechanically enforced tier feeds verified evidence back into the deterministic guardrail, which in turn hardens the Agent Control Plane's own governance. Three feedback paths return to the Agent Control Plane: an observed-execution loop from Inference Telemetry, a reinforced-understanding loop from Developer Learning, and a mechanization loop whose deterministic guardrails, once hardened by verified evidence, feed back to strengthen the Agent Control Plane's own governance authority. All three domains converge on an outcome region: predictable, accelerated delivery.</desc>
+<svg viewBox="0 -66 780 878" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Agent Control Plane: governance aperture and assurance spectrum</title>
+  <desc id="desc">Codex, Claude, and open-source agent runtimes produce divergent contributions. Most pass through the Agent Control Plane, a governance aperture that turns them into coherent, aligned execution; some bypass it entirely and drift, and — in one flagged case — two separate drift vectors from Codex converge on the same ungoverned outcome: one that never enters the Agent Control Plane at all, and one that passes through it yet still leaves as residual risk. Inside the Agent Control Plane, control artifacts sit on an assurance spectrum whose positions — interpretive, procedural, machine-validated, mechanically enforced — are places a control can occupy rather than stages it converts through; moving rightward buys stronger assurance at the cost of narrower judgment, so the weakest position a control’s risk tolerates is the correct one. The Agent Control Plane also owns portable contracts that MCP adapters project outward to external systems such as Jira and GitHub. The mechanically enforced tier feeds verified evidence back into the deterministic guardrail, which in turn hardens the Agent Control Plane’s own governance. Below, a Shared Contracts and Schemas interface layer provides versioned interfaces for concrete cross-platform-domain exchanges. This is a scoped view: the peer Inference Telemetry and Developer Learning domains, their feedback loops, and the shared delivery outcome are shown in the full platform diagram.</desc>
   <style>
     text { font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #c9d4e0; }
     .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
@@ -25,7 +25,7 @@
     </marker>
   </defs>
 
-  <rect x="0" y="-66" width="780" height="1072" fill="#0b0f14" />
+  <rect x="0" y="-66" width="780" height="878" fill="#0b0f14" />
 
   <text x="390" y="-38" font-size="24" font-weight="700" text-anchor="middle" fill="#e8edf5" letter-spacing="0.2">Agentic Engineering Platform</text>
 
@@ -55,19 +55,19 @@
 
   <!-- ============ Bypass / drift beams — two vectors, one outcome ============ -->
   <!-- A: left-most — drift that never enters the Agent Control Plane -->
-  <path fill="none" stroke="#5b6b80" stroke-width="1.3" opacity="0.5" d="M 100,72 C 55,200 50,430 62,600" />
+  <path fill="none" stroke="#5b6b80" stroke-width="1.3" opacity="0.5" d="M 100,72 C 55,200 50,430 62,556" />
   <text x="34" y="290" class="mono" font-size="7.5" fill="#8797ab" text-anchor="middle" transform="rotate(-90 34 290)">drift</text>
 
   <!-- C: right-most — drift that passes through the Agent Control Plane (around the governance tag) and still ends up ungoverned -->
-  <path fill="none" stroke="#5b6b80" stroke-width="1.3" opacity="0.45" d="M 205,72 C 270,120 350,175 350,202 C 345,255 300,310 250,340 C 200,410 140,510 78,600" />
+  <path fill="none" stroke="#5b6b80" stroke-width="1.3" opacity="0.45" d="M 205,72 C 270,120 350,175 350,202 C 345,255 300,310 250,340 C 200,410 140,500 78,556" />
 
   <!-- converged path — both vectors arrive at the same flagged outcome -->
-  <path fill="none" stroke="#5b6b80" stroke-width="1.3" opacity="0.4" d="M 70,600 C 55,660 42,750 40,796" />
-  <path fill="none" stroke="#e2574c" stroke-width="1.75" marker-end="url(#arrow-warning)" d="M 40,796 L 40,824" />
-  <polygon points="40,831 33,844 47,844" fill="none" stroke="#e2574c" stroke-width="1.3" />
-  <text x="40" y="842" font-size="8" fill="#e2574c" text-anchor="middle" font-weight="700">!</text>
-  <text x="55" y="861" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">residual risk:</text>
-  <text x="55" y="872" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">ungoverned delivery</text>
+  <path fill="none" stroke="#5b6b80" stroke-width="1.3" opacity="0.4" d="M 70,556 C 57,586 45,614 40,636" />
+  <path fill="none" stroke="#e2574c" stroke-width="1.75" marker-end="url(#arrow-warning)" d="M 40,636 L 40,664" />
+  <polygon points="40,671 33,684 47,684" fill="none" stroke="#e2574c" stroke-width="1.3" />
+  <text x="40" y="682" font-size="8" fill="#e2574c" text-anchor="middle" font-weight="700">!</text>
+  <text x="55" y="701" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">residual risk:</text>
+  <text x="55" y="712" class="mono" font-size="7.5" fill="#e2574c" text-anchor="middle">ungoverned delivery</text>
 
   <!-- ============ Agent Control Plane (aperture) ============ -->
   <rect x="170" y="202" width="440" height="100" rx="10" fill="#202a35" stroke="#85a4e8" stroke-width="1.6" />
@@ -138,62 +138,16 @@
   <text x="390" y="516" font-size="11.5" font-weight="650" text-anchor="middle">Shared Contracts &amp; Schemas</text>
   <text x="390" y="529" class="mono dim" font-size="7.5" text-anchor="middle">versioned interfaces for concrete cross-platform-domain exchanges</text>
 
-  <path fill="none" stroke="#85a4e8" stroke-width="1.5" marker-end="url(#arrow-flow)" d="M 390,536 C 390,565 320,580 250,606" />
-  <path fill="none" stroke="#85a4e8" stroke-width="1.5" marker-end="url(#arrow-flow)" d="M 390,536 C 390,565 460,580 530,606" />
-
-  <!-- ============ Inference Telemetry ============ -->
-  <rect x="110" y="606" width="270" height="90" rx="10" fill="#202a35" stroke="#85a4e8" stroke-width="1.4" />
-  <text x="122" y="619" class="tag" font-size="7.5" letter-spacing="0.6">PLATFORM DOMAIN · TELEMETRY</text>
-  <text x="245" y="642" font-size="15" font-weight="650" text-anchor="middle">Inference Telemetry</text>
-  <text x="245" y="660" class="mono dim" font-size="9.5" text-anchor="middle">observes execution, efficiency &amp; outcomes</text>
-
-  <!-- ============ Developer Learning ============ -->
-  <rect x="400" y="606" width="270" height="90" rx="10" fill="#202a35" stroke="#85a4e8" stroke-width="1.4" />
-  <text x="412" y="619" class="tag" font-size="7.5" letter-spacing="0.6">PLATFORM DOMAIN · LEARNING</text>
-  <text x="535" y="642" font-size="15" font-weight="650" text-anchor="middle">Developer Learning</text>
-  <text x="535" y="660" class="mono dim" font-size="9.5" text-anchor="middle">preserves &amp; reinforces engineering understanding</text>
-
-  <!-- ============ Feedback: Inference Telemetry -> ACP (observed signal) ============ -->
-  <path fill="none" stroke="#e79654" stroke-width="1.75" stroke-dasharray="1 5.5" stroke-linecap="round" marker-end="url(#arrow-feedback)" d="M 150,606 C 45,545 42,300 172,248" />
-  <text x="44" y="420" class="mono" font-size="9.5" fill="#e79654" text-anchor="middle">OBSERVED SIGNAL</text>
-  <text x="44" y="432" class="mono" font-size="9.5" fill="#e79654" text-anchor="middle">→ REFINEMENT</text>
-
-  <!-- ============ Feedback: Developer Learning -> ACP (reinforced understanding) ============ -->
-  <path fill="none" stroke="#e79654" stroke-width="1.75" stroke-dasharray="1 5.5" stroke-linecap="round" marker-end="url(#arrow-feedback)" d="M 630,606 C 735,545 738,300 608,248" />
-  <text x="720" y="420" class="mono" font-size="9.5" fill="#e79654" text-anchor="middle">VALIDATED LEARNING</text>
-  <text x="720" y="432" class="mono" font-size="9.5" fill="#e79654" text-anchor="middle">→ CURATED PRACTICES</text>
-
-  <!-- ============ Convergence into delivery outcome ============ -->
-  <path fill="none" stroke="#85a4e8" stroke-width="1.5" marker-end="url(#arrow-flow)" d="M 245,696 L 245,826" />
-  <path fill="none" stroke="#85a4e8" stroke-width="1.5" stroke-dasharray="1 5" d="M 390,536 L 390,826" />
-  <path fill="none" stroke="#85a4e8" stroke-width="1.5" marker-end="url(#arrow-flow)" d="M 535,696 L 535,826" />
-
-  <!-- ============ Delivery outcome ============ -->
-  <rect x="110" y="826" width="560" height="100" rx="10" fill="#202a35" stroke="#85a4e8" stroke-width="1.6" />
-  <text x="390" y="854" font-size="16" font-weight="650" text-anchor="middle">Predictable, accelerated delivery</text>
-  <text x="245" y="881" class="mono dim" font-size="8.5" text-anchor="middle">shaped &amp; governed</text>
-  <text x="245" y="893" class="mono dim" font-size="8.5" text-anchor="middle">delivery units</text>
-  <text x="390" y="881" class="mono dim" font-size="8.5" text-anchor="middle">reviewed, production-</text>
-  <text x="390" y="893" class="mono dim" font-size="8.5" text-anchor="middle">grade artifacts</text>
-  <text x="535" y="881" class="mono dim" font-size="8.5" text-anchor="middle">retained engineering</text>
-  <text x="535" y="893" class="mono dim" font-size="8.5" text-anchor="middle">understanding</text>
-
   <!-- ============ Legend ============ -->
-  <line x1="110" y1="950" x2="140" y2="950" stroke="#85a4e8" stroke-width="2" />
-  <text x="148" y="954" font-size="11.5" class="dim">governed structural flow</text>
+  <line x1="110" y1="770" x2="140" y2="770" stroke="#85a4e8" stroke-width="2" />
+  <text x="148" y="774" font-size="11.5" class="dim">governed structural flow</text>
 
-  <line x1="110" y1="970" x2="140" y2="970" stroke="#5b6b80" stroke-width="1.6" stroke-dasharray="2 4" />
-  <text x="148" y="974" font-size="11.5" class="dim">bypass / drift (undesired)</text>
+  <line x1="110" y1="790" x2="140" y2="790" stroke="#5b6b80" stroke-width="1.6" stroke-dasharray="2 4" />
+  <text x="148" y="794" font-size="11.5" class="dim">bypass / drift (undesired)</text>
 
-  <line x1="110" y1="990" x2="140" y2="990" stroke="#e2574c" stroke-width="1.6" />
-  <text x="148" y="994" font-size="11.5" class="dim">residual risk — ungoverned delivery</text>
+  <line x1="420" y1="770" x2="450" y2="770" stroke="#e2574c" stroke-width="1.6" />
+  <text x="458" y="774" font-size="11.5" class="dim">residual risk — ungoverned delivery</text>
 
-  <line x1="420" y1="950" x2="450" y2="950" stroke="#e79654" stroke-width="2.5" stroke-dasharray="1 5" stroke-linecap="round" />
-  <text x="458" y="954" font-size="11.5" class="dim">feedback — observed signal (telemetry)</text>
-
-  <line x1="420" y1="970" x2="450" y2="970" stroke="#e79654" stroke-width="2.5" stroke-dasharray="1 5" stroke-linecap="round" />
-  <text x="458" y="974" font-size="11.5" class="dim">feedback — reinforced understanding (learning)</text>
-
-  <line x1="420" y1="990" x2="450" y2="990" stroke="#5ec9a5" stroke-width="2" />
-  <text x="458" y="994" font-size="11.5" class="dim">mechanization loop — deterministic guardrails</text>
+  <line x1="420" y1="790" x2="450" y2="790" stroke="#5ec9a5" stroke-width="2" />
+  <text x="458" y="794" font-size="11.5" class="dim">mechanization loop — deterministic guardrails</text>
 </svg>

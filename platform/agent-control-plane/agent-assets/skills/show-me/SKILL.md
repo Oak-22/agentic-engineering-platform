@@ -23,18 +23,18 @@ same location, nothing more.
    covered more than one mechanism, confirm scope with the user before
    proceeding.
 2. Derive a short kebab-case topic slug (3-6 words) from that mechanism.
-3. Produce the explanation + diagram, preferring whatever native artifact/
-   diagram-creation tool the current session actually exposes; fall back to
-   the Mermaid-in-HTML path when it doesn't:
+3. Produce the explanation + diagram, using whatever native artifact/
+   diagram-creation tool the current session actually exposes; use Mermaid
+   when it doesn't:
    - If this session natively exposes an artifact-creation tool (e.g. Claude
      Code's `Artifact` tool): load the `artifact-diagramming` and
      `artifact-design` skills, produce a diagram (inline SVG, per
      `artifact-diagramming` guidance) plus a short written explanation, and
      publish it through that native tool.
    - Otherwise (no native artifact-creation tool exposed in this session):
-     compose a self-contained standalone HTML page by hand, using Mermaid —
-     the canonical diagram form for this fallback path — the written
-     explanation as plain HTML prose, plus the diagram as a
+     express the diagram as Mermaid alongside a written explanation. The
+     default form is a self-contained standalone HTML page composed by
+     hand — the explanation as plain HTML prose, the diagram as a
      `<pre class="mermaid">` block, with a `<script type="module">`
      that imports Mermaid from a CDN (e.g.
      `https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs`)
@@ -42,10 +42,13 @@ same location, nothing more.
      published Claude Artifact, so it carries none of the Artifact
      sandbox's no-external-resources constraint — a CDN script tag is fine
      for a plain local file opened in a real browser with internet access.
-     Do not imply the two paths produce equivalent fidelity: this path
-     renders the diagram client-side from Mermaid source, the native-tool
-     path hand-composes inline SVG (or whatever native format that tool
-     provides).
+     Where the session renders Markdown better than a local HTML file (an
+     integrated viewer that previews Mermaid fences directly, for
+     instance), a Markdown file with a ` ```mermaid ` fence is an equally
+     acceptable form — judge by what the user can actually open and read.
+     The mechanical difference from the native-tool path is only that the
+     diagram renders client-side from Mermaid source rather than as
+     composed inline SVG; treat it as a different form, not a lesser one.
 4. Resolve the capture root by calling `resolve_capture_root` from
    `scripts/resolve_capture_root.py` with the current project directory.
 5. Resolve the repo-local view by calling `capture_project_view` with the
@@ -59,23 +62,21 @@ same location, nothing more.
      `copy_capture`, sourced from the file `show-me` itself just wrote —
      never sourced from another mechanism's own copy of the same file.
    - If no native-tool artifact was published (no native artifact-creation
-     tool exposed in this session, so the Mermaid fallback ran instead):
-     write the self-contained HTML page composed in step 3 to
-     `<capture-root>/<stem>.html` via `write_capture` (`extension="html"`).
-   Either path now produces `.html` — the HTML page is self-contained
+     tool exposed in this session, so the Mermaid path ran instead): write
+     the page composed in step 3 to `<capture-root>/<stem>.<ext>` via
+     `write_capture` — `extension="html"` for the default self-contained
+     HTML page, or `extension="md"` for the Markdown-with-Mermaid form.
+   Write exactly one file per capture. The capture is self-contained
    (diagram + explanation already composed into one file), so do **not**
-   also write a plain `.md` alongside it; a separate Markdown copy would
-   just be a redundant duplicate. Writing bare Markdown-with-embedded-Mermaid
-   via `write_capture(..., extension="md")` is a deprecated last resort,
-   only for a runtime that genuinely cannot produce HTML text output at
-   all — in practice this should not happen, since composing HTML is just
-   string generation, not a tool dependency. Either way, collision-safe
+   also write a second copy in the other format alongside it; a parallel
+   copy would just be a redundant duplicate. Either way, collision-safe
    naming, write once, to the canonical capture root — the repo-local
    `.local-mirrors/show-me-captures` view exposes the same files
    automatically; do not write the content a second time.
 7. Call `write_latest_pointer` for the file written in step 6, so
-   `<capture-root>/latest.html` always resolves to this capture. This is
-   for opening the capture from a terminal (e.g.
+   `<capture-root>/latest.<ext>` always resolves to this capture (the
+   pointer takes the written file's own extension). This is for opening
+   the capture from a terminal (e.g.
    `open -a Safari <path>/latest.html`) without needing the current dated
    filename — useful for sidestepping an editor's own local-file viewer
    restrictions (e.g. VS Code's Simple Browser only trusts files inside the

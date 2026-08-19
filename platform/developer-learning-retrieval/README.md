@@ -16,20 +16,74 @@ compatible agent surface.
 - schedule questions using spaced-repetition intervals
 - require an unaided recall attempt before revealing explanations
 - record confidence, misconceptions, and later retrieval outcomes
-- promote durable insights into the engineering knowledge base
+- promote durable insights into reviewed shared scope
 
 ## Platform Relationships
 
-```text
-AI-assisted engineering activity
-  -> telemetry observatory
-  -> developer learning retrieval service
-  -> 5–10 minute active-recall session
-  -> engineering knowledge base
-  -> instruction and workflow improvement
+```mermaid
+flowchart TB
+  Activity["`**AI-assisted engineering activity**
+  *commits · debugging · agent runs · notes*`"]
+  Observatory["`**Telemetry observatory**
+  *normalize · correlate · attach provenance*`"]
+  Signals[("`**Learning-signal store**`")]
+  Retrieval["`**Retrieval service**
+  *select concepts · generate grounded prompts*
+  *spaced-repetition scheduling*`"]
+  Session["`**Daily 5–10 minute recall session**
+  *attempt from memory first*
+  *explanation unlocked after*`"]
+  Personal["`**Personal learning notes**
+  *author-only · machine-local · not committed*`"]
+  Promotion["`**Promotion ladder**
+  *personal → repo → domain → global*
+  *gated by reuse, review, and signoff*`"]
+  Artifacts["`**Artifact-typed control plane**
+  *instructions · skills · hooks*`"]
+  Enterprise["`**Enterprise knowledge systems**
+  *planned contract · optional integration*`"]
+
+  Activity --> Observatory --> Signals --> Retrieval --> Session
+  Session -->|"confidence · misconceptions · outcomes"| Personal
+  Personal --> Promotion
+  Promotion --> Artifacts
+  Promotion <-.->|"canonical export"| Enterprise
+  Artifacts -.->|"durable concepts for reinforcement"| Retrieval
+
+  subgraph Legend[" Status "]
+    direction LR
+    L1["`in repository`"]
+    L2["`planned`"]
+    L3["`author-only`"]
+  end
+
+  classDef built fill:#eef4ff,stroke:#3f5c8f,stroke-width:1.6px,color:#182234;
+  classDef ingest fill:#fff4df,stroke:#a86f18,stroke-width:1.6px,color:#2b2112;
+  classDef store fill:#f3efff,stroke:#7355a8,stroke-width:1.6px,color:#241b38;
+  classDef knowledge fill:#f7eff7,stroke:#875b87,stroke-width:1.6px,color:#2f1f2f;
+  classDef planned fill:#eaf7ee,stroke:#438459,stroke-width:1.6px,color:#14281b,stroke-dasharray: 7 4;
+  classDef personal fill:#f2f2f0,stroke:#7a7a72,stroke-width:1.6px,color:#33332e,stroke-dasharray: 1 4;
+
+  class Activity built;
+  class Observatory ingest;
+  class Signals store;
+  class Retrieval,Session,Enterprise planned;
+  class Promotion,Artifacts knowledge;
+  class Personal,L3 personal;
+  class L1 built;
+  class L2 planned;
+  style Legend fill:#ffffff,stroke:#c8c8c8,color:#555555;
 ```
 
-The service design is documented in [`design.md`](design.md).
+*Summary view; border style carries status, per the diagram's own legend.
+Bold names the component, italics its responsibilities. Personal learning
+notes stay with their author and are never committed. No scheduler, quiz
+engine, or persistence layer is implemented; see Implementation Boundary.
+The block above is the canonical source; regenerate
+[`developer-learning-retrieval-in-context.svg`](docs/diagrams/developer-learning-retrieval-in-context.svg)
+from it after any edit.*
+
+The service design is documented in [`design.md`](docs/design.md).
 
 Deferred feature concepts:
 
@@ -37,29 +91,9 @@ Deferred feature concepts:
   explores three assistance interfaces over one continuous shell session as a
   source of learning and retention signals.
 
-## Implemented Pieces
-
-- The `show-me` skill
-  (`platform/agent-control-plane/agent-assets/skills/show-me/`) is the
-  first concrete slice: on deliberate request, it captures a
-  diagram/explanation of a mechanism under discussion — resolved or still
-  being worked through — into a single, machine-local, provider-neutral
-  viewing cache, purely for reopening the rendered explanation later. It
-  does not write into the real Engineering Knowledge Base (EKB) repo, or
-  anywhere else — EKB is an optional, separate downstream overlay that
-  could later consume this cache's output, not something `show-me` depends
-  on or writes to directly. `design.md`'s mention of "an optional,
-  machine-local `engineering-knowledge-base/`" (below) refers to EKB's own
-  adoption symlink convention, unrelated to what `show-me` actually writes.
-  `show-me` has no telemetry, scheduling, or quiz behavior; see
-  Implementation Boundary.
-
 ## Implementation Boundary
 
 No scheduler, quiz engine, Codex automation, or user interface has been
 implemented yet, and no learning signals are consumed from commits,
-debugging sessions, or telemetry. The `show-me` skill above is the one
-implemented piece — a manually-invoked capture mechanism, not the
-persistence layer or retrieval loop this directory otherwise still only
-plans. This directory establishes the rest of the planned service boundary
-without overstating its maturity.
+debugging sessions, or telemetry. Nothing in this directory runs. It
+establishes the planned service boundary without overstating its maturity.

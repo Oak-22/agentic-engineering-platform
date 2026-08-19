@@ -19,7 +19,7 @@ machine-local overlay.
 - [Agent Control Plane](diagrams/agent-control-plane.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.
-- [Developer Learning Retrieval Service](../../developer-learning-retrieval/design.md)
+- [Developer Learning Retrieval Service](../../developer-learning-retrieval/docs/design.md)
   Describes a future extension for turning engineering activity into
   learning and retrieval signals.
 - [Local Documentation and Artifact Mirrors](local-doc-mirrors.md)
