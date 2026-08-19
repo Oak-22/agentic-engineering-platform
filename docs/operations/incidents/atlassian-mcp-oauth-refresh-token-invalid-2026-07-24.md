@@ -1,15 +1,15 @@
 ---
 incident_id: atlassian-mcp-oauth-refresh-token-invalid-2026-07-24
-status: investigating
+status: resolved
 severity: minor
 component: codex-atlassian-mcp-integration
 first_observed: 2026-07-24
-last_observed: 2026-07-27
-occurrence_count: 2
+last_observed: 2026-08-16
+occurrence_count: 3
 promotion_candidate: true
 ---
 
-# Atlassian MCP OAuth refresh token became invalid
+# Redundant Atlassian MCP server reported an invalid OAuth refresh token
 
 ## Observation
 
@@ -24,6 +24,11 @@ unauthorized_client: refresh_token is invalid
 
 Codex `/mcp` subsequently showed the `atlassian` server with OAuth
 authentication but no available tools.
+
+The failing server was the separately configured `atlassian` MCP server, not
+the plugin-backed Atlassian Rovo connector that Codex was already using. The
+Codex startup warning therefore made Atlassian access appear unavailable even
+while read/write Jira operations continued through the Rovo connector.
 
 ## Recurrence
 
@@ -47,37 +52,62 @@ logout and fresh login restores access for this occurrence has not yet been
 recorded. Concurrent client use, grant changes, password changes, and
 permission changes also remain unverified.
 
+The startup symptom was reproduced on 2026-08-16 by toggling the `atlassian`
+server in Codex settings. Enabling it produced the yellow OAuth refresh-token
+and incomplete-startup warnings shown below; disabling it removed the
+warnings.
+
+![Codex terminal showing the separately enabled atlassian MCP server failing to
+refresh its OAuth token during
+startup.](assets/atlassian-mcp-oauth-refresh-token-invalid-codex-startup.png)
+
 ## Recovery
 
-Remove the stale local OAuth credential and start a fresh authorization flow:
+Disable the separately configured `atlassian` MCP server in Codex settings.
+It is not required for the plugin-backed Atlassian Rovo connector used by
+Codex in this environment. With the redundant server disabled, Codex starts
+without the warning and Jira access through Rovo remains available.
+
+![Codex terminal starting without an MCP warning after the redundant atlassian
+server was disabled.](assets/atlassian-mcp-codex-startup-without-warning.png)
+
+The Codex configuration confirms the two integration surfaces are independent:
+the separately configured direct `atlassian` MCP server is disabled, while the
+Atlassian Rovo plugin remains configured.
+
+![Codex MCP settings showing the separately configured direct atlassian server
+disabled.](assets/atlassian-direct-mcp-disabled.png)
+
+![Codex plugin settings showing Atlassian Rovo configured as a
+plugin.](assets/atlassian-rovo-plugin-configured.png)
+
+During the earlier investigation, removing the stale local OAuth credential
+and starting a fresh authorization flow was considered as a direct-server
+recovery step:
 
 ```sh
 codex mcp logout atlassian
 codex mcp login atlassian
 ```
 
-The browser consent flow authorizes Codex to use the selected Atlassian site
-through the user's existing permissions. Do not record access tokens, refresh
-tokens, authorization codes, or other credentials in this report.
+That reauthorization is unnecessary when the direct server is not intended to
+be used. If it is deliberately enabled in the future, the browser consent flow
+authorizes Codex to use the selected Atlassian site through the user's existing
+permissions. Do not record access tokens, refresh tokens, authorization codes,
+or other credentials in this report.
 
 ## Current assessment
 
-Frequent interactive authorization is not expected. Atlassian uses rotating
-refresh tokens, which should normally allow the client to refresh access
-without repeating browser consent.
+This incident was a configuration and observability problem, not an outage of
+the connector Codex was actually using. A redundant direct `atlassian` MCP
+server held an invalid OAuth refresh token and attempted to start in every
+Codex session. Its failure produced a visible warning, while the separate
+plugin-backed Atlassian Rovo connector continued to provide Jira access.
 
-The investigation identifies stale refresh-token reuse after rotation as the
-high-probability cause, but does not prove it. Atlassian disables a rotating
-refresh token after a successful exchange and requires the client to persist
-the replacement token. Codex has separately reported MCP OAuth failure modes
-in which concurrent processes or sessions retain and later present stale
-refresh tokens.
-
-The short observed intervals make ordinary refresh-token inactivity expiry
-unlikely. The remaining evidence does not identify the exact refresh request
-that invalidated the credential, nor does it exclude a password change,
-explicit grant revocation, permission or policy change, failure to persist a
-rotated token, or another Atlassian or Codex integration defect.
+The controlled settings toggle establishes which configured server emitted
+the warning. It does not establish why that direct server's refresh token was
+invalid, but that question is no longer operationally relevant while the
+unused server remains disabled.
 
 ## Investigation timeline
 
@@ -97,12 +127,12 @@ changed the server-side token state.
 
 ## Decision
 
-Treat this as a recurring integration problem under active investigation.
-Continue using OAuth while capturing authorization time, recurrence time, and
-credential-refresh behavior. Do not switch authentication strategies until
-the failure mechanism is identified.
+Close the incident as resolved. Keep the redundant direct `atlassian` MCP
+server disabled and use the plugin-backed Atlassian Rovo connector. Reopen the
+investigation only if the Rovo connector itself fails or there is a deliberate
+need to use the direct server.
 
-## Recurrence evidence to capture
+## Evidence to capture if reopened
 
 - occurrence date and elapsed time since authorization
 - exact error text
@@ -111,16 +141,13 @@ the failure mechanism is identified.
 - whether the Atlassian account password, grant, or permissions changed
 - whether logout and fresh login restored access
 
-## Resolution criteria
+## Resolution evidence
 
-- Record whether `codex mcp logout atlassian` followed by
-  `codex mcp login atlassian` restores access.
-- Reauthorize, record the authorization time, and test after controlled elapsed
-  intervals without concurrent clients.
-- Compare the failure interval across another recurrence before concluding
-  that the token has a fixed lifetime.
-- Create or link a Jira defect for refresh-token rotation and credential
-  persistence investigation.
+- Enabling the direct `atlassian` MCP server reproduces the startup warning.
+- Disabling that server removes the warning.
+- With the direct server disabled, the plugin-backed Atlassian Rovo connector
+  exposes read/write Jira operations; a read-only AEPI query provided
+  non-mutating verification.
 
 ## Reference
 

@@ -34,9 +34,8 @@ Deliver this as four ordered Jira units. Each branch starts from updated
 ### 2. Extract the maintained AEP deployment profile
 
 - Introduce `deployments/aep/` as the cross-pillar self-hosting profile.
-- Add a small machine-readable profile declaring `AEPI`, `AEPD`, and `AEP` as
-  this installation's Jira Software, Jira Product Discovery, and Confluence
-  identifiers.
+- Add a small machine-readable profile declaring `AEPI` and `AEP` as this
+  installation's Jira Software and Confluence identifiers.
 - Move the concrete AEPI field mapping and AEP Atlassian information model into
   the profile.
 - Keep the Jira mapping schema and destination-adapter behavior portable under
@@ -115,8 +114,8 @@ Deliver this as four ordered Jira units. Each branch starts from updated
   checks.
 - Test that arbitrary Jira keys such as `PROJ-123` and `TEAM-42` remain
   accepted.
-- Test that `AEPI` and `AEPD` are rejected in portable fixture paths but
-  accepted in the AEP profile and frozen evidence.
+- Test that `AEPI` is rejected in portable fixture paths but accepted in the
+  AEP profile and frozen evidence.
 - Verify that reports reference existing dataset IDs and that live local
   telemetry remains ignored.
 
