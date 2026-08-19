@@ -36,7 +36,40 @@
         ]
       }
     ],
+    "UserPromptExpansion": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime claude",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "matcher": "Artifact",
         "hooks": [

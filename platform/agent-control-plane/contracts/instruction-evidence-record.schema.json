@@ -44,7 +44,8 @@
         "href": {
           "type": "string",
           "minLength": 1,
-          "description": "Absolute local path to the project-scoped evidence log containing this record."
+          "pattern": "^.+:[1-9][0-9]*$",
+          "description": "Path to the project-scoped evidence log view, suffixed with the 1-based line holding this record, as path:line. Repository-relative whenever the view resolves inside the active repository, so consumers open it as a workspace file reference rather than through an external-program handler; absolute only when the view is configured outside the repository."
         },
         "repositoryId": {
           "type": "string",
