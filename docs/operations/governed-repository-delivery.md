@@ -202,6 +202,8 @@ This guide owns the human operating model. Deeper layers have narrower jobs:
 5. Repository hooks, preflight checks, tests, and cleanup scripts enforce
    deterministic invariants.
 
-Keep intent compact at the outer layers and mechanics canonical at the deepest
-applicable layer. Link inward instead of copying procedures outward to avoid
-scattering authority and breaking single sources of truth.
+This follows the repository's general
+[authority and discovery layering](../architecture/authority-and-discovery-layering.md)
+rule: outer layers stay compact, mechanics stay canonical at the deepest
+applicable layer, and shallower layers link inward instead of copying
+procedures outward.
