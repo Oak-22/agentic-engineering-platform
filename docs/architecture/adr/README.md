@@ -67,3 +67,4 @@ the earlier record under `supersedes`.
 ## Decisions
 
 - [ADR-0001: Separate implementation knowledge from organizational governance](0001-separate-implementation-knowledge-from-organizational-governance.md)
+- [ADR-0002: Shield personal learning signals from observation](0002-shield-personal-learning-signals-from-observation.md)
