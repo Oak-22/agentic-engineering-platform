@@ -8,44 +8,19 @@ administrators can rename projects and spaces.
 
 | Surface | Current name | Current key | Owns |
 | --- | --- | --- | --- |
-| Jira Product Discovery | Agentic Engineering Platform Discovery | `AEPD` | opportunities, hypotheses, prioritization, roadmap, and investment decisions |
-| Jira Software | Agentic Engineering Platform Implementation | `AEPI` | epics, features, stories, tasks, defects, testing, and delivery status |
+| Jira Software | Agentic Engineering Platform Implementation | `AEPI` | opportunities, epics, features, stories, tasks, defects, testing, and delivery status |
 | Confluence | Agentic Engineering Platform | `AEP` | architecture, research, decisions, runbooks, experiment designs, and evidence-backed conclusions |
+
+There is no separate Jira Product Discovery project. Early-stage ideas and
+opportunities live directly in AEPI (for example as `Task` issues) rather
+than in a dedicated discovery surface; promote them to more specific issue
+types as scope and evidence firm up.
 
 ## Relationship model
 
-```text
-                         AEP Confluence
-                       /                \
-        evidence and rationale          design and outcomes
-                     /                    \
-            AEPD Discovery ----------> AEPI Implementation
-                    native delivery relationship
-```
-
-The shorthand `AEPD -> AEPI -> AEP` describes promotion, not a one-way
-information flow. Confluence supports both discovery and implementation.
-
-## Promotion rule
-
-Promote an AEPD idea into AEPI when it has:
-
-1. a clear problem or opportunity;
-2. enough evidence to justify evaluation or investment;
-3. an expected outcome;
-4. an explicit priority or roadmap horizon; and
-5. delivery scope that can be expressed as an epic, feature, or task.
-
-Create the AEPI artifact, attach it through Jira Product Discovery's native
-delivery relationship, and link the canonical AEP page when a design,
-decision, or experiment record exists.
-
-## Duplication rule
-
-- Keep strategic scoring and roadmap placement in AEPD.
-- Keep execution state and acceptance criteria in AEPI.
-- Keep durable reasoning and evidence in AEP.
-- Summarize and link across surfaces; do not maintain three full copies.
+AEPI tracks execution of decisions recorded in AEP. Link an AEPI issue to its
+AEP page when a durable decision exists; do not duplicate the reasoning into
+the issue, and do not require AEP pages to reference open issues.
 
 ## Human-agent collaboration lineage
 

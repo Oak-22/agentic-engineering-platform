@@ -16,12 +16,6 @@ Agentic Engineering Platform Implementation: this platform deployment's Jira
 Software project. `AEPI` is a concrete project key, not a portable schema
 default.
 
-### AEPD
-
-Agentic Engineering Platform Discovery: this platform deployment's Jira
-Product Discovery project for opportunities, hypotheses, and promotion into
-implementation work.
-
 ### Jira issue key
 
 A Jira-native identifier in `PROJECT-NUMBER` form. Portable artifacts represent
@@ -69,7 +63,7 @@ repository's review and merge process.
 - Portable contracts, schemas, tests, and generic diagrams use placeholders or
   neutral examples such as `PROJ-123` and `TEAM-42`.
 - Deployment-specific adapters and information models use real identifiers
-  such as `AEPI` and `AEPD` when those identifiers are the subject being
+  such as `AEPI` and `AEP` when those identifiers are the subject being
   documented.
 - Telemetry and historical evidence preserve the identifiers actually emitted
   or recorded; they are not rewritten for presentation consistency.
