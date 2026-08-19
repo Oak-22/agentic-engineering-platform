@@ -104,7 +104,7 @@ def capture_project_view(repo_root: Path, canonical_root: Path) -> Path:
     Named after this skill specifically, not the generic
     engineering-knowledge-base destination, because that destination is
     designed to hold multiple future producers (see
-    platform/developer-learning-retrieval/design.md) — a mirror scoped to
+    platform/developer-learning-retrieval/docs/design.md) — a mirror scoped to
     the producer stays unambiguous as more of them are added later.
 
     Falls back to canonical_root if a view already exists at that path and
