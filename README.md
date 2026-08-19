@@ -107,4 +107,7 @@ for cross-component documentation, development, and future releases.
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+Source available for viewing, but not open source. No permission is granted to
+use, copy, modify, or redistribute the current version except as permitted by
+law or with prior written permission. See [LICENSE](LICENSE) for details,
+including treatment of earlier Apache-2.0 versions and third-party materials.
