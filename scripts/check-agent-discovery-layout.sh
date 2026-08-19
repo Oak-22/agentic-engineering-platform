@@ -49,7 +49,11 @@ done
 
 python3 -m json.tool .codex/hooks.json >/dev/null
 python3 -m json.tool .claude/settings.json >/dev/null
-python3 platform/agent-control-plane/scripts/validate_asset_registries.py
+validation_python=platform/agent-control-plane/.venv/bin/python
+if [ ! -x "$validation_python" ]; then
+  validation_python=python3
+fi
+"$validation_python" platform/agent-control-plane/scripts/validate_asset_registries.py
 
 if ! grep -q '"SessionStart"' .claude/settings.json \
   || ! grep -q '"InstructionsLoaded"' .claude/settings.json \
@@ -139,6 +143,7 @@ done | while IFS= read -r native_path; do
       |.codex/hooks/README.md \
       |.claude/README.md \
       |.claude/settings.json \
+      |.claude/settings.local.json \
       |.claude/hooks/README.md \
       |.claude/skills/README.md \
       |.github/agents/README.md \
