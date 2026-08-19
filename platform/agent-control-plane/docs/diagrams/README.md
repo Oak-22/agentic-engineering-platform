@@ -1,7 +1,17 @@
 # Agent Control Plane Diagrams
 
-- [Agent Control Plane](agent-control-plane.png) — rendered system view
-  ([editable source](agent-control-plane.excalidraw)).
+- [Agent Control Plane](agent-control-plane.svg) — rendered system view
+  ([editable source](agent-control-plane.excalidraw); `.png` and `.pdf`
+  exports alongside).
+- [Governance aperture](governance-aperture.svg) — the component's place in
+  the platform frame: divergent runtime contributions entering the aperture,
+  the assurance spectrum, the guardrail mechanization loop, outward contract
+  projection, and the drift path that bypasses governance. Scoped to
+  control-plane mechanics; the peer domains, their feedback loops, and the
+  shared delivery outcome appear in
+  [`docs/diagrams/agentic-engineering-platform-diagram.svg`](../../../../docs/diagrams/agentic-engineering-platform-diagram.svg).
+  Hand-authored from that diagram rather than generated from it — the two do
+  not regenerate, so a change to one needs a matching edit to the other.
 
 Validate the implemented discovery layout from the repository root with
 `scripts/check-agent-discovery-layout.sh`.
