@@ -17,7 +17,7 @@ delivery phase as inputs. Preserve this skill's authority checks for every Git
 mutation.
 
 Read
-[the workbench-to-delivery branching contract](../../../platform/agent-control-plane/docs/workbench-delivery-branching.md)
+[the workbench-to-delivery branching contract](../../../docs/workbench-delivery-branching.md)
 when continuous capture or stewardship, workbench commits, selective transfer,
 dependencies, or stacked branches are in scope.
 

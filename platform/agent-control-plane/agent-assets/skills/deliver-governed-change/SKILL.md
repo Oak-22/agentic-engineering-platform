@@ -13,12 +13,15 @@ Read
 [the governed change delivery workflow](references/governed-change-delivery.md)
 before planning or executing a delivery.
 
-## Establish the delivery unit
+## Establish the delivery units
 
-1. Accept one bounded outcome from `shape-repository-change`, or use that skill
+1. Accept the bounded outcomes from `shape-repository-change`, or use that skill
    when observations, working-tree changes, or local commits still need to be
-   grouped. Confirm the accountable outcome and acceptance criteria before
-   creating delivery artifacts.
+   grouped. That skill returns **every** candidate it finds; this skill delivers
+   each of them rather than asking the user to pick one. Confirm the accountable
+   outcome and acceptance criteria for each before creating delivery artifacts.
+   Partitioning is this workflow's responsibility — do not ask the user which
+   candidate to take unless the boundary itself is genuinely ambiguous.
 2. Resolve an existing Jira work item or create one when the request
    authorizes tracked delivery.
 3. Classify the system that owns the durable change and select its delivery
@@ -44,6 +47,29 @@ before planning or executing a delivery.
    system.
 7. Record a deliberate exception when the outcome needs a different
    relationship.
+
+## Sequence multiple delivery units
+
+One invocation covers every shaped outcome. The `1 Jira task : 1 branch :
+1 pull request` relationship binds each unit individually; it does not limit
+how many units one invocation delivers.
+
+1. Order the units by dependency. Deliver foundational semantic changes before
+   outcomes that build on them, per
+   [the workbench-to-delivery branching contract](../../../docs/workbench-delivery-branching.md).
+   Independent units may then proceed in any order.
+2. Measure each unit against current `main`, not against the workbench. A file
+   that the workbench deletes may not exist on `main` at all, in which case the
+   unit is purely additive there. Two changes with no intermediate committed
+   state on `main` belong to one unit; splitting them would fabricate a midpoint
+   that never existed.
+3. Run the gate sequence for one unit at a time, carrying each to the authorized
+   stopping gate before starting the next.
+4. Report each completed unit as it lands — Jira key, branch, commits, and
+   verification — so a reviewer can follow the run without waiting for all of
+   them.
+5. Stop the whole run when a unit hits a blocker that changes the delivery plan
+   for the others. Report the completed units, the blocked one, and the reason.
 
 ## Coordinate specialized operations
 
@@ -74,6 +100,16 @@ before planning or executing a delivery.
    its visibility boundary. Resolve external configuration targets without
    creating empty Git artifacts. Use another branch base only for an explicit
    dependency exception.
+
+   When preflight reports uncommitted changes, the sanctioned resolution is the
+   workbench-to-delivery transition, not a question back to the user: commit
+   each coherent idea to the private `workbench/local` branch to reach a clean
+   status, then carve each delivery branch from current `main` and transfer only
+   that unit's evidence. See
+   [Workbench to delivery](../../../docs/workbench-delivery-branching.md#workbench-to-delivery).
+   Parking work on the workbench is ordinary capture and is authorized whenever
+   delivery is. Stashing, discarding, or carrying dirty changes across the
+   switch remain prohibited.
 3. **Implement:** make the bounded changes and run the smallest relevant
    checks; re-read external configuration after mutation.
 4. **Commit:** partition the result into coherent commits when committing is
@@ -91,6 +127,29 @@ before planning or executing a delivery.
 
 Complete only the phases authorized by the current request. Report the next
 gate without treating it as approved.
+
+## What a bare invocation authorizes
+
+Invoking this skill with no stated scope authorizes **Shape through Commit**
+for every shaped delivery unit: create the Jira work items, park uncommitted
+work on the workbench, carve each Jira-keyed branch from current `main`,
+transfer that unit's evidence, run its verification, and partition the result
+into coherent commits.
+
+It does **not** authorize Publish, Review, Merge, or Cleanup. Everything it
+produces is local and reversible, which is the point: the accountable human
+reviews real branches, commits, and verification output before anything reaches
+a remote or a reviewer.
+
+Do not stop mid-run to ask for permission to continue within that range, and do
+not ask which unit to deliver — a bare invocation already authorizes all of
+them. Ask only when a boundary is genuinely ambiguous, a unit's blocker changes
+the plan for the others, or a decision would expand authority, sharing, or
+risk. On finishing, report every unit and name Publish as the next unapproved
+gate.
+
+An invocation that states its own scope overrides this default in either
+direction, narrower or wider.
 
 ## Backfill completed work
 
@@ -190,14 +249,16 @@ runtime provenance in structured work-item or telemetry metadata.
 - Add related changes to the delivery unit when they are necessary for its
   acceptance criteria.
 - Create a separate Jira task and delivery unit for independently valuable or
-  separately reviewable work.
+  separately reviewable work, and deliver it in the same run rather than
+  deferring it back to the user.
 - Stop for a human decision when scope expansion changes the outcome,
   authority, risk, or review boundary.
 - Keep epics as containers for multiple task-level delivery units.
 
 ## Finish the active phase
 
-Verify every mutated system before reporting completion. Return:
+Verify every mutated system before reporting completion. Report per delivery
+unit, then once for the run as a whole. Return:
 
 - the Jira and documentation records;
 - the selected delivery path and durable change authority;

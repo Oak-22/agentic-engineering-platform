@@ -183,6 +183,7 @@ Each gate requires the authority applicable to its system and impact:
 
 | Gate | Required authority |
 |---|---|
+| Shape through Commit, for every shaped unit | A bare `deliver-governed-change` invocation with no stated scope |
 | Create or update work records | Jira or Confluence mutation request |
 | Modify repository files | Implementation request |
 | Modify external configuration | Mutation request for the owning system and scope |
@@ -196,6 +197,12 @@ Each gate requires the authority applicable to its system and impact:
 | Delete a remote branch | Remote cleanup request naming the branch |
 
 Authority for one gate does not approve later gates.
+
+A bare invocation is the one grant that spans several: it covers Shape,
+Isolate, Implement, and Commit, because everything those gates produce is local
+and reversible. It stops at Publish, where work first becomes visible outside
+the developer's machine. That boundary exists so the accountable human reviews
+real branches, commits, and verification output rather than a plan.
 
 ## Retrospective backfill
 
