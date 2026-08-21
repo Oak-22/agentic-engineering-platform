@@ -1,0 +1,4 @@
+interface:
+  display_name: "Capture Session Trail"
+  short_description: "Snapshot what an agent said and did this session for a human reviewer"
+  default_prompt: "Use $capture-session-trail to snapshot this session's message text and tool-call trail into a reviewable local Markdown file. Note: model reasoning is redacted by the producer and cannot be included, and the snapshot is machine-local until deliberately promoted."
