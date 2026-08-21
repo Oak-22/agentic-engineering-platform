@@ -68,13 +68,15 @@ class ResolveCaptureRootTests(unittest.TestCase):
 
 
 class CaptureFilenameTests(unittest.TestCase):
-    def test_combines_date_runtime_and_slug(self):
+    def test_combines_date_show_me_marker_runtime_and_slug(self):
         import datetime as dt
 
         name = capture.capture_filename(
             slug="instruction-manifest-hook", runtime="claude", date=dt.date(2026, 8, 13)
         )
-        self.assertEqual(name, "2026-08-13-claude-instruction-manifest-hook")
+        self.assertEqual(
+            name, "2026-08-13-show-me-claude-instruction-manifest-hook"
+        )
 
     def test_different_runtimes_produce_different_filenames(self):
         import datetime as dt

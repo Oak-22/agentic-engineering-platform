@@ -54,9 +54,10 @@ same location, nothing more.
 5. Resolve the repo-local view by calling `capture_project_view` with the
    repository root and the resolved capture root.
 6. Compute the shared filename stem via `capture_filename(slug=..., runtime=...)`
-   — `<date>-<runtime>-<slug>`, runtime being whichever runtime is invoking
-   the skill (`claude`, `codex`, etc.), so the originating model is visible
-   in the filename itself without opening the file.
+   — `<date>-show-me-<runtime>-<slug>`. The `show-me` marker makes the
+   producing workflow explicit in every capture filename, while runtime is
+   whichever runtime is invoking the skill (`claude`, `codex`, etc.), so the
+   originating model is visible without opening the file.
    - If a native-tool artifact was published (e.g. a Claude Artifact): copy
      the published HTML file into the capture root with that stem via
      `copy_capture`, sourced from the file `show-me` itself just wrote —
