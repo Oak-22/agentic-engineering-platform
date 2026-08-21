@@ -1,11 +1,11 @@
 # Local documentation and artifact mirrors
 
-This repository has four distinct mechanisms that copy content out of a
-live agent session onto local disk. They look similar — all four exist
+This repository has six distinct mechanisms that keep content on local disk
+outside the repository. They look similar — all six exist
 because session-scoped content (fetched docs, published Artifacts,
-in-session understanding) would otherwise be lost when the session ends —
-but they differ in trigger, scope, and whether the result is tracked in
-this repository.
+in-session understanding, an agent's own working trail, cross-project
+skills) would otherwise be lost, unreadable, or trapped in one repository —
+but they differ in trigger, scope, and whether the result is tracked here.
 
 | Mechanism | Trigger | Destination | Tracked in repo? |
 | --- | --- | --- | --- |
@@ -13,6 +13,46 @@ this repository.
 | [Artifact archive](#artifact-archive) | `PostToolUse` hook on the `Artifact` tool, automatic | `$XDG_DATA_HOME/aep/artifact-archive/<project-slug>/` | No |
 | [Artifact promotion](#artifact-promotion) | Manual, deliberate | `docs/diagrams/` | Yes |
 | [Show-me viewing cache](#show-me-viewing-cache) | Manual, deliberate — the `show-me` skill | `$XDG_DATA_HOME/aep/engineering-knowledge-base/<project-slug>/` | No |
+| [Session snapshots](#session-snapshots) | Manual, deliberate — the `capture-session-trail` skill | `$XDG_DATA_HOME/aep/session-snapshots/<project-slug>/` | No |
+| [Public-skills store](#public-skills-store) | Manual, deliberate — authored or installed by the developer | `$XDG_DATA_HOME/aep/skills/` | No |
+
+## What `.local-mirrors/` is for
+
+One decision governs the whole directory:
+
+> Where does this platform, and the models it governs, put machine-local
+> state — and how is it exposed back into the repository?
+
+Stated precisely: **state the platform authors, plus platform-shaped
+derivations of state it does not own.** Every member sits in one of two
+columns.
+
+| Authored by the platform | Derived from something the platform does not own |
+| --- | --- |
+| `instruction-evidence` — ledgers the hook writes | `session-snapshots` — rendered from the runtime's raw transcript |
+| `show-me-captures` — captures the skill composes | `provider-docs` — fetched from a vendor URL |
+| `public-skills` — skills the developer authors | |
+
+`session-snapshots` is the clearest case of the second column: the platform
+does not own the transcript, it owns the **rendering** of it.
+
+### The invariant
+
+**`.local-mirrors/` exposes what the platform is responsible for.**
+
+No member is a view onto a runtime's own native store, and none should be.
+Pointing a symlink at `~/.claude/projects/` would claim responsibility for a
+file the runtime owns and rewrites on its own schedule.
+
+`provider-docs` does not break this rule. It is fetched from a vendor URL and
+cached, making it a platform-owned **cache of a remote** rather than a view
+onto native local state. It is unusual for a different reason: it caches under
+the OS temp directory, outside the `aep` namespace, because it holds
+refetchable scratch rather than retained state.
+
+The corollary decides every future case: **mirror a rendering, never the raw
+source.** A derivative the platform authored belongs here; the durable file it
+was derived from does not.
 
 ## Provider-docs mirror
 
@@ -184,6 +224,115 @@ downstream consumer (resolving the adoption symlink, appending a notebook
 cell), but nothing in this skill's own workflow calls it. EKB is not this
 skill's concern.
 
+## Session snapshots
+
+The `capture-session-trail` skill
+(`platform/agent-control-plane/agent-assets/skills/capture-session-trail/`)
+renders one session's message text **and** per-turn tool-call summaries
+into a Markdown snapshot at
+`$XDG_DATA_HOME/aep/session-snapshots/<project-slug>/<runtime>-<session-id>.md`
+(override via `AEP_SESSION_SNAPSHOT_DIR`), with a repo-local view at
+`.local-mirrors/session-snapshots` following the same symlink pattern as
+the show-me cache above.
+
+This is not a fifth copy of the transcript. The raw JSONL is already
+durable (see the next section); what does not exist without this skill is
+a *readable* form of it — text alone reads as a monologue with silent gaps
+exactly where the agent acted, because most assistant lines carry only
+`tool_use`/`tool_result` blocks. The snapshot's audience is a human
+teammate reviewing what an agent actually did, which is why it renders
+both fields per turn and why it is manual: capture is the redaction review
+gate, and a `Stop`/`SessionEnd` trigger would remove the human judgment
+point before content becomes readable by someone else.
+
+Re-invoking appends only turns recorded since the last capture. The cutoff
+is a trailing `<!-- aep-session-snapshot turns-consumed=N -->` comment
+inside the snapshot itself rather than a sidecar file, so the snapshot is
+the complete state and deleting it fully resets capture. It reads through
+`scripts/session_transcript_reader.py` — the one shared reader per
+producer — and never modifies the source. Tests live at
+`platform/agent-control-plane/tests/test_render_session_snapshot.py`.
+
+Every snapshot opens with a plain-language fidelity legend, because the
+content below it is not uniformly trustworthy and a reviewer has no other
+way to tell. Tool calls and message text are exact, 1:1 copies of the log.
+Raw reasoning is absent — the provider strips it — and the header says so
+while reporting the session's real billed reasoning-token count, so the
+gap reads as *withheld* rather than as *the agent didn't think*. A
+thinking summary, where a user has enabled one, is labelled as the model's
+own paraphrase rather than the reasoning itself. That distinction lives in
+the artifact, not just in the skill's documentation, because the artifact
+is the part that travels to someone who never read the skill.
+
+Making a snapshot visible to anyone else is the separate, manual
+[artifact promotion](#artifact-promotion) decision — writing the snapshot
+does not share it, since `.local-mirrors/` is gitignored.
+
+## Public-skills store
+
+Skills that travel **across projects** — personal capabilities not owned by
+any one repository — live at `$XDG_DATA_HOME/aep/skills/` (override via
+`AEP_SKILLS_DIR`), with a repo-local view at `.local-mirrors/public-skills`.
+
+The boundary matters: `agent-assets/skills/` holds skills that encode *this
+repository's* governance and delivery conventions and ship to everyone who
+clones it. The public-skills store holds capabilities that are useful in any
+project and belong to the developer, not the repo. A skill referencing this
+repo's paths, Jira project, or branch conventions belongs in `agent-assets/`;
+one repairing a video export does not.
+
+This store is deliberately **view-only**. Unlike `agent-assets/skills/`, it is
+not symlinked into `.claude/skills/`, `.agents/skills/`, or `.github/skills/`,
+so no runtime discovers its contents as project skills. `.local-mirrors/` is
+gitignored, so the mirror exposes the files to a human or an agent working
+inside the checkout without making them part of this repository or its
+runtime-native discovery surfaces.
+
+## Resolving these paths
+
+`scripts/local_store.py` is the single definition of both halves of this
+convention: the provider-neutral `aep` namespace, and the
+`.local-mirrors/<name>` view.
+
+```python
+canonical, view = ensure_store("public-skills", repo_root=repo, create=True)
+```
+
+Its `STORES` registry is the canonical inventory — each entry declares its
+directory, environment override, and whether it is scoped per project. Stores
+holding per-project output are scoped; stores whose content travels across
+projects are not.
+
+Every view follows one create-if-absent shape:
+
+1. If the symlink does not exist, create it pointing at the canonical root.
+2. If it exists and resolves to that same root, return it.
+3. If it exists and resolves elsewhere — stale from a prior relocation —
+   return the canonical root instead. Never silently overwrite an existing
+   symlink, and never raise.
+
+Note that these symlinks are a different mechanism from the ones under
+`.claude/skills/`, `.agents/skills/`, and `.github/skills/`, which are
+relative, tracked, and satisfy each runtime's native discovery contract. The
+views here are absolute, gitignored, and machine-specific: they make local
+state visible from inside a checkout, and nothing scans them.
+
+This exists because four mechanisms independently re-derived
+`$XDG_DATA_HOME/aep` and four wrote their own `.local-mirrors` symlink helper.
+That is the shape
+[`native-provider-state-ports.md`](strategy/native-provider-state-ports.md)
+names and
+[`session-transcript-reader.md`](strategy/session-transcript-reader.md)
+argues against for session transcripts: one shared definition per concern,
+with purpose-built consumers on top. The public-skills store is the first
+consumer. Migrating `instruction_manifest_hook.py`,
+`resolve_capture_root.py`, `render_session_snapshot.py`, and
+`archive_artifact_publish.py` onto it is a separate, deliberate change —
+each has its own tests to keep passing, and folding that into an unrelated
+edit would obscure both. `provider_docs_session_start.py` is out of scope
+either way: it caches under the OS temp directory rather than this namespace,
+because it holds refetchable scratch rather than retained state.
+
 ## Session transcripts (already durable — no mirror needed)
 
 Claude Code itself continuously persists the full session transcript as
@@ -198,7 +347,9 @@ a `SessionEnd` hook that copies the transcript elsewhere would be
 redundant (the durable copy already exists) and, for workflows that
 resume old sessions across days rather than deliberately exiting, would
 trigger unpredictably relative to actual work cadence. There is nothing
-to build here.
+to build here — *copying* this data is what has no value, which is
+distinct from [rendering it readable](#session-snapshots), the one thing
+the durable JSONL genuinely does not provide.
 
 Separately, `Ctrl+O` then `v` in the Claude Code TUI exports a
 point-in-time, human-readable snapshot of the current session's
@@ -210,12 +361,12 @@ repository.
 
 ## Why the boundary matters
 
-The provider-docs mirror, the artifact archive, and the show-me viewing
-cache all write outside the repository on purpose: they are reproducible,
-session-scoped, cache-refreshed, or purely-personal byproducts, and
-committing them would mean tracking generated, machine-specific, or
-frequently-churning content. Promoting an artifact into the repo is the
-opposite case — a deliberate choice to make one specific, finished output
-part of the tracked project. Treat the first three as ephemeral and safe to
-regenerate or delete; treat promoted artifacts as authored content once
-they land in the repo.
+The provider-docs mirror, the artifact archive, the show-me viewing cache,
+and session snapshots all write outside the repository on purpose: they are
+reproducible, session-scoped, cache-refreshed, or purely-personal
+byproducts, and committing them would mean tracking generated,
+machine-specific, or frequently-churning content. Promoting an artifact or
+a snapshot into the repo is the opposite case — a deliberate choice to make
+one specific, finished output part of the tracked project. Treat the first
+four as ephemeral and safe to regenerate or delete; treat promoted files as
+authored content once they land in the repo.
