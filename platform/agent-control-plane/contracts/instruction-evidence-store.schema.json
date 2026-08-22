@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schemaVersion", "storeType", "repositoryId", "projectKey", "generatedBy", "fileClasses"],
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {"const": 2},
     "storeType": {"const": "instruction-evidence"},
     "repositoryId": {"type": "string", "minLength": 1},
     "projectKey": {"type": "string", "pattern": "^[0-9a-f]{24}$"},
@@ -22,14 +22,14 @@
     },
     "fileClasses": {
       "type": "array",
-      "minItems": 3,
+      "minItems": 4,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["pattern", "kind", "scope", "runtimeSource", "retention"],
         "properties": {
           "pattern": {"type": "string", "minLength": 1},
-          "kind": {"enum": ["metadata", "index", "session-ledger"]},
+          "kind": {"enum": ["metadata", "index", "session-ledger", "lock"]},
           "scope": {"enum": ["project", "session"]},
           "runtimeSource": {"type": "string", "minLength": 1},
           "retention": {
