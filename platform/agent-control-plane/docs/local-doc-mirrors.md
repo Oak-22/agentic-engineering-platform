@@ -324,14 +324,16 @@ That is the shape
 names and
 [`session-transcript-reader.md`](strategy/session-transcript-reader.md)
 argues against for session transcripts: one shared definition per concern,
-with purpose-built consumers on top. The public-skills store is the first
-consumer. Migrating `instruction_manifest_hook.py`,
-`resolve_capture_root.py`, `render_session_snapshot.py`, and
-`archive_artifact_publish.py` onto it is a separate, deliberate change —
-each has its own tests to keep passing, and folding that into an unrelated
-edit would obscure both. `provider_docs_session_start.py` is out of scope
-either way: it caches under the OS temp directory rather than this namespace,
-because it holds refetchable scratch rather than retained state.
+with purpose-built consumers on top. `resolve_capture_root.py`,
+`render_session_snapshot.py`, and `archive_artifact_publish.py` are migrated
+onto `local_store.py`, alongside the view-only public-skills store.
+`instruction_manifest_hook.py` remains: it scopes by sha256 of the git
+remote, treats its env var as a full store path rather than a namespace
+base, and is live-writing on every prompt, so migrating it needs
+`StoreSpec` extended first — a separate, deliberate change.
+`provider_docs_session_start.py` is out of scope either way: it caches under
+the OS temp directory rather than this namespace, because it holds
+refetchable scratch rather than retained state.
 
 ## Session transcripts (already durable — no mirror needed)
 

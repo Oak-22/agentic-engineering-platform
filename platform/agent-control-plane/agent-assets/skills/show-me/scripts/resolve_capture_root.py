@@ -15,12 +15,32 @@ destination this module writes to.
 from __future__ import annotations
 
 import datetime as dt
-import os
+import importlib.util
 from pathlib import Path
 import shutil
+import sys
 
 
-DEFAULT_CAPTURE_DIRNAME = "show-me-captures"
+def _load_local_store():
+    """Import local_store.py by path; this skill lives under agent-assets/,
+    the store definition under scripts/ — neither is an installed package."""
+    cached = sys.modules.get("local_store")
+    if cached is not None:
+        return cached
+    store_path = (
+        Path(__file__).resolve().parents[4] / "scripts" / "local_store.py"
+    )
+    spec = importlib.util.spec_from_file_location("local_store", store_path)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        raise RuntimeError(f"cannot load local_store at {store_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_local_store = _load_local_store()
+DEFAULT_CAPTURE_DIRNAME = _local_store.STORES["show-me-captures"].dirname
 
 
 def resolve_capture_root(
@@ -28,18 +48,12 @@ def resolve_capture_root(
 ) -> Path:
     """Return the per-project capture directory, outside the repository.
 
-    Defaults under the same provider-neutral XDG `aep` namespace
-    instruction_manifest_hook.py's storage_root() uses, since show-me runs
-    under Claude Code, Codex, and Copilot alike — never nest this under a
-    single provider's own directory (e.g. `~/.claude/`)."""
-    base = capture_base or Path(
-        os.environ.get(
-            "AEP_SHOW_ME_CAPTURE_DIR",
-            Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aep",
-        )
-    ).expanduser()
-    project_slug = project_dir.name if project_dir else "unknown-project"
-    return base / DEFAULT_CAPTURE_DIRNAME / project_slug
+    Resolved through local_store.py's single StoreSpec definition, since
+    show-me runs under Claude Code, Codex, and Copilot alike — never nest
+    this under a single provider's own directory (e.g. `~/.claude/`)."""
+    return _local_store.store_root(
+        "show-me-captures", project_dir=project_dir, base=capture_base
+    )
 
 
 def capture_filename(*, slug: str, runtime: str, date: dt.date | None = None) -> str:
@@ -113,10 +127,4 @@ def capture_project_view(repo_root: Path, canonical_root: Path) -> Path:
     points elsewhere. No content is written here — this only exposes a
     second access path to the same files.
     """
-    view = repo_root / ".local-mirrors" / "show-me-captures"
-    view.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if not view.exists() and not view.is_symlink():
-        view.symlink_to(canonical_root, target_is_directory=True)
-    if view.resolve(strict=False) == canonical_root.resolve():
-        return view
-    return canonical_root
+    return _local_store.project_view(repo_root, "show-me-captures", canonical_root)

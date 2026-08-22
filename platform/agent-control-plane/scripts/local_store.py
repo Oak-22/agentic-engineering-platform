@@ -13,10 +13,13 @@ This is the same port discipline
 one shared definition per concern, with purpose-built consumers layered on
 top, rather than each consumer re-deriving the namespace independently.
 
-Consumers today: the public-skills store. The four stores declared below that
-predate this module still compute the namespace inline; they are registered
-here so the inventory is centrally true, and migrating them is a separate,
-deliberate change — not something to fold into an unrelated edit.
+Consumers today: `archive_artifact_publish.py`, `resolve_capture_root.py`,
+`render_session_snapshot.py`, and the view-only public-skills store.
+`instruction_manifest_hook.py` still computes the namespace inline — it
+scopes by sha256 of the git remote, treats its env var as a full store path
+rather than a namespace base, and is live-writing on every prompt, so it
+needs `StoreSpec` extended with `env_semantics` and `scope` fields first.
+Migrating it is separate, deliberate work, tracked apart from this module.
 
 `provider-docs` is deliberately absent: it caches under the OS temp directory
 rather than this namespace, because it is refetchable scratch rather than

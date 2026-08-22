@@ -11,6 +11,7 @@ equivalent Artifact event registration.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -19,7 +20,23 @@ import sys
 from typing import Any
 
 
-DEFAULT_ARCHIVE_DIRNAME = "artifact-archive"
+def _load_local_store():
+    """Import local_store.py by path; scripts/ is not an installed package."""
+    cached = sys.modules.get("local_store")
+    if cached is not None:
+        return cached
+    store_path = Path(__file__).resolve().parent / "local_store.py"
+    spec = importlib.util.spec_from_file_location("local_store", store_path)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        raise RuntimeError(f"cannot load local_store at {store_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_local_store = _load_local_store()
+DEFAULT_ARCHIVE_DIRNAME = _local_store.STORES["artifact-archive"].dirname
 
 
 def resolve_archive_root(
@@ -27,19 +44,12 @@ def resolve_archive_root(
 ) -> Path:
     """Return the per-project archive directory, outside the repository.
 
-    Defaults under the provider-neutral XDG `aep` namespace, not `~/.claude/`
-    — even though this feature is Claude-specific today (no Codex Artifact
-    tool exists to be agnostic between), the storage location shouldn't
-    depend on a directory this platform doesn't own and doesn't control the
-    evolution of."""
-    base = archive_base or Path(
-        os.environ.get(
-            "AEP_ARTIFACT_ARCHIVE_DIR",
-            Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aep",
-        )
-    ).expanduser()
-    project_slug = project_dir.name if project_dir else "unknown-project"
-    return base / DEFAULT_ARCHIVE_DIRNAME / project_slug
+    Resolved through local_store.py's single StoreSpec definition — see that
+    module for why the namespace stays provider-neutral rather than nested
+    under `~/.claude/`, even though this feature is Claude-specific today."""
+    return _local_store.store_root(
+        "artifact-archive", project_dir=project_dir, base=archive_base
+    )
 
 
 def archive_file(source: Path, archive_root: Path) -> Path:

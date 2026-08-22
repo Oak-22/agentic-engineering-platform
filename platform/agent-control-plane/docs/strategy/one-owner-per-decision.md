@@ -68,8 +68,7 @@ the git remote so one repo cloned twice shares a store, while the others key
 by directory name — is exactly the kind of difference that belongs in a spec
 field (`scope: "slug" | "repo-hash"`), not in a separate implementation.
 
-Consolidation target: `scripts/local_store.py`. Plan:
-[`future/local-store-consolidation-plan.md`](../../../../future/local-store-consolidation-plan.md).
+Consolidation target: `scripts/local_store.py`.
 
 ## Applying it
 
