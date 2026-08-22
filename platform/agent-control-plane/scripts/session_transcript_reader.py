@@ -4,7 +4,7 @@
 One shared reader per producer (Claude Code, Codex), not one reader per
 consumer. Every call re-reads the live producer file directly — no
 caching, no persistence, no writes anywhere. See
-platform/agent-control-plane/docs/strategy/session-transcript-cross-agent-pickup.md
+platform/agent-control-plane/docs/strategy/session-transcript-reader.md
 for the design this implements, and
 platform/agent-control-plane/docs/strategy/native-provider-state-ports.md
 for the pattern this is one instance of.
@@ -28,6 +28,8 @@ class TranscriptTurn:
     role: str
     text: str
     raw_type: str
+    tool_calls: tuple[str, ...] = ()
+    thinking_tokens: int = 0
 
 
 _CLAUDE_TEXT_BLOCK_TYPES = frozenset({"text"})
@@ -36,6 +38,7 @@ _CODEX_MESSAGE_ROLE_MAP = {"user": "user", "assistant": "assistant", "developer"
 _CODEX_SESSION_ID_PATTERN = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 )
+_TOOL_SUMMARY_MAX_CHARS = 400
 
 
 def locate_sessions(
@@ -84,22 +87,121 @@ def _flatten_text_blocks(content: Any, accepted_types: frozenset[str]) -> str:
     return ""
 
 
-def _claude_role_and_text(line_type: str, obj: dict[str, Any]) -> tuple[str, str]:
+def _truncate(text: str) -> str:
+    if len(text) <= _TOOL_SUMMARY_MAX_CHARS:
+        return text
+    return text[:_TOOL_SUMMARY_MAX_CHARS] + "…"
+
+
+def _json_compact(value: Any) -> str:
+    try:
+        return json.dumps(value, separators=(",", ":"))
+    except TypeError:
+        return str(value)
+
+
+def _claude_tool_calls(content: Any) -> tuple[str, ...]:
+    """One-line summaries for tool_use/tool_result blocks a text-only flatten
+    drops. Claude's own transcript-mode viewer (Ctrl+O) renders the same
+    action as e.g. "Read 1 file" or "Update(path) — added/removed N lines";
+    this is a plain-text analog a consumer can render without re-deriving
+    the block shapes itself."""
+    if not isinstance(content, list):
+        return ()
+    summaries = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        block_type = block.get("type")
+        if block_type == "tool_use":
+            name = block.get("name", "?")
+            summaries.append(f"{name}({_truncate(_json_compact(block.get('input')))})")
+        elif block_type == "tool_result":
+            result_content = block.get("content")
+            if isinstance(result_content, str):
+                result_text = result_content
+            else:
+                result_text = _flatten_text_blocks(result_content, _CLAUDE_TEXT_BLOCK_TYPES)
+            summaries.append(f"→ {_truncate(result_text) if result_text else '(no text result)'}")
+    return tuple(summaries)
+
+
+def _claude_role_and_text(line_type: str, obj: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
     if line_type in ("user", "assistant"):
         content = (obj.get("message") or {}).get("content")
         role = "user" if line_type == "user" else "assistant"
-        return role, _flatten_text_blocks(content, _CLAUDE_TEXT_BLOCK_TYPES)
-    return "other", ""
+        return (
+            role,
+            _flatten_text_blocks(content, _CLAUDE_TEXT_BLOCK_TYPES),
+            _claude_tool_calls(content),
+        )
+    return "other", "", ()
 
 
-def _codex_role_and_text(line_type: str, obj: dict[str, Any]) -> tuple[str, str]:
+def _codex_tool_calls(payload: dict[str, Any]) -> tuple[str, ...]:
+    """One-line summaries for the Codex payload.type values that carry tool
+    activity instead of message content (see the type-mapping table in
+    platform/agent-control-plane/docs/strategy/session-transcript-reader.md)."""
+    payload_type = payload.get("type")
+    if payload_type == "function_call":
+        name = payload.get("name", "?")
+        arguments = payload.get("arguments")
+        return (f"{name}({_truncate(str(arguments))})",)
+    if payload_type in ("function_call_output", "custom_tool_call_output"):
+        output = payload.get("output")
+        return (f"→ {_truncate(str(output)) if output else '(no output)'}",)
+    return ()
+
+
+def _codex_role_and_text(line_type: str, obj: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
     if line_type != "response_item":
-        return "other", ""
+        return "other", "", ()
     payload = obj.get("payload") or {}
     if payload.get("type") != "message":
-        return "other", ""
+        return "other", "", _codex_tool_calls(payload)
     role = _CODEX_MESSAGE_ROLE_MAP.get(payload.get("role"), "other")
-    return role, _flatten_text_blocks(payload.get("content"), _CODEX_TEXT_BLOCK_TYPES)
+    return role, _flatten_text_blocks(payload.get("content"), _CODEX_TEXT_BLOCK_TYPES), ()
+
+
+def _nested_int(obj: Any, *keys: str) -> int:
+    """Walk a chain of dict keys and return the value only if it is a real
+    int. Bool is rejected explicitly (it is an int subclass), as is every
+    missing or wrong-typed level — usage blocks are absent on most lines,
+    so a miss is the normal case, not an error."""
+    current: Any = obj
+    for key in keys:
+        if not isinstance(current, dict):
+            return 0
+        current = current.get(key)
+    if isinstance(current, bool) or not isinstance(current, int):
+        return 0
+    return current
+
+
+def _claude_thinking_tokens(obj: dict[str, Any]) -> int:
+    """Reasoning tokens billed for one assistant message.
+
+    Already per-message in Claude's transcript, so a consumer sums across
+    turns to get a session total. This is the only surviving evidence that
+    reasoning happened at all: the sibling `thinking` content block is
+    emitted with an empty string and an opaque signature."""
+    return _nested_int(obj, "message", "usage", "output_tokens_details", "thinking_tokens")
+
+
+def _codex_thinking_tokens(obj: dict[str, Any]) -> int:
+    """Reasoning tokens billed since the previous `token_count` event.
+
+    Codex records two counters side by side; this deliberately reads
+    `last_token_usage` (a per-turn delta) rather than `total_token_usage`
+    (a cumulative running total), so summing the field across turns works
+    the same way it does for Claude. Verified across six real local
+    rollout files: sum(last) == max(total) exactly, every time. Reading
+    the cumulative field here would overcount by roughly the number of
+    `token_count` events — 204 of them in one sampled session."""
+    payload = obj.get("payload")
+    if not isinstance(payload, dict) or payload.get("type") != "token_count":
+        return 0
+    return _nested_int(payload, "info", "last_token_usage", "reasoning_output_tokens")
 
 
 def _session_id_from_path(path: Path, runtime: str) -> str:
@@ -120,7 +222,9 @@ def read_turns(path: Path, runtime: str) -> Iterator[TranscriptTurn]:
     mutation of the source file."""
     if runtime not in ("claude", "codex"):
         raise ValueError(f"unknown runtime: {runtime}")
-    handler = _claude_role_and_text if runtime == "claude" else _codex_role_and_text
+    is_claude = runtime == "claude"
+    handler = _claude_role_and_text if is_claude else _codex_role_and_text
+    thinking_tokens_of = _claude_thinking_tokens if is_claude else _codex_thinking_tokens
     session_id = _session_id_from_path(path, runtime)
 
     with path.open("r", encoding="utf-8") as handle:
@@ -135,7 +239,7 @@ def read_turns(path: Path, runtime: str) -> Iterator[TranscriptTurn]:
             if not isinstance(obj, dict):
                 continue
             line_type = str(obj.get("type") or "")
-            role, text = handler(line_type, obj)
+            role, text, tool_calls = handler(line_type, obj)
             yield TranscriptTurn(
                 runtime=runtime,
                 session_id=session_id,
@@ -143,4 +247,6 @@ def read_turns(path: Path, runtime: str) -> Iterator[TranscriptTurn]:
                 role=role,
                 text=text,
                 raw_type=line_type,
+                tool_calls=tool_calls,
+                thinking_tokens=thinking_tokens_of(obj),
             )

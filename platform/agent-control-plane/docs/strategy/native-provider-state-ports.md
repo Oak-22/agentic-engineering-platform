@@ -5,7 +5,7 @@ this repo, and scopes the gap it leaves open.
 
 This is the canonical explanation of the pattern itself. Sibling docs that
 apply it to one specific mechanism (e.g.
-[session-transcript-cross-agent-pickup.md](session-transcript-cross-agent-pickup.md))
+[session-transcript-reader.md](session-transcript-reader.md))
 should link back here for the general "why," and state only what's
 specific to their own mechanism — not re-derive the general principle.
 
@@ -55,7 +55,7 @@ port and a per-runtime adapter, never re-derived per consumer.
 | Provider-docs mirror | `ensure_manual(runtime, ...)` in `provider_docs_session_start.py` | `PROVIDERS` dict (URL + filename per runtime) | One cached manual file per runtime, same fetch/cache/TTL logic |
 | Instruction evidence | `handle(runtime, payload)` in `instruction_manifest_hook.py` | Each runtime's native hook-registration format (`.claude/settings.json` vs. `.codex/hooks.json`) and event-payload shape | One evidence-record schema, written to one ledger, regardless of which runtime triggered it |
 | show-me capture | The `Artifact`-tool-available branch vs. Markdown+Mermaid fallback in `SKILL.md`'s workflow | Runtime capability check (Claude has the `Artifact` tool; Codex/Copilot don't) | One write, to one canonical viewing-cache location, regardless of which runtime invoked it |
-| Session transcripts | `locate_sessions(runtime)` / `read_turns(path, runtime)` in `session_transcript_reader.py` (design: [`session-transcript-cross-agent-pickup.md`](session-transcript-cross-agent-pickup.md)) | Claude's `type`-keyed JSONL shape vs. Codex's `response_item`/`event_msg` shape, both verified against real local data | One `TranscriptTurn` record shape |
+| Session transcripts | `locate_sessions(runtime)` / `read_turns(path, runtime)` in `session_transcript_reader.py` (design: [`session-transcript-reader.md`](session-transcript-reader.md)) | Claude's `type`-keyed JSONL shape vs. Codex's `response_item`/`event_msg` shape, both verified against real local data | One `TranscriptTurn` record shape |
 
 Every one of these already independently converged on "one shared
 script/interface, parameterized or branching per runtime, normalized
@@ -86,7 +86,7 @@ has been modified since it was last observed, independent of whether this
 platform's own tooling happened to trigger that modification.
 
 That's the gap `preserved-default-paths-list-per-provider.md` and
-`session-transcript-cross-agent-pickup.md` are both pointing at, from two
+`session-transcript-reader.md` are both pointing at, from two
 different angles: the transcript note wants to notice new turns appended
 to a live session file; the preserved-paths list wants to notice *any*
 provider-native path changing, not just transcripts, and turn that change
