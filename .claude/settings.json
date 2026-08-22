@@ -57,6 +57,17 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/governed_task_preflight.py\" --hook",
+            "timeout": 10,
+            "statusMessage": "Checking governed task isolation"
+          }
+        ]
       }
     ],
     "PostToolUse": [

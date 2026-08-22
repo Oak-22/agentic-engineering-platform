@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Block new governed task isolation when the prior delivery is unfinished."""
+"""Block new governed task isolation when the prior delivery is unfinished.
+
+Run with no arguments for the human-facing CLI check `scripts/README.md`
+documents (exit 0 pass, 1 blocked, 2 undeterminable). Run with `--hook` to
+answer one PreToolUse event from stdin as a Claude Code or Codex hook,
+denying `git checkout -b` / `git switch -c` when this module's own blockers
+apply and staying silent otherwise.
+"""
 
 from __future__ import annotations
 
@@ -251,7 +258,85 @@ def warnings_for(state: RepositoryState) -> list[str]:
     ]
 
 
-def main() -> int:
+BRANCH_CREATION_COMMAND_PATTERN = re.compile(r"\bgit\s+(?:checkout\s+-b\b|switch\s+-c\b)")
+
+
+def targets_branch_creation(command: str) -> bool:
+    """Whether a shell command creates and switches to a new branch.
+
+    Matches literal ``git checkout -b`` / ``git switch -c`` invocations only.
+    A command that reaches the same effect through a wrapper, alias, or
+    subshell is not recognized here — hardening this matcher against
+    deliberate evasion is a separate, later change, not this one.
+    """
+    return bool(BRANCH_CREATION_COMMAND_PATTERN.search(command))
+
+
+def deny_decision(reason: str) -> dict:
+    """The PreToolUse JSON shape both Claude Code and Codex accept for deny."""
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+
+
+def hook_response(tool_input: dict, root: Path) -> dict | None:
+    """Return a deny decision for an unsafe branch-creation command.
+
+    Returns None — no opinion — for every other command, and for a safe
+    branch-creation command. An inspection failure denies rather than
+    silently allowing: an unverifiable repository state is not evidence the
+    action is safe.
+    """
+    command = str(tool_input.get("command", ""))
+    if not targets_branch_creation(command):
+        return None
+    try:
+        state = inspect_repository(root)
+    except InspectionError as error:
+        return deny_decision(f"Can't verify whether the next governed task is safe: {error}")
+    blockers = blockers_for(state)
+    if not blockers:
+        return None
+    return deny_decision("\n\n".join(blockers))
+
+
+def run_as_hook(stdin_payload: str, cwd: Path) -> int:
+    """Read one PreToolUse event from stdin and print a decision, if any.
+
+    Silent (prints nothing, exits 0) for malformed input, a non-Bash tool
+    call, a command outside a Git worktree, or any command this preflight has
+    no opinion on. The JSON on stdout decides the outcome for a matched,
+    blocked command; exit code carries no meaning in this mode.
+    """
+    try:
+        event = json.loads(stdin_payload)
+    except json.JSONDecodeError:
+        return 0
+
+    tool_name = event.get("tool_name")
+    if tool_name is not None and tool_name != "Bash":
+        return 0
+
+    try:
+        root = repository_root(cwd)
+    except InspectionError:
+        return 0
+
+    decision = hook_response(event.get("tool_input") or {}, root)
+    if decision is not None:
+        print(json.dumps(decision))
+    return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if "--hook" in args:
+        return run_as_hook(sys.stdin.read(), Path.cwd())
+
     try:
         root = repository_root(Path.cwd())
         state = inspect_repository(root)

@@ -38,6 +38,14 @@ The preflight blocks task isolation when:
 The command reports the exact remaining work and exits nonzero. It is read-only:
 it never commits, stashes, discards, merges, or deletes anything automatically.
 
+The same script also runs as a `PreToolUse` hook (`--hook`, registered in
+[`hooks_registry.json`](../agent-assets/hooks/hooks_registry.json)) on both
+Claude Code and Codex. It denies a matched `git checkout -b` / `git switch -c`
+Bash call when the blockers above apply, and stays silent for every other
+command. This makes the check an enforced gate rather than a step someone has
+to remember to run. The match is literal: a wrapped, aliased, or subshelled
+branch-creation command is not recognized.
+
 ## Instruction adapter generation
 
 Instruction frontmatter for `.claude/rules/<id>.md` and

@@ -46,6 +46,25 @@
       "documentation": "platform/agent-control-plane/agent-assets/hooks/README.md"
     },
     {
+      "id": "governed-task-preflight",
+      "ownership": "centralized",
+      "implementation": "platform/agent-control-plane/scripts/governed_task_preflight.py",
+      "invocation": "--hook",
+      "runtimes": [
+        {
+          "runtime": "codex",
+          "registration": ".codex/hooks.json",
+          "events": ["PreToolUse"]
+        },
+        {
+          "runtime": "claude",
+          "registration": ".claude/settings.json",
+          "events": ["PreToolUse"]
+        }
+      ],
+      "documentation": "platform/agent-control-plane/scripts/README.md"
+    },
+    {
       "id": "protect-main-commit",
       "ownership": "centralized",
       "implementation": "platform/agent-control-plane/scripts/protect_main_commit.py",
