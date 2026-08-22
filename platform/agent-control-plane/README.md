@@ -64,6 +64,16 @@ python3 -m venv .venv
 .venv/bin/python scripts/validate_asset_registries.py
 ```
 
+`validate_asset_registries.py` is the broad check: it resolves every registry
+path, compiles every schema, validates a store index, and requires each
+declared evidence type to have a producer. To ask the narrower question of
+whether the schemas themselves are well-formed, run the contract compiler on
+its own:
+
+```bash
+.venv/bin/python scripts/validate_contracts.py
+```
+
 ## Governed action safety
 
 The control plane owns routing and authorization for governed engineering
