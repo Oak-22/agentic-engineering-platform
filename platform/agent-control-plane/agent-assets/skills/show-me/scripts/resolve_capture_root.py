@@ -43,12 +43,14 @@ def resolve_capture_root(
 
 
 def capture_filename(*, slug: str, runtime: str, date: dt.date | None = None) -> str:
-    """Return '<date>-<runtime>-<slug>' with no extension; caller appends
-    .md/.html. Date stays first for chronological sort in a file explorer;
-    runtime is embedded so the originating model/runtime is visible at a
-    glance without opening the file."""
+    """Return '<date>-show-me-<runtime>-<slug>' with no extension.
+
+    The caller appends .md/.html. Date stays first for chronological sorting,
+    ``show-me`` identifies the producing workflow, and runtime identifies the
+    originating model/runtime without requiring the file to be opened.
+    """
     day = (date or dt.date.today()).isoformat()
-    return f"{day}-{runtime}-{slug}"
+    return f"{day}-show-me-{runtime}-{slug}"
 
 
 def _dedupe(capture_root: Path, stem: str, extension: str) -> Path:
