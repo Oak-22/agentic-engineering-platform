@@ -1,5 +1,5 @@
 {
-  "description": "Load provider documentation, inject prompt-scoped instruction references, and gate governed task isolation.",
+  "description": "Load provider documentation, inject prompt-scoped instruction references, gate governed task isolation, and enforce agent permission policy.",
   "hooks": {
     "SessionStart": [
       {
@@ -36,6 +36,12 @@
             "command": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/governed_task_preflight.py\" --hook",
             "timeout": 10,
             "statusMessage": "Checking governed task isolation"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime codex",
+            "timeout": 10,
+            "statusMessage": "Checking agent permission policy"
           }
         ]
       }

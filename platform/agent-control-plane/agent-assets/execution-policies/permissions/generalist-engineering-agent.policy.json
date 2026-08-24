@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "policyId": "pol_generalist-engineering-agent",
+  "principal": {
+    "agentType": "generalist-engineering-agent",
+    "instanceId": null
+  },
+  "statements": [
+    {
+      "sid": "AllowFeatureBranchPush",
+      "effect": "Allow",
+      "action": [
+        "git:push"
+      ],
+      "resource": [
+        "git:agentic-engineering-platform:branch/feature/*",
+        "git:agentic-engineering-platform:branch/fix/*",
+        "git:agentic-engineering-platform:branch/bugfix/*",
+        "git:agentic-engineering-platform:branch/hotfix/*",
+        "git:agentic-engineering-platform:branch/refactor/*",
+        "git:agentic-engineering-platform:branch/chore/*",
+        "git:agentic-engineering-platform:branch/docs/*",
+        "git:agentic-engineering-platform:branch/release/*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 3
+      }
+    },
+    {
+      "sid": "AllowPrCreate",
+      "effect": "Allow",
+      "action": [
+        "gh:pr:create"
+      ],
+      "resource": [
+        "*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 2
+      }
+    },
+    {
+      "sid": "AllowPrMerge",
+      "effect": "Allow",
+      "action": [
+        "gh:pr:merge"
+      ],
+      "resource": [
+        "*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 3
+      }
+    },
+    {
+      "sid": "AllowBranchDelete",
+      "effect": "Allow",
+      "action": [
+        "git:branch:delete"
+      ],
+      "resource": [
+        "*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 4
+      }
+    }
+  ]
+}
