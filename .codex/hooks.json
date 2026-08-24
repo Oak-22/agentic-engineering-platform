@@ -1,5 +1,5 @@
 {
-  "description": "Load provider documentation and inject prompt-scoped instruction references.",
+  "description": "Load provider documentation, inject prompt-scoped instruction references, and gate governed task isolation.",
   "hooks": {
     "SessionStart": [
       {
@@ -23,6 +23,19 @@
             "command": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime codex",
             "timeout": 10,
             "statusMessage": "Preparing instruction references"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/governed_task_preflight.py\" --hook",
+            "timeout": 10,
+            "statusMessage": "Checking governed task isolation"
           }
         ]
       }
