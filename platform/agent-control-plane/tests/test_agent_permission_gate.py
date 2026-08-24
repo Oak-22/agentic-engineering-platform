@@ -132,6 +132,28 @@ class ResolveAgentTypeTests(unittest.TestCase):
                 "architecture-agent",
             )
 
+    def test_identity_passthrough_for_a_real_translated_specialist(self):
+        # AEPI-94: a Claude/Codex/Copilot subagent file whose native identity
+        # field is set to a real Agent Registry slug should resolve to that
+        # slug directly, with no alias table entry required. Exercises the
+        # real permissions directory on disk (AEPI-92), not a mock.
+        for slug in (
+            "architecture-agent",
+            "implementation-agent",
+            "evaluation-agent",
+            "security-agent",
+            "documentation-agent",
+            "release-operations-agent",
+        ):
+            with self.subTest(slug=slug):
+                self.assertEqual(MODULE.resolve_agent_type({"agent_type": slug}), slug)
+
+    def test_unrecognized_agent_type_still_defaults_never_default_permits(self):
+        self.assertEqual(
+            MODULE.resolve_agent_type({"agent_type": "totally-unknown-agent"}),
+            MODULE.DEFAULT_AGENT_TYPE,
+        )
+
 
 class EvaluatePolicyTests(unittest.TestCase):
     def test_none_when_no_statement_addresses_the_action(self):
@@ -248,6 +270,69 @@ class HostilePathMatrixTests(unittest.TestCase):
             "git push origin feature/x", {"agent_id": "sub-1", "agent_type": "unmapped-type"}
         )
         self.assertEqual(direct, via_subagent)
+
+
+class CopilotOutputShapeTests(unittest.TestCase):
+    """AEPI-94: Copilot's hook response is unwrapped, unlike Claude/Codex."""
+
+    def setUp(self):
+        self.patches = [
+            mock.patch.object(MODULE, "current_branch", return_value="feature/PROJ-1-x"),
+        ]
+        for patch in self.patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def test_deny_has_no_hookSpecificOutput_wrapper(self):
+        result = MODULE.deny_decision("some reason", "copilot")
+        self.assertNotIn("hookSpecificOutput", result)
+        self.assertEqual(result["permissionDecision"], "deny")
+        self.assertEqual(result["permissionDecisionReason"], "some reason")
+
+    def test_ask_has_no_hookSpecificOutput_wrapper(self):
+        result = MODULE.ask_decision("some reason", "copilot")
+        self.assertNotIn("hookSpecificOutput", result)
+        self.assertEqual(result["permissionDecision"], "ask")
+
+    def test_claude_and_codex_keep_the_wrapper(self):
+        for runtime in ("claude", "codex"):
+            with self.subTest(runtime=runtime):
+                result = MODULE.deny_decision("some reason", runtime)
+                self.assertIn("hookSpecificOutput", result)
+                self.assertEqual(
+                    result["hookSpecificOutput"]["permissionDecision"], "deny"
+                )
+
+    def test_copilot_gets_ask_not_a_preemptive_deny(self):
+        # Unlike Codex (ask fails open, so this gate substitutes deny),
+        # Copilot's own runtime downgrades ask to deny itself when no human
+        # is available — this gate does not need to pre-empt it.
+        with mock.patch.object(MODULE, "load_policy", return_value=GENERALIST_POLICY):
+            result = MODULE.hook_response(
+                {"command": "git push origin feature/x"}, {}, Path("/repo"), "copilot"
+            )
+        self.assertEqual(result["permissionDecision"], "ask")
+        self.assertNotIn("hookSpecificOutput", result)
+
+    def test_run_as_hook_skips_the_bash_tool_name_filter_for_copilot(self):
+        payload = json.dumps(
+            {"tool_name": "shell", "tool_input": {"command": "git push --force origin feature/x"}}
+        )
+        with mock.patch.object(MODULE, "repository_root", return_value=Path("/repo")):
+            with mock.patch("builtins.print") as printed:
+                MODULE.run_as_hook(payload, Path("/repo"), "copilot")
+        printed.assert_called_once()
+        emitted = json.loads(printed.call_args[0][0])
+        self.assertNotIn("hookSpecificOutput", emitted)
+        self.assertEqual(emitted["permissionDecision"], "deny")
+
+    def test_run_as_hook_still_filters_by_tool_name_for_claude(self):
+        payload = json.dumps(
+            {"tool_name": "Read", "tool_input": {"command": "git push --force origin feature/x"}}
+        )
+        with mock.patch("builtins.print") as printed:
+            MODULE.run_as_hook(payload, Path("/repo"), "claude")
+        printed.assert_not_called()
 
 
 class RunAsHookTests(unittest.TestCase):

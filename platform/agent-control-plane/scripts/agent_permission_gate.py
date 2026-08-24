@@ -1,13 +1,28 @@
 #!/usr/bin/env python3
 """Evaluate one PreToolUse event against IAM-style agent permission policies.
 
-Run with `--hook --runtime <claude|codex>` to answer one PreToolUse event
-from stdin. Denies or asks per the deny-overrides evaluation order in
+Run with `--hook --runtime <claude|codex|copilot>` to answer one PreToolUse
+event from stdin. Denies or asks per the deny-overrides evaluation order in
 AEPI-92: global immutable denies first (never overridable), then the
 resolved principal's policy document (Deny beats Allow), then silence for
 everything a matched principal did not address or that this gate has no
-opinion on at all. `ask` is Claude Code-only; Codex substitutes a deny
-carrying the same reason, because Codex's `ask` fails open.
+opinion on at all.
+
+`ask` behavior and the emitted JSON shape both differ by runtime (AEPI-94):
+
+- Claude Code: response wrapped in `hookSpecificOutput`; `ask` routes to the
+  human permission prompt.
+- Codex: same wrapper; `ask` fails open (Codex marks the hook run failed and
+  continues the tool call), so this gate substitutes a `deny` carrying the
+  same reason instead of ever emitting `ask` there.
+- GitHub Copilot: response is NOT wrapped — `{"permissionDecision": ...}` is
+  written directly to stdout. `ask` is safe to emit as-is; Copilot's own
+  cloud-agent runtime downgrades `ask` to `deny` itself when no human is
+  available, so this gate does not need to pre-empt it the way it does for
+  Codex. Whether Copilot's PreToolUse hooks actually fire for subagent tool
+  calls at all is unverified as of AEPI-94 (see the Jira ticket) — this gate
+  emits a correctly-shaped decision either way, but that is not the same
+  claim as "Copilot enforcement works."
 
 The command matcher is a regex over raw command text, not parsed argv, and
 shares the false-positive/evasion limitation `governed_task_preflight.py`
@@ -29,14 +44,29 @@ PERMISSIONS_DIR = Path(__file__).resolve().parent.parent / "agent-assets" / "exe
 DEFAULT_AGENT_TYPE = "generalist-engineering-agent"
 REPO_NAME = "agentic-engineering-platform"
 
-# Claude Code's built-in Task-tool subagent_type values do not yet map to
-# Agent Registry agent types one-to-one (see AGENTS.md's note that role
-# charters are "reference or translation from runtime-specific subagent
-# definitions," not a shared schema). Until that mapping exists, only a
-# runtime agent_type present in this table resolves to a specialist policy;
-# everything else, including no agent_type at all, resolves to the default
-# principal. This is a known limitation, not an oversight.
-AGENT_TYPE_ALIASES: dict[str, str] = {}
+# AEPI-94 gave every Developer Agent Group specialist a translated subagent
+# file per runtime (.claude/agents/, .codex/agents/, .github/agents/), each
+# setting its native identity field to the exact Agent Registry slug. So a
+# real specialist call's `agent_type` now equals a policy filename directly
+# (see resolve_agent_type) — no alias needed for those. This table exists
+# only to explicitly, fail-safely map each runtime's *built-in fallback*
+# identity — used when no custom subagent was named — to the default
+# principal, rather than leaving that mapping implicit. An agent_type absent
+# from both this table and the known-policy set still resolves to
+# DEFAULT_AGENT_TYPE (see resolve_agent_type); it never default-permits.
+AGENT_TYPE_ALIASES: dict[str, str] = {
+    # Claude Code built-in subagent_type fallbacks
+    "general-purpose": DEFAULT_AGENT_TYPE,
+    "Explore": DEFAULT_AGENT_TYPE,
+    "Plan": DEFAULT_AGENT_TYPE,
+    "claude": DEFAULT_AGENT_TYPE,
+    "statusline-setup": DEFAULT_AGENT_TYPE,
+    "claude-code-guide": DEFAULT_AGENT_TYPE,
+    # Codex built-in agent fallbacks
+    "default": DEFAULT_AGENT_TYPE,
+    "worker": DEFAULT_AGENT_TYPE,
+    "explorer": DEFAULT_AGENT_TYPE,
+}
 
 GIT_PUSH_PATTERN = re.compile(r"\bgit\s+push\b")
 GIT_PUSH_FORCE_PATTERN = re.compile(r"\bgit\s+push\b[^|;&\n]*(?:--force-with-lease\b|--force\b|(?<!\S)-f(?!\S))")
@@ -142,7 +172,14 @@ def resolve_agent_type(event: dict) -> str:
     raw = event.get("agent_type")
     if not raw:
         return DEFAULT_AGENT_TYPE
-    return AGENT_TYPE_ALIASES.get(str(raw), DEFAULT_AGENT_TYPE)
+    raw = str(raw)
+    if load_policy(raw) is not None:
+        # A registered Agent Registry slug with its own policy document —
+        # a translated subagent file (.claude/agents/, .codex/agents/,
+        # .github/agents/) set its native identity field to this exact
+        # string (AEPI-94). Identity passthrough, no alias needed.
+        return raw
+    return AGENT_TYPE_ALIASES.get(raw, DEFAULT_AGENT_TYPE)
 
 
 def load_policy(agent_type: str) -> dict | None:
@@ -178,26 +215,28 @@ def evaluate_policy(policy: dict, match: ActionMatch) -> str | None:
     return verdict
 
 
-def deny_decision(reason: str) -> dict:
-    """The PreToolUse JSON shape both Claude Code and Codex accept for deny."""
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
-        }
+def _decision(runtime: str, permission_decision: str, reason: str) -> dict:
+    """Emit the correct JSON shape for the runtime: wrapped for Claude Code
+    and Codex, unwrapped for GitHub Copilot (AEPI-94)."""
+    payload = {
+        "permissionDecision": permission_decision,
+        "permissionDecisionReason": reason,
     }
+    if runtime == "copilot":
+        return payload
+    return {"hookSpecificOutput": {"hookEventName": "PreToolUse", **payload}}
 
 
-def ask_decision(reason: str) -> dict:
-    """Claude Code-only: routes to the runtime's permission prompt."""
-    return {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "ask",
-            "permissionDecisionReason": reason,
-        }
-    }
+def deny_decision(reason: str, runtime: str = "claude") -> dict:
+    """The PreToolUse JSON shape each supported runtime accepts for deny."""
+    return _decision(runtime, "deny", reason)
+
+
+def ask_decision(reason: str, runtime: str = "claude") -> dict:
+    """Claude Code and Copilot: routes to a human decision (Copilot's own
+    runtime downgrades this to deny under the cloud agent when no human is
+    available). Never call this for Codex — its `ask` fails open."""
+    return _decision(runtime, "ask", reason)
 
 
 def hook_response(tool_input: dict, event: dict, root: Path, runtime: str) -> dict | None:
@@ -207,7 +246,7 @@ def hook_response(tool_input: dict, event: dict, root: Path, runtime: str) -> di
 
     reason = global_deny_reason(command, root)
     if reason is not None:
-        return deny_decision(reason)
+        return deny_decision(reason, runtime)
 
     match = recognize_action(command, root)
     if match is None:
@@ -222,7 +261,8 @@ def hook_response(tool_input: dict, event: dict, root: Path, runtime: str) -> di
     if verdict == "Deny":
         return deny_decision(
             f"Denied by policy {policy.get('policyId', agent_type)}: "
-            f"{agent_type} may not perform {match.action} on {match.resource}."
+            f"{agent_type} may not perform {match.action} on {match.resource}.",
+            runtime,
         )
     if verdict == "AllowApproval":
         reason = (
@@ -232,8 +272,8 @@ def hook_response(tool_input: dict, event: dict, root: Path, runtime: str) -> di
         if runtime == "codex":
             # ask fails open on Codex: it marks the hook run failed and
             # continues the tool call, which is worse than no gate at all.
-            return deny_decision(reason)
-        return ask_decision(reason)
+            return deny_decision(reason, runtime)
+        return ask_decision(reason, runtime)
     # verdict is "Allow" or None (unaddressed by this principal's policy):
     # fall through silently to the existing tier-based default in
     # governed-repository-change.md.
@@ -253,8 +293,12 @@ def run_as_hook(stdin_payload: str, cwd: Path, runtime: str) -> int:
     except json.JSONDecodeError:
         return 0
 
+    # Claude Code and Codex both confirm "Bash" as the shell tool's name;
+    # Copilot's equivalent tool name is unverified as of AEPI-94 (its hook
+    # config's `matcher` was left unset for the same reason), so this filter
+    # is skipped there and command-presence below does the real gating.
     tool_name = event.get("tool_name")
-    if tool_name is not None and tool_name != "Bash":
+    if runtime != "copilot" and tool_name is not None and tool_name != "Bash":
         return 0
 
     root = repository_root(cwd)
