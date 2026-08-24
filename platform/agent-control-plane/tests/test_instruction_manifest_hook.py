@@ -82,8 +82,8 @@ class InstructionManifestHookTests(unittest.TestCase):
             self.assertEqual(prompted.returncode, 0, prompted.stderr)
             output = json.loads(prompted.stdout)
             context = output["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("| AGENTS.md | Observed | `", context)
-            self.assertRegex(context, r"`[^`]*claude_session\.jsonl:\d+`")
+            self.assertIn("| AGENTS.md | Observed |", context)
+            self.assertRegex(context, r"Ledger citation: `[^`]*claude_session\.jsonl:\d+`")
             self.assertNotIn("](<", context)
 
             ledger_path = self.ledger_for(storage, "claude/session")
@@ -154,9 +154,11 @@ class InstructionManifestHookTests(unittest.TestCase):
             self.assertEqual(prompted.returncode, 0, prompted.stderr)
             output = json.loads(prompted.stdout)
             context = output["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("| AGENTS.md | Runtime baseline | `", context)
-            self.assertRegex(context, r"`[^`]*codex-session\.jsonl:\d+`")
-            self.assertNotIn("](<", context)
+            self.assertIn("| AGENTS.md | Runtime baseline |", context)
+            self.assertRegex(
+                context, r"Ledger citation: \[[^\]]*\]\(<[^>]*codex-session\.jsonl:\d+>\)"
+            )
+            self.assertNotIn("`.local-mirrors", context)
             self.assertIn("explicitly invoked skills", context)
             self.assertNotIn("do the work", context)
 
@@ -607,9 +609,13 @@ class InstructionEvidenceContractTests(InstructionManifestHookTests):
             file_part, _, line_number = href.rpartition(":")
             self.assertTrue((workspace / file_part).is_file())
             self.assertGreater(int(line_number), 0)
-            # Rendered as a bare reference, not a markdown link to an external URL.
-            self.assertIn(f"`{href}`", context)
-            self.assertNotIn(f"](<{href}", context)
+            # Codex renders an absolute-path markdown link, not a bare reference:
+            # Codex has no external-program handler forcing a URL scheme, so the
+            # link format restores what Codex used before it was folded into
+            # Claude's bare-reference renderer.
+            absolute_target = f"{(workspace / file_part).resolve().as_posix()}:{line_number}"
+            self.assertIn(f"](<{absolute_target}>)", context)
+            self.assertNotIn(f"`{href}`", context)
 
     def test_every_contract_evidence_type_has_a_producer(self):
         produced = set()

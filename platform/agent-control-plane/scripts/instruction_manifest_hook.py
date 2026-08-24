@@ -484,28 +484,52 @@ def claude_observed(
     return list(sources.values())
 
 
-def additional_context(runtime: str, sources: list[dict[str, Any]]) -> str:
+def render_citation(runtime: str, source: dict[str, Any], root: Path) -> str:
+    """Render one source's citation for the given runtime.
+
+    Claude Code routes a markdown link through an external-program handler
+    that requires a URL scheme and rejects a line suffix, so Claude gets a
+    bare workspace-relative reference instead. Codex has no such handler and
+    renders a markdown link normally, so Codex gets an absolute-path link —
+    restoring the format Codex used before both runtimes were folded into one
+    bare-reference renderer.
+    """
+    citation = source["citation"]
+    href = citation["href"]
+    if runtime != "codex":
+        return f"`{href}`"
+    path_part, sep, line_part = href.rpartition(":")
+    relative_path = path_part if sep else href
+    absolute_path = (root / relative_path).resolve().as_posix()
+    target = f"{absolute_path}:{line_part}" if sep else absolute_path
+    return f"[{citation['label']}](<{target}>)"
+
+
+def additional_context(runtime: str, sources: list[dict[str, Any]], root: Path) -> str:
     rows = "\n".join(
-        (
-            f"| {source['instruction']} | {source['evidenceType']} | "
-            f"`{source['citation']['href']}` | "
-            f"{source['reason']} |"
-        )
+        f"| {source['instruction']} | {source['evidenceType']} | {source['reason']} |"
         for source in sources
     )
     if not rows:
-        rows = (
-            "| (no hook-observed sources) | Declared | "
-            "No structured citation | Complete from turn evidence |"
-        )
+        rows = "| (no hook-observed sources) | Declared | Complete from turn evidence |"
+    # Every hook-seeded source in this manifest was appended as one ledger
+    # event, so they share one citation. Hoisting it out of a per-row column
+    # keeps the table narrow enough that terminals don't word-wrap the path
+    # mid-string, which breaks cmd/ctrl-click file resolution.
+    citation_line = (
+        f"Ledger citation: {render_citation(runtime, sources[0], root)}\n\n"
+        if sources
+        else ""
+    )
     return (
         "For this prompt, follow the response contract in "
         f"`{CONTRACT_PATH}`. Append its `Instruction References` table to the "
         "final response. The hook seed below is prompt-scoped; supplement it "
         "with explicitly invoked skills and instructions read during this turn. "
         "Do not claim `Observed` without an authoritative runtime event.\n\n"
-        "| Instruction | Evidence | Citation | Reason |\n"
-        "| --- | --- | --- | --- |\n"
+        f"{citation_line}"
+        "| Instruction | Evidence | Reason |\n"
+        "| --- | --- | --- |\n"
         f"{rows}\n\n"
         f"Runtime: {runtime}."
     )
@@ -624,9 +648,9 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     events = read_events(root, session_id)
     # Every record in this manifest lands on the single ledger line the manifest
     # is about to occupy, so a citation opens the log at the record itself.
-    # Repository-relative so the citation stays a workspace file reference. An
-    # absolute path is routed to the external-program handler, which requires a
-    # URL scheme and rejects a line suffix.
+    # Stored repository-relative so the citation stays a workspace file
+    # reference regardless of which runtime renders it; render_citation()
+    # resolves it to an absolute path for Codex's markdown link.
     try:
         log_reference = log_path.absolute().relative_to(root).as_posix()
     except ValueError:
@@ -657,7 +681,7 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": additional_context(runtime, sources),
+            "additionalContext": additional_context(runtime, sources, root),
         }
     }
 

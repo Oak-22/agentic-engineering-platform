@@ -5,23 +5,39 @@ response:
 
 ```text
 Instruction References
-| Instruction | Evidence | Citation | Reason |
-| --- | --- | --- | --- |
-| path or skill name | evidence label | `evidence-log-path:line` | short relevance |
+Ledger citation: runtime-rendered citation
+
+| Instruction | Evidence | Reason |
+| --- | --- | --- |
+| path or skill name | evidence label | short relevance |
 ```
 
 Report only instruction sources that governed the current turn. Keep the
 manifest short and omit the block only when the runtime cannot support a
 per-prompt response requirement.
 
-The hook seeds a citation for every evidence type as a workspace-relative
-`path:line` reference to the evidence log. Preserve that citation verbatim with
-its evidence label, and keep it a bare reference: wrapping it in a link routes
-it to an external-program handler instead of opening the log. Both fields derive from the same
-validated instruction-evidence record; do not pair a citation with a different
-evidence type. Use `Unavailable` in the Citation column only for a source
-outside the evidence store, such as an instruction supplied by the user in the
-prompt, rather than inventing proof.
+Reproduce this block in the exact shape above: the `Ledger citation:` line
+first, a blank line, then the table with its header and delimiter row
+directly followed by data rows. Do not move the citation line below the
+table header or between the delimiter row and the data rows — a citation
+line has no pipe characters, so placed there it is not a valid table row and
+breaks table rendering for the reader. Do not substitute a different layout
+(bullets, bolded `Instruction:`/`Evidence:`/`Reason:` fields, prose) for the
+table — the table is the contract, not one option among several equally
+acceptable renderings.
+
+The hook seeds one runtime-correct citation per prompt turn, not one per row:
+every hook-observed source in a turn is written to the same ledger line, so a
+single `Ledger citation:` line above the table covers all of them without
+repeating an identical, wrap-prone path in every row. Preserve that citation
+verbatim, exactly as the hook rendered it — the render is runtime-specific:
+Claude Code gets a bare backticked `path:line` reference (wrapping it in a
+link there routes it to an external-program handler that requires a URL
+scheme and rejects a line suffix), while Codex gets an absolute-path markdown
+link (Codex has no such handler). Omit the `Ledger citation:` line entirely
+when no hook-observed source exists for the turn — do not invent one, and do
+not attach it to a source outside the evidence store (such as an instruction
+supplied by the user in the prompt); such sources simply carry no citation.
 
 Use these evidence labels precisely:
 
