@@ -154,7 +154,7 @@ def evidence_record(
     reason: str,
     proof: dict[str, Any],
     identity_seed: dict[str, Any],
-    log_href: str,
+    citation_location: dict[str, Any],
 ) -> dict[str, Any]:
     source_path = root / instruction
     content = source_path.read_bytes()
@@ -179,14 +179,14 @@ def evidence_record(
         f"{root.name} · {revision[:8]} · {instruction} · {git_blob[:8]}"
     )
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "recordId": record_id,
         "instruction": instruction,
         "evidenceType": evidence_type,
         "reason": reason,
         "citation": {
             "label": label,
-            "href": log_href,
+            **citation_location,
             "activeRepositoryId": repository,
             "repositoryId": repository,
             "baseRevision": revision,
@@ -474,7 +474,7 @@ def events_since_last_manifest(
 def claude_explicitly_invoked(
     root: Path,
     events: list[dict[str, Any]],
-    log_href: str,
+    citation_location: dict[str, Any],
 ) -> list[dict[str, Any]]:
     known = registered_skills(root)
     sources: dict[str, dict[str, Any]] = {}
@@ -492,7 +492,7 @@ def claude_explicitly_invoked(
             f"Skill {event.get('skill')} invoked via {event.get('path')}",
             {"invocationId": invocation_id, "invocationKind": "skill"},
             {"invocationId": invocation_id},
-            log_href,
+            citation_location,
         )
     return list(sources.values())
 
@@ -500,7 +500,7 @@ def claude_explicitly_invoked(
 def claude_read_during_turn(
     root: Path,
     events: list[dict[str, Any]],
-    log_href: str,
+    citation_location: dict[str, Any],
 ) -> list[dict[str, Any]]:
     sources: dict[str, dict[str, Any]] = {}
     for event in events_since_last_manifest(events):
@@ -517,7 +517,7 @@ def claude_read_during_turn(
             "Instruction source opened by the Read tool during this turn",
             {"runtime": "claude", "toolEventId": tool_event_id},
             {"toolEventId": tool_event_id},
-            log_href,
+            citation_location,
         )
     return list(sources.values())
 
@@ -526,7 +526,7 @@ def declared_adapters(
     root: Path,
     runtime: str,
     covered: set[str],
-    log_href: str,
+    citation_location: dict[str, Any],
 ) -> list[dict[str, Any]]:
     """Instructions a runtime adapter requires but the runtime never announced."""
     surface = ADAPTER_SURFACES.get(runtime)
@@ -554,14 +554,14 @@ def declared_adapters(
                 f"Required by {adapter_path} without an authoritative load event",
                 {"adapterPath": adapter_path, "declarationKind": declaration_kind},
                 {"adapterPath": adapter_path},
-                log_href,
+                citation_location,
             )
         )
     return records
 
 
 def codex_baselines(
-    root: Path, cwd: Path, log_href: str
+    root: Path, cwd: Path, citation_location: dict[str, Any]
 ) -> list[dict[str, Any]]:
     try:
         relative = cwd.resolve().relative_to(root)
@@ -596,14 +596,14 @@ def codex_baselines(
                         else "."
                     ),
                 },
-                log_href,
+                citation_location,
             )
         )
     return records
 
 
 def copilot_baselines(
-    root: Path, log_href: str
+    root: Path, citation_location: dict[str, Any]
 ) -> list[dict[str, Any]]:
     """GitHub Copilot's documented repository-instructions baseline.
 
@@ -631,7 +631,7 @@ def copilot_baselines(
                 "scopePath": ".",
             },
             {"runtime": "copilot"},
-            log_href,
+            citation_location,
         )
     ]
 
@@ -640,7 +640,7 @@ def claude_observed(
     root: Path,
     events: list[dict[str, Any]],
     prompt_id: str | None,
-    log_href: str,
+    citation_location: dict[str, Any],
 ) -> list[dict[str, Any]]:
     sources: dict[str, dict[str, Any]] = {}
     for event in events:
@@ -664,48 +664,61 @@ def claude_observed(
                     "loadReason": event.get("load_reason"),
                 },
                 {"observationId": observation_id},
-                log_href,
+                citation_location,
             )
     return list(sources.values())
 
 
-def render_citation(runtime: str, source: dict[str, Any], root: Path) -> str:
+def render_citation(runtime: str, source: dict[str, Any]) -> str:
     """Render one source's citation for the given runtime.
 
-    Claude Code routes a markdown link through an external-program handler
-    that requires a URL scheme and rejects a line suffix, so Claude gets a
-    bare workspace-relative reference instead. Codex has no such handler and
-    renders a markdown link normally, so Codex gets an absolute-path link —
-    restoring the format Codex used before both runtimes were folded into one
-    bare-reference renderer.
+    Claude Code and Copilot route a markdown link through an external-program
+    handler that requires a URL scheme and rejects a line suffix, so they get
+    a bare workspace-relative reference instead. Codex has no such handler and
+    renders a markdown link normally, so Codex gets an absolute-path link.
     """
     citation = source["citation"]
-    href = citation["href"]
+    path = citation.get("workspacePath") or citation["absolutePath"]
+    line = citation["line"]
     if runtime != "codex":
-        return f"`{href}`"
-    path_part, sep, line_part = href.rpartition(":")
-    relative_path = path_part if sep else href
-    absolute_path = (root / relative_path).resolve().as_posix()
-    target = f"{absolute_path}:{line_part}" if sep else absolute_path
+        return f"`{path}:{line}`"
+    target = f"{citation['absolutePath']}:{line}"
     return f"[{citation['label']}](<{target}>)"
 
 
-def log_reference(root: Path, log_path: Path, line_number: int) -> str:
-    """Return the citation as ``path:line``.
+def citation_location(
+    root: Path, runtime: str, log_path: Path, line_number: int
+) -> dict[str, Any]:
+    """Return the structured citation location for one ledger line.
 
-    Repository-relative so the citation stays a workspace file reference. An
-    absolute path is routed to the external-program handler, which requires a
-    URL scheme and rejects a line suffix.
+    Stores runtime, workspace-relative path, absolute path, and line as data
+    rather than a rendered string, so a runtime's presentation choice never
+    has to be baked into recorded evidence.
     """
     absolute_path = log_path.absolute()
     try:
-        reference = absolute_path.relative_to(root).as_posix()
+        workspace_path: str | None = absolute_path.relative_to(root).as_posix()
     except ValueError:
-        reference = absolute_path.as_posix()
-    return f"{reference}:{line_number}"
+        workspace_path = None
+    return {
+        "runtime": runtime,
+        "workspacePath": workspace_path,
+        "absolutePath": absolute_path.as_posix(),
+        "line": line_number,
+    }
 
 
-def additional_context(runtime: str, sources: list[dict[str, Any]], root: Path) -> str:
+def additional_context(
+    runtime: str, session_id: str, sources: list[dict[str, Any]]
+) -> str:
+    """Build the context injected back into the prompt.
+
+    Declares runtime and session identity unconditionally. Session identity
+    is stated here rather than left to be inferred from the ledger
+    citation's filename: that inference worked, but only as a side effect of
+    the ledger being named per session, and it disappeared entirely on turns
+    with no hook-observed sources, where no citation is emitted. See
+    evidence/side-effects/session-identity-via-instruction-ledger.md."""
     rows = "\n".join(
         f"| {source['instruction']} | {source['evidenceType']} | {source['reason']} |"
         for source in sources
@@ -717,7 +730,7 @@ def additional_context(runtime: str, sources: list[dict[str, Any]], root: Path) 
     # keeps the table narrow enough that terminals don't word-wrap the path
     # mid-string, which breaks cmd/ctrl-click file resolution.
     citation_line = (
-        f"Ledger citation: {render_citation(runtime, sources[0], root)}\n\n"
+        f"Ledger citation: {render_citation(runtime, sources[0])}\n\n"
         if sources
         else ""
     )
@@ -731,7 +744,7 @@ def additional_context(runtime: str, sources: list[dict[str, Any]], root: Path) 
         "| Instruction | Evidence | Reason |\n"
         "| --- | --- | --- |\n"
         f"{rows}\n\n"
-        f"Runtime: {runtime}."
+        f"Runtime: {runtime}. Session: {session_id}."
     )
 
 
@@ -858,22 +871,22 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         # Every record in this manifest lands on the single ledger line the
         # manifest is about to occupy, so a citation opens the log at the
         # record itself.
-        log_href = log_reference(root, log_path, line_number)
+        location = citation_location(root, runtime, log_path, line_number)
         if runtime == "claude":
-            sources = claude_observed(root, events, prompt_id, log_href)
-            sources += claude_explicitly_invoked(root, events, log_href)
-            sources += claude_read_during_turn(root, events, log_href)
+            sources = claude_observed(root, events, prompt_id, location)
+            sources += claude_explicitly_invoked(root, events, location)
+            sources += claude_read_during_turn(root, events, location)
         elif runtime == "codex":
-            sources = codex_baselines(root, cwd, log_href)
+            sources = codex_baselines(root, cwd, location)
         elif runtime == "copilot":
-            sources = copilot_baselines(root, log_href)
+            sources = copilot_baselines(root, location)
         else:
             sources = []
         sources += declared_adapters(
             root,
             runtime,
             {source["instruction"] for source in sources},
-            log_href,
+            location,
         )
         return {
             "event": "prompt_manifest",
@@ -888,7 +901,7 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": additional_context(runtime, sources, root),
+            "additionalContext": additional_context(runtime, session_id, sources),
         }
     }
 

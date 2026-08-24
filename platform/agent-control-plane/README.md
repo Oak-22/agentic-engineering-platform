@@ -108,7 +108,9 @@ canonical local-data store partitioned first by repository identity and then by
 runtime. Codex and Claude Code never append to the same JSONL ledger even if
 they supply the same session identifier. An ignored
 `.local-mirrors/instruction-evidence` symlink exposes only the active project's logs so
-citation clicks open the relevant runtime ledger directly. Set
+citation clicks open the relevant runtime ledger directly. Evidence records
+retain structured path and line fields; runtime adapters render those fields in
+the provider-correct citation form. Set
 `AEP_INSTRUCTION_MANIFEST_DIR` to choose another canonical location. Prompt
 text is excluded from the ledger.
 

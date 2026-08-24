@@ -13,3 +13,6 @@ runtime dependency of the platform components.
 - [`experiments/repo-context-handoff-across-models/`](experiments/repo-context-handoff-across-models/)
   measures whether a quarantined, session-derived context handoff improves a
   new agent session's repository understanding.
+- [`side-effects/`](side-effects/) records behavior a component produced
+  outside its declared contract, what came to depend on it, and whether the
+  resolution was to declare the behavior or remove the dependency.

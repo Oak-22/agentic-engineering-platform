@@ -13,9 +13,9 @@ schemas.
   immutable record for one execution attempt.
 - [`instruction-evidence-record.schema.json`](instruction-evidence-record.schema.json)
   binds each instruction evidence type to the citation fields capable of
-  proving that claim. Its citation is a workspace file reference to the
-  structured project-scoped evidence log as `path:line`, opening it at the
-  ledger line holding the record identified by `recordId`.
+  proving that claim. Its citation location stores the runtime, workspace and
+  absolute ledger paths, and one-based JSONL line separately so each runtime
+  can render a provider-correct link without changing the evidence record.
 - [`instruction-evidence-store.schema.json`](instruction-evidence-store.schema.json)
   describes the generated project partition, its session-ledger files, and
   their retention classes. See the [instruction evidence store guide](../docs/instruction-evidence-store.md).
@@ -53,19 +53,19 @@ produce `Runtime baseline` records and no invocation or tool-read evidence.
 
 Every variant also cites the project-qualified source using repository
 identity, base revision, repository-relative path, SHA-256 digest, Git blob
-identity, and worktree state. Consumers render `citation.href` as a bare
-`path:line` reference rather than a link: an absolute path or a URL is handed
-to an external-program handler, which requires a scheme and rejects the line
-suffix, so only a workspace-relative reference opens the log in an editor.
-`citation.label` remains the compact provenance summary. Both come from the
-same validated record as `evidenceType`, preventing unsupported
-evidence-citation combinations.
+identity, and worktree state. The citation stores `workspacePath`,
+`absolutePath`, and `line` as data rather than embedding Markdown in an `href`.
+The Codex adapter renders an absolute local-file Markdown link; the Claude Code
+and Copilot adapters render the workspace file-reference form. `citation.label`
+remains the compact provenance summary. Every rendering comes from the same
+validated record as `evidenceType`, preventing unsupported evidence-citation
+combinations.
 `activeRepositoryId` identifies the governed project while `repositoryId`
 identifies the instruction source, so a source loaded from another repository
 cannot appear project-local merely because its content hash is valid.
 
 The canonical logs live outside the working tree in a directory partitioned by
-repository identity. The hook creates an ignored `.local-mirrors/instruction-evidence`
+repository identity and runtime. The hook creates an ignored `.local-mirrors/instruction-evidence`
 view in the active repository that points to only that project's partition.
 Clicking a citation therefore opens the relevant local JSONL log without
 publishing prompt history or machine-specific paths.
