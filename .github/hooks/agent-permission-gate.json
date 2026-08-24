@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime copilot",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

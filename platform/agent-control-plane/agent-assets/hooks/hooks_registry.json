@@ -79,6 +79,12 @@
           "runtime": "claude",
           "registration": ".claude/settings.json",
           "events": ["PreToolUse"]
+        },
+        {
+          "runtime": "github-copilot",
+          "registration": ".github/hooks/agent-permission-gate.json",
+          "events": ["preToolUse"],
+          "verified": false
         }
       ],
       "documentation": "platform/agent-control-plane/agent-assets/execution-policies/README.md"
