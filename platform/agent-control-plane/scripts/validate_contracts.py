@@ -10,12 +10,19 @@ run under the runtime's bare ``python3`` with no virtual environment, so a
 third-party import on that path would couple every prompt to an unmanaged
 dependency. Validation runs from tests and from the registry validator, which
 are invoked deliberately and can fail loudly.
+
+Running this module as a script compiles every schema under ``contracts/`` and
+reports the outcome. That is a narrower check than
+``validate_asset_registries.py``, which also validates a store index and
+requires every declared evidence type to have a producer; use this one to ask
+whether the schemas themselves are well-formed.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
@@ -100,3 +107,39 @@ def evidence_types() -> list[str]:
     """Return the evidence types the record contract admits."""
     schema = load_schema(INSTRUCTION_EVIDENCE_RECORD)
     return list(schema["$defs"]["common"]["properties"]["evidenceType"]["enum"])
+
+
+def main() -> int:
+    """Compile every contract schema, reporting the first failure.
+
+    Exits non-zero on a missing dependency, an unreadable schema file, or a
+    schema that is not itself valid. An empty ``contracts/`` directory is a
+    failure too: reporting success for zero schemas would make this check
+    silently vacuous, which is the failure mode it exists to prevent.
+
+    A schema rejected by ``check_schema`` surfaces as a reported failure
+    rather than a traceback. The distinction matters for the caller: a
+    non-zero exit with one legible line is a result, while a traceback reads
+    as the checker itself breaking.
+    """
+    try:
+        schema_error = _require_jsonschema().exceptions.SchemaError
+    except ContractUnavailableError as error:
+        print(f"contract validation failed: {error}", file=sys.stderr)
+        return 1
+
+    try:
+        names = schema_names()
+        if not names:
+            raise ContractUnavailableError(f"no contract schemas found under {CONTRACTS}")
+        for name in names:
+            validator_for(name)
+    except (ContractUnavailableError, schema_error) as error:
+        print(f"contract validation failed: {error}", file=sys.stderr)
+        return 1
+    print(f"contracts valid: {len(names)} schemas compiled ({', '.join(names)})")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
