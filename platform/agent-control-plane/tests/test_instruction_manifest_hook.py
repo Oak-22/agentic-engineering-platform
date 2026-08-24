@@ -174,6 +174,105 @@ class InstructionManifestHookTests(unittest.TestCase):
             )
             self.assertEqual(record["citation"]["worktreeState"], "clean")
 
+    def test_copilot_discovers_repository_instructions_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            prompted = self.run_hook(
+                "copilot",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "copilot-session",
+                    "turn_id": "turn-1",
+                    "cwd": str(REPOSITORY_ROOT),
+                    "prompt": "do the work",
+                },
+                storage,
+            )
+            self.assertEqual(prompted.returncode, 0, prompted.stderr)
+            output = json.loads(prompted.stdout)
+            context = output["hookSpecificOutput"]["additionalContext"]
+            self.assertIn(
+                "| .github/copilot-instructions.md | Runtime baseline |", context
+            )
+            self.assertNotIn("do the work", context)
+
+            ledger_path = self.ledger_for(storage, "copilot-session")
+            ledger = ledger_path.read_text(encoding="utf-8")
+            record = json.loads(ledger.splitlines()[-1])["sources"][0]
+            self.assertEqual(record["evidenceType"], "Runtime baseline")
+            self.assertEqual(record["proof"]["runtime"], "copilot")
+            self.assertEqual(
+                record["proof"]["discoveryMechanism"],
+                "copilot-instructions-root-file",
+            )
+
+    def test_copilot_does_not_inherit_codex_baseline_mislabeling(self):
+        """Regression guard for the claude/else dispatch bug found in AEPI-96.
+
+        Before the three-way dispatch, any non-claude runtime silently fell
+        through to codex_baselines(), which stamps every record
+        proof["runtime"] == "codex" and discoveryMechanism
+        "agents-md-scope-discovery". A copilot run must never carry either.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            prompted = self.run_hook(
+                "copilot",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "copilot-mislabel-session",
+                    "turn_id": "turn-1",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            self.assertEqual(prompted.returncode, 0, prompted.stderr)
+            ledger_path = self.ledger_for(storage, "copilot-mislabel-session")
+            sources = json.loads(
+                ledger_path.read_text(encoding="utf-8").splitlines()[-1]
+            )["sources"]
+            self.assertTrue(sources, "no records were produced to validate")
+            for record in sources:
+                self.assertNotEqual(record["proof"].get("runtime"), "codex")
+                self.assertNotEqual(
+                    record["proof"].get("discoveryMechanism"),
+                    "agents-md-scope-discovery",
+                )
+
+    def test_copilot_adapter_surface_declares_uncovered_instructions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            prompted = self.run_hook(
+                "copilot",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "copilot-declared-session",
+                    "turn_id": "turn-1",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            self.assertEqual(prompted.returncode, 0, prompted.stderr)
+            ledger_path = self.ledger_for(storage, "copilot-declared-session")
+            sources = json.loads(
+                ledger_path.read_text(encoding="utf-8").splitlines()[-1]
+            )["sources"]
+            declared = {
+                record["instruction"]: record
+                for record in sources
+                if record["evidenceType"] == "Declared"
+            }
+            self.assertIn(INSTRUCTION_FILE, declared)
+            self.assertEqual(
+                declared[INSTRUCTION_FILE]["proof"]["declarationKind"],
+                "copilot-instruction-adapter",
+            )
+            self.assertTrue(
+                declared[INSTRUCTION_FILE]["proof"]["adapterPath"].startswith(
+                    ".github/"
+                )
+            )
+
     def test_store_index_describes_generated_file_classes(self):
         with tempfile.TemporaryDirectory() as directory:
             storage = Path(directory)
@@ -327,6 +426,26 @@ class InstructionEvidenceContractTests(InstructionManifestHookTests):
                 storage,
             )
             sources = self.sources_from(storage, "codex-contract")
+            self.assert_all_conform(sources)
+            self.assertIn(
+                "Runtime baseline",
+                {record["evidenceType"] for record in sources},
+            )
+
+    def test_copilot_baseline_records_conform(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            self.run_hook(
+                "copilot",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "copilot-contract",
+                    "turn_id": "turn-1",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            sources = self.sources_from(storage, "copilot-contract")
             self.assert_all_conform(sources)
             self.assertIn(
                 "Runtime baseline",

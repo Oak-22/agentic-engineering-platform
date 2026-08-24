@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Record prompt-scoped instruction evidence and inject its response contract."""
+"""Record prompt-scoped instruction evidence and inject its response contract.
+
+Run with `--runtime <claude|codex|copilot>`. The `copilot` leg (AEPI-96) is
+unverified: whether GitHub Copilot's hook system exposes a prompt-submit-time
+event at all, and whether `.github/hooks/instruction-manifest.json` actually
+invokes this script, is unconfirmed — mirrors the same caveat
+`agent_permission_gate.py` carries for its Copilot `--runtime` leg.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +33,7 @@ SKILLS_REGISTRY = (
 ADAPTER_SURFACES = {
     "claude": (".claude/", "claude-rules-adapter"),
     "codex": (".codex/", "codex-instruction-adapter"),
+    "copilot": (".github/", "copilot-instruction-adapter"),
 }
 EVIDENCE_LABELS = {
     "Observed",
@@ -451,6 +459,40 @@ def codex_baselines(
     return records
 
 
+def copilot_baselines(
+    root: Path, log_href: str
+) -> list[dict[str, Any]]:
+    """GitHub Copilot's documented repository-instructions baseline.
+
+    Unlike Codex's per-scope AGENTS.md walk, Copilot's repository custom
+    instructions convention is a single fixed root file
+    (`.github/copilot-instructions.md`), not a directory-scoped search — so
+    there is no scope walk to mirror here. Whether this hook ever actually
+    runs for a Copilot session is a separate, unconfirmed question (AEPI-96);
+    this function only describes what Copilot's own discovery rules cover
+    when the hook does run.
+    """
+    candidate = root / ".github" / "copilot-instructions.md"
+    if not candidate.is_file():
+        return []
+    instruction = candidate.relative_to(root).as_posix()
+    return [
+        evidence_record(
+            root,
+            instruction,
+            "Runtime baseline",
+            "GitHub Copilot repository custom instructions discovery",
+            {
+                "runtime": "copilot",
+                "discoveryMechanism": "copilot-instructions-root-file",
+                "scopePath": ".",
+            },
+            {"runtime": "copilot"},
+            log_href,
+        )
+    ]
+
+
 def claude_observed(
     root: Path,
     events: list[dict[str, Any]],
@@ -660,8 +702,12 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         sources = claude_observed(root, events, prompt_id, log_href)
         sources += claude_explicitly_invoked(root, events, log_href)
         sources += claude_read_during_turn(root, events, log_href)
-    else:
+    elif runtime == "codex":
         sources = codex_baselines(root, cwd, log_href)
+    elif runtime == "copilot":
+        sources = copilot_baselines(root, log_href)
+    else:
+        sources = []
     sources += declared_adapters(
         root,
         runtime,
@@ -688,7 +734,9 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--runtime", choices=("claude", "codex"), required=True)
+    parser.add_argument(
+        "--runtime", choices=("claude", "codex", "copilot"), required=True
+    )
     args = parser.parse_args()
     try:
         payload = json.load(sys.stdin)
