@@ -65,6 +65,25 @@
       "documentation": "platform/agent-control-plane/scripts/README.md"
     },
     {
+      "id": "agent-permission-gate",
+      "ownership": "centralized",
+      "implementation": "platform/agent-control-plane/scripts/agent_permission_gate.py",
+      "invocation": "--hook",
+      "runtimes": [
+        {
+          "runtime": "codex",
+          "registration": ".codex/hooks.json",
+          "events": ["PreToolUse"]
+        },
+        {
+          "runtime": "claude",
+          "registration": ".claude/settings.json",
+          "events": ["PreToolUse"]
+        }
+      ],
+      "documentation": "platform/agent-control-plane/agent-assets/execution-policies/README.md"
+    },
+    {
       "id": "protect-main-commit",
       "ownership": "centralized",
       "implementation": "platform/agent-control-plane/scripts/protect_main_commit.py",

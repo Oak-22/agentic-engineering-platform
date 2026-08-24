@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "policyId": "pol_implementation-agent",
+  "principal": {
+    "agentType": "implementation-agent",
+    "instanceId": null
+  },
+  "statements": [
+    {
+      "sid": "DenyPush",
+      "effect": "Deny",
+      "action": [
+        "git:push"
+      ],
+      "resource": [
+        "*"
+      ]
+    },
+    {
+      "sid": "DenyPrMerge",
+      "effect": "Deny",
+      "action": [
+        "gh:pr:merge"
+      ],
+      "resource": [
+        "*"
+      ]
+    },
+    {
+      "sid": "DenyBranchDelete",
+      "effect": "Deny",
+      "action": [
+        "git:branch:delete"
+      ],
+      "resource": [
+        "*"
+      ]
+    }
+  ]
+}

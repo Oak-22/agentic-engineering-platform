@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/agent-permission-policy.schema.json",
+  "title": "Agent Permission Policy",
+  "description": "IAM-style permission-policy document binding one Agent Registry principal to Allow/Deny statements over namespaced actions and resources. Evaluated by scripts/agent_permission_gate.py using deny-overrides semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "policyId",
+    "principal",
+    "statements"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "policyId": {
+      "type": "string",
+      "pattern": "^pol_[a-z0-9-]+$",
+      "description": "Stable identifier for this policy document, conventionally pol_<agent-type-slug>."
+    },
+    "principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agentType"
+      ],
+      "properties": {
+        "agentType": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Agent Registry slug from the 'Registered agent types' table, e.g. 'generalist-engineering-agent', 'architecture-agent', 'documentation-agent'."
+        },
+        "instanceId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Set only when this policy narrows one specific instance rather than the whole agent type. Null means the policy applies to every instance of agentType."
+        }
+      }
+    },
+    "statements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/statement"
+      }
+    }
+  },
+  "$defs": {
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sid",
+        "effect",
+        "action",
+        "resource"
+      ],
+      "properties": {
+        "sid": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Statement identifier, unique within the policy document."
+        },
+        "effect": {
+          "enum": [
+            "Allow",
+            "Deny"
+          ]
+        },
+        "action": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Namespaced verb, e.g. 'git:push', 'git:commit', 'gh:pr:merge', 'gh:pr:create', 'git:branch:delete', 'jira:transition'."
+          }
+        },
+        "resource": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "ARN-like pattern, e.g. 'git:agentic-engineering-platform:branch/main', 'git:agentic-engineering-platform:branch/feature/*', 'jira:AEPI:issue/*'. A bare '*' matches every resource."
+          }
+        },
+        "condition": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requiresHumanApproval": {
+              "type": "boolean",
+              "description": "When true on an Allow statement, the gate emits an ask decision (Claude Code) or a deny-with-reason decision (Codex, where ask fails open) instead of a silent pass."
+            },
+            "tier": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4,
+              "description": "Cross-reference to agent-assets/execution-policies/governed-repository-change.md's action tiers. Informational only; the gate does not separately enforce this field."
+            }
+          }
+        }
+      }
+    }
+  }
+}

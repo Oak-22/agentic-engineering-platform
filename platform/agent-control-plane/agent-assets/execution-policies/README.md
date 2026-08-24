@@ -21,6 +21,13 @@ of silently weakening them.
   for repository and linked external-system (Jira, Confluence, GitHub
   configuration) mutation. Implemented for by `deliver-governed-change`,
   `manage-git-workflow`, and `manage-jira-confluence`.
+- [`permissions/`](permissions/) — one IAM-style permission-policy document
+  per Agent Registry agent type, validated against
+  [`../../contracts/agent-permission-policy.schema.json`](../../contracts/agent-permission-policy.schema.json).
+  Adds the principal axis this tier policy does not cover: which agent
+  identity may perform an action, not only how reversible the action is.
+  Enforced by
+  [`../../scripts/agent_permission_gate.py`](../../scripts/agent_permission_gate.py).
 
 ## Placement guidance
 
