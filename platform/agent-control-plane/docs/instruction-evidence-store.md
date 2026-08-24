@@ -3,8 +3,8 @@
 The instruction-evidence store is generated local runtime evidence. It is not
 an authored repository knowledge base and it does not contain prompt text.
 Canonical data is kept outside the repository, partitioned by repository
-identity. The ignored `.local-mirrors/instruction-evidence` path is a project-local view
-of that partition.
+identity and runtime. The ignored `.local-mirrors/instruction-evidence` path is
+a project-local view of that project partition.
 
 ![Example instruction-reference output in a developer terminal](assets/instruction-evidence-store-workflow.png)
 
@@ -50,10 +50,15 @@ record still depends on it.
 | --- | --- | --- | --- | --- |
 | `repository.json` | Generated metadata | Project | Hook storage initialization | Safe to recreate; safe to retain or delete with the partition |
 | `store-index.json` | Generated index | Project | Hook storage initialization | Safe to recreate; safe to retain or delete with the partition |
-| `<session-id>.jsonl` | Generated session ledger | Session | Runtime is recorded in each event | Append-only during a session; safe to rotate or delete after citation-dependent work is complete |
+| `<runtime>/<session-id>.jsonl` | Generated session ledger | Runtime session | Runtime directory and event field | Append-only during a runtime session; safe to rotate or delete after citation-dependent work is complete |
+| `<runtime>/<session-id>.jsonl.lock` | Generated lock | Runtime session | Hook append serialization | Contains no evidence; safe to recreate or delete when no hook is writing |
 
-The session identifier may be a UUID or a human-readable diagnostic name.
-That naming difference does not imply a different authority or retention class.
+The session identifier may be a UUID or a human-readable diagnostic name. The
+runtime directory is part of the ledger identity, so identical Claude Code and
+Codex session identifiers still resolve to different files. A model change
+inside one runtime session does not create a new ledger; model identity belongs
+on events when the provider supplies it. Every new event records both `runtime`
+and `provider`, plus `model` when it is present in the hook payload.
 
 Each session ledger may contain multiple events:
 
@@ -64,9 +69,14 @@ Each session ledger may contain multiple events:
   prompt or turn. It records the runtime and the typed evidence records used to
   render the response contract.
 
-Therefore, a JSONL file is session-scoped, while `prompt_manifest` events are
-prompt-scoped. The filename alone cannot identify the runtime or the number of
-prompts it contains; inspect its events.
+Therefore, a JSONL file is runtime-session-scoped, while `prompt_manifest`
+events are prompt-scoped. Its parent directory identifies the runtime, and each
+event repeats that runtime as an integrity check.
+
+When the hook first encounters a legacy flat `<session-id>.jsonl`, it copies
+only events explicitly attributed to the active runtime into the new runtime
+ledger. Events without a runtime remain in the legacy file because assigning
+them to a provider would invent provenance.
 
 No authored artifacts are expected in this store. Tests and diagnostics may
 use human-readable session identifiers, but those files remain generated

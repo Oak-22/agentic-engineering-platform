@@ -1,5 +1,6 @@
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import subprocess
 import sys
@@ -25,12 +26,22 @@ INSTRUCTION_FILE = (
 )
 
 
-class InstructionManifestHookTests(unittest.TestCase):
-    def ledger_for(self, storage, session_id):
+class HookHarness:
+    """Subprocess helpers shared by the hook test classes.
+
+    Kept out of a TestCase so a class can reuse them without also
+    inheriting — and re-running — another class's tests."""
+
+    def ledger_for(self, storage, session_id, runtime=None):
         safe_id = session_id.replace("/", "_")
+        pattern = (
+            f"*/{runtime}/{safe_id}.jsonl"
+            if runtime
+            else f"*/*/{safe_id}.jsonl"
+        )
         matches = {
             match.resolve(): match
-            for match in storage.glob(f"*/{safe_id}.jsonl")
+            for match in storage.glob(pattern)
         }
         self.assertEqual(len(matches), 1)
         return next(iter(matches))
@@ -49,6 +60,13 @@ class InstructionManifestHookTests(unittest.TestCase):
             env=environment,
         )
 
+
+def citation_line_number(citation: dict) -> int:
+    """Line component of a `path:line` citation href."""
+    return int(citation["href"].rsplit(":", 1)[1])
+
+
+class InstructionManifestHookTests(HookHarness, unittest.TestCase):
     def test_claude_observation_seeds_next_prompt_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             storage = Path(directory)
@@ -83,7 +101,7 @@ class InstructionManifestHookTests(unittest.TestCase):
             output = json.loads(prompted.stdout)
             context = output["hookSpecificOutput"]["additionalContext"]
             self.assertIn("| AGENTS.md | Observed |", context)
-            self.assertRegex(context, r"Ledger citation: `[^`]*claude_session\.jsonl:\d+`")
+            self.assertRegex(context, r"Ledger citation: `[^`]*/claude/claude_session\.jsonl:\d+`")
             self.assertNotIn("](<", context)
 
             ledger_path = self.ledger_for(storage, "claude/session")
@@ -147,6 +165,7 @@ class InstructionManifestHookTests(unittest.TestCase):
                     "session_id": "codex-session",
                     "turn_id": "turn-1",
                     "cwd": str(REPOSITORY_ROOT),
+                    "model": "test-codex-model",
                     "prompt": "do the work",
                 },
                 storage,
@@ -156,7 +175,8 @@ class InstructionManifestHookTests(unittest.TestCase):
             context = output["hookSpecificOutput"]["additionalContext"]
             self.assertIn("| AGENTS.md | Runtime baseline |", context)
             self.assertRegex(
-                context, r"Ledger citation: \[[^\]]*\]\(<[^>]*codex-session\.jsonl:\d+>\)"
+                context,
+                r"Ledger citation: \[[^\]]*\]\(<[^>]*/codex/codex-session\.jsonl:\d+>\)",
             )
             self.assertNotIn("`.local-mirrors", context)
             self.assertIn("explicitly invoked skills", context)
@@ -173,6 +193,10 @@ class InstructionManifestHookTests(unittest.TestCase):
                 "agents-md-scope-discovery",
             )
             self.assertEqual(record["citation"]["worktreeState"], "clean")
+            self.assertRegex(record["citation"]["href"], r"/codex/codex-session\.jsonl:\d+$")
+            event = json.loads(ledger.splitlines()[-1])
+            self.assertEqual(event["provider"], "openai")
+            self.assertEqual(event["model"], "test-codex-model")
 
     def test_copilot_discovers_repository_instructions_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -287,17 +311,17 @@ class InstructionManifestHookTests(unittest.TestCase):
                 storage,
             )
             self.assertEqual(prompted.returncode, 0, prompted.stderr)
-            ledger_path = self.ledger_for(storage, "index-session")
+            ledger_path = self.ledger_for(storage, "index-session", "codex")
             index = json.loads(
-                (ledger_path.parent / "store-index.json").read_text(
+                (ledger_path.parent.parent / "store-index.json").read_text(
                     encoding="utf-8"
                 )
             )
             self.assertEqual(index["storeType"], "instruction-evidence")
-            self.assertEqual(index["schemaVersion"], 1)
+            self.assertEqual(index["schemaVersion"], 2)
             self.assertEqual(
                 [file_class["kind"] for file_class in index["fileClasses"]],
-                ["metadata", "index", "session-ledger"],
+                ["metadata", "index", "session-ledger", "lock"],
             )
 
     def test_claude_instruction_observation_records_runtime(self):
@@ -321,6 +345,8 @@ class InstructionManifestHookTests(unittest.TestCase):
                 .splitlines()
             ]
             self.assertEqual(events[0]["runtime"], "claude")
+            self.assertEqual(events[0]["provider"], "anthropic")
+            self.assertNotIn("model", events[0])
 
     def test_citation_opens_project_scoped_log_view(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -341,28 +367,166 @@ class InstructionManifestHookTests(unittest.TestCase):
                 .read_text(encoding="utf-8")
                 .splitlines()[-1]
             )
-            href = event["sources"][0]["citation"]["href"]
-            file_part, _, line_number = href.rpartition(":")
-            citation_path = Path(file_part)
+            citation = event["sources"][0]["citation"]
+            reference, _, line = citation["href"].rpartition(":")
+            citation_path = Path(reference)
+            if not citation_path.is_absolute():
+                citation_path = REPOSITORY_ROOT / citation_path
+            line_number = int(line)
             self.assertTrue(citation_path.is_file())
             # The citation lands on the ledger line holding this manifest.
             self.assertEqual(
                 json.loads(
                     citation_path.read_text(encoding="utf-8").splitlines()[
-                        int(line_number) - 1
+                        line_number - 1
                     ]
                 )["event"],
                 "prompt_manifest",
             )
             self.assertTrue((storage / "view").is_symlink())
-            self.assertEqual(citation_path.parent, storage / "view")
+            self.assertEqual(citation_path.parent, storage / "view" / "codex")
             self.assertEqual(
                 citation_path.resolve(),
                 self.ledger_for(storage, "citation-session").resolve(),
             )
 
+    def test_same_session_id_is_isolated_by_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            session = "shared-provider-id"
+            codex = self.run_hook(
+                "codex",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": session,
+                    "turn_id": "codex-turn",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            claude = self.run_hook(
+                "claude",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": session,
+                    "prompt_id": "claude-prompt",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            self.assertEqual(codex.returncode, 0, codex.stderr)
+            self.assertEqual(claude.returncode, 0, claude.stderr)
 
-class InstructionEvidenceContractTests(InstructionManifestHookTests):
+            codex_ledger = self.ledger_for(storage, session, "codex")
+            claude_ledger = self.ledger_for(storage, session, "claude")
+            self.assertNotEqual(codex_ledger.resolve(), claude_ledger.resolve())
+            self.assertEqual(
+                {json.loads(line)["runtime"] for line in codex_ledger.read_text().splitlines()},
+                {"codex"},
+            )
+            self.assertEqual(
+                {json.loads(line)["runtime"] for line in claude_ledger.read_text().splitlines()},
+                {"claude"},
+            )
+
+    def test_legacy_migration_keeps_only_attributed_runtime_events(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            bootstrap = self.run_hook(
+                "codex",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "bootstrap",
+                    "turn_id": "t0",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            self.assertEqual(bootstrap.returncode, 0, bootstrap.stderr)
+            project_root = self.ledger_for(storage, "bootstrap", "codex").parents[1]
+            legacy = project_root / "legacy-session.jsonl"
+            legacy.write_text(
+                "\n".join(
+                    json.dumps(event)
+                    for event in (
+                        {"event": "legacy", "runtime": "codex", "value": 1},
+                        {"event": "legacy", "runtime": "claude", "value": 2},
+                        {"event": "legacy", "value": 3},
+                    )
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            migrated = self.run_hook(
+                "codex",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "legacy-session",
+                    "turn_id": "t1",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            self.assertEqual(migrated.returncode, 0, migrated.stderr)
+            events = [
+                json.loads(line)
+                for line in self.ledger_for(storage, "legacy-session", "codex")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            self.assertEqual(events[0]["value"], 1)
+            self.assertEqual({event["runtime"] for event in events}, {"codex"})
+            self.assertEqual(len(legacy.read_text(encoding="utf-8").splitlines()), 3)
+
+    def test_missing_session_id_fails_without_writing_unknown_ledger(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            result = self.run_hook(
+                "codex",
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "turn_id": "t1",
+                    "cwd": str(REPOSITORY_ROOT),
+                },
+                storage,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("session_id is required", result.stderr)
+            self.assertEqual(list(storage.rglob("unknown-session.jsonl")), [])
+
+    def test_concurrent_manifests_receive_unique_exact_line_numbers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage = Path(directory)
+            session = "concurrent-session"
+
+            def submit(turn):
+                return self.run_hook(
+                    "codex",
+                    {
+                        "hook_event_name": "UserPromptSubmit",
+                        "session_id": session,
+                        "turn_id": f"turn-{turn}",
+                        "cwd": str(REPOSITORY_ROOT),
+                    },
+                    storage,
+                )
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                results = list(executor.map(submit, range(8)))
+            for result in results:
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+            lines = self.ledger_for(storage, session, "codex").read_text().splitlines()
+            self.assertEqual(len(lines), 8)
+            for line_number, line in enumerate(lines, start=1):
+                event = json.loads(line)
+                self.assertEqual(
+                    citation_line_number(event["sources"][0]["citation"]), line_number
+                )
+
+
+class InstructionEvidenceContractTests(HookHarness, unittest.TestCase):
     """Bind what the hook emits to the contract that describes it."""
 
     def sources_from(self, storage, session_id):
@@ -664,22 +828,16 @@ class InstructionEvidenceContractTests(InstructionManifestHookTests):
             ledger = self.ledger_for(storage, "anchor")
             lines = ledger.read_text(encoding="utf-8").splitlines()
             event = json.loads(lines[-1])
-            href = event["sources"][0]["citation"]["href"]
-            _, _, line_number = href.rpartition(":")
+            line_number = citation_line_number(event["sources"][0]["citation"])
             # The anchor points at the manifest carrying this very record.
-            self.assertEqual(int(line_number), len(lines))
+            self.assertEqual(line_number, len(lines))
             self.assertEqual(
-                json.loads(lines[int(line_number) - 1])["sources"][0]["recordId"],
+                json.loads(lines[line_number - 1])["sources"][0]["recordId"],
                 event["sources"][0]["recordId"],
             )
 
     def test_default_view_citation_is_a_workspace_file_reference(self):
-        """The citation must stay inside the workspace to be clickable.
-
-        An absolute path is handed to the external-program handler, which
-        requires a URL scheme and rejects a line suffix. Only the default view,
-        which resolves inside the repository, exercises this.
-        """
+        """Codex receives a bare backticked reference to the workspace-local mirror."""
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "repo"
             workspace.mkdir()
@@ -717,14 +875,15 @@ class InstructionEvidenceContractTests(InstructionManifestHookTests):
             self.assertEqual(result.returncode, 0, result.stderr)
             context = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
 
-            href = json.loads(
-                (Path(directory) / "store").glob("*/workspace-session.jsonl").__next__()
+            citation = json.loads(
+                (Path(directory) / "store").glob("*/codex/workspace-session.jsonl").__next__()
                 .read_text(encoding="utf-8")
                 .splitlines()[-1]
-            )["sources"][0]["citation"]["href"]
+            )["sources"][0]["citation"]
 
+            href = citation["href"]
             self.assertFalse(href.startswith("/"), f"citation escaped the workspace: {href}")
-            self.assertTrue(href.startswith(".local-mirrors/instruction-evidence/"))
+            self.assertTrue(href.startswith(".local-mirrors/instruction-evidence/codex/"))
             file_part, _, line_number = href.rpartition(":")
             self.assertTrue((workspace / file_part).is_file())
             self.assertGreater(int(line_number), 0)

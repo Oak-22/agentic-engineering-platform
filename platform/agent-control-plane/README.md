@@ -104,9 +104,11 @@ Runtime evidence retains its source:
   supplies authoritative load evidence.
 
 The shared hook writes a session ledger with one snapshot per prompt to a
-canonical local-data store partitioned by repository identity. An ignored
+canonical local-data store partitioned first by repository identity and then by
+runtime. Codex and Claude Code never append to the same JSONL ledger even if
+they supply the same session identifier. An ignored
 `.local-mirrors/instruction-evidence` symlink exposes only the active project's logs so
-citation clicks open the relevant JSONL file directly. Set
+citation clicks open the relevant runtime ledger directly. Set
 `AEP_INSTRUCTION_MANIFEST_DIR` to choose another canonical location. Prompt
 text is excluded from the ledger.
 

@@ -11,6 +11,7 @@ invokes this script, is unconfirmed — mirrors the same caveat
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -18,7 +19,8 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Any
+import tempfile
+from typing import Any, Callable, Iterator, TextIO
 
 CONTRACT_PATH = (
     "platform/agent-control-plane/agent-assets/instructions/"
@@ -35,6 +37,7 @@ ADAPTER_SURFACES = {
     "codex": (".codex/", "codex-instruction-adapter"),
     "copilot": (".github/", "copilot-instruction-adapter"),
 }
+RUNTIME_PROVIDERS = {"claude": "anthropic", "codex": "openai", "copilot": "github"}
 EVIDENCE_LABELS = {
     "Observed",
     "Runtime baseline",
@@ -43,7 +46,7 @@ EVIDENCE_LABELS = {
     "Declared",
 }
 STORE_INDEX = {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "storeType": "instruction-evidence",
     "generatedBy": {
         "component": "instruction_manifest_hook.py",
@@ -73,14 +76,25 @@ STORE_INDEX = {
             },
         },
         {
-            "pattern": "<session-id>.jsonl",
+            "pattern": "<runtime>/<session-id>.jsonl",
             "kind": "session-ledger",
             "scope": "session",
-            "runtimeSource": "runtime recorded in each JSONL event",
+            "runtimeSource": "runtime directory and runtime field in each JSONL event",
             "retention": {
                 "safeToRotate": True,
                 "safeToDelete": True,
                 "notes": "Retain until citation, investigation, or reproducibility dependencies end.",
+            },
+        },
+        {
+            "pattern": "<runtime>/<session-id>.jsonl.lock",
+            "kind": "lock",
+            "scope": "session",
+            "runtimeSource": "hook append serialization",
+            "retention": {
+                "safeToRotate": True,
+                "safeToDelete": True,
+                "notes": "Recreated on demand; contains no instruction evidence.",
             },
         },
     ],
@@ -197,39 +211,52 @@ def storage_root() -> Path:
     return root
 
 
+def write_json_atomically(path: Path, value: dict[str, Any]) -> None:
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(json.dumps(value, indent=2, sort_keys=True) + "\n")
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def project_storage_root(root: Path) -> Path:
     project_key = hashlib.sha256(repository_id(root).encode()).hexdigest()[:24]
     project_root = storage_root() / project_key
     project_root.mkdir(mode=0o700, parents=True, exist_ok=True)
     metadata = project_root / "repository.json"
     if not metadata.exists():
-        metadata.write_text(
-            json.dumps(
-                {
-                    "repositoryId": repository_id(root),
-                    "projectKey": project_key,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
+        write_json_atomically(
+            metadata,
+            {
+                "repositoryId": repository_id(root),
+                "projectKey": project_key,
+            },
         )
     index = project_root / "store-index.json"
-    if not index.exists():
-        index.write_text(
-            json.dumps(
-                {
-                    **STORE_INDEX,
-                    "repositoryId": repository_id(root),
-                    "projectKey": project_key,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
+    expected_index = {
+        **STORE_INDEX,
+        "repositoryId": repository_id(root),
+        "projectKey": project_key,
+    }
+    try:
+        current_index = json.loads(index.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        current_index = None
+    if current_index != expected_index:
+        write_json_atomically(index, expected_index)
     return project_root
 
 
@@ -238,33 +265,136 @@ def project_view(root: Path, canonical_root: Path) -> Path:
     view = Path(configured) if configured else root / ".local-mirrors" / "instruction-evidence"
     view.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if not view.exists() and not view.is_symlink():
-        view.symlink_to(canonical_root, target_is_directory=True)
+        try:
+            view.symlink_to(canonical_root, target_is_directory=True)
+        except FileExistsError:
+            pass
     if view.resolve(strict=False) == canonical_root.resolve():
         return view
     return canonical_root
 
 
-def ledger_path(root: Path, session_id: str) -> Path:
-    safe_id = re.sub(r"[^A-Za-z0-9_.-]", "_", session_id) or "unknown-session"
-    return project_storage_root(root) / f"{safe_id}.jsonl"
+def safe_session_id(session_id: str) -> str:
+    if not session_id.strip():
+        raise ValueError("session_id is required for instruction evidence")
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", session_id)
 
 
-def append_event(root: Path, session_id: str, event: dict[str, Any]) -> None:
-    with ledger_path(root, session_id).open("a", encoding="utf-8") as ledger:
-        ledger.write(json.dumps(event, sort_keys=True) + "\n")
+def ledger_path(root: Path, runtime: str, session_id: str) -> Path:
+    runtime_root = project_storage_root(root) / runtime
+    runtime_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return runtime_root / f"{safe_session_id(session_id)}.jsonl"
 
 
-def read_events(root: Path, session_id: str) -> list[dict[str, Any]]:
-    path = ledger_path(root, session_id)
-    if not path.exists():
-        return []
+def legacy_ledger_path(root: Path, session_id: str) -> Path:
+    return project_storage_root(root) / f"{safe_session_id(session_id)}.jsonl"
+
+
+@contextmanager
+def ledger_lock(path: Path) -> Iterator[None]:
+    """Serialize one runtime ledger without adding a hook dependency."""
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    lock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with lock_path.open("a+b") as lock:
+        if os.name == "nt":
+            import msvcrt
+
+            lock.seek(0, os.SEEK_END)
+            if lock.tell() == 0:
+                lock.write(b"\0")
+                lock.flush()
+            lock.seek(0)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def parse_events(lines: list[str]) -> list[dict[str, Any]]:
     events = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in lines:
         try:
             events.append(json.loads(line))
         except json.JSONDecodeError:
             continue
     return events
+
+
+def migrate_legacy_events(
+    root: Path, runtime: str, session_id: str, ledger: TextIO
+) -> None:
+    """Copy only runtime-attributed legacy events into an empty new ledger.
+
+    Events from the former flat layout that lack a runtime remain quarantined in
+    place because assigning them to a provider would invent provenance.
+    """
+    ledger.seek(0, os.SEEK_END)
+    if ledger.tell() != 0:
+        return
+    legacy = legacy_ledger_path(root, session_id)
+    if not legacy.is_file():
+        return
+    migrated = [
+        line
+        for line in legacy.read_text(encoding="utf-8").splitlines()
+        if any(
+            event.get("runtime") == runtime
+            for event in parse_events([line])
+        )
+    ]
+    if migrated:
+        ledger.write("\n".join(migrated) + "\n")
+        ledger.flush()
+
+
+@contextmanager
+def open_runtime_ledger(
+    root: Path, runtime: str, session_id: str
+) -> Iterator[TextIO]:
+    path = ledger_path(root, runtime, session_id)
+    with ledger_lock(path):
+        with path.open("a+", encoding="utf-8") as ledger:
+            migrate_legacy_events(root, runtime, session_id, ledger)
+            yield ledger
+
+
+def append_event(
+    root: Path, runtime: str, session_id: str, event: dict[str, Any]
+) -> int:
+    with open_runtime_ledger(root, runtime, session_id) as ledger:
+        ledger.seek(0)
+        line_number = len(ledger.readlines()) + 1
+        ledger.seek(0, os.SEEK_END)
+        ledger.write(json.dumps(event, sort_keys=True) + "\n")
+        ledger.flush()
+        return line_number
+
+
+def append_manifest(
+    root: Path,
+    runtime: str,
+    session_id: str,
+    build_event: Callable[[list[dict[str, Any]], int], dict[str, Any]],
+) -> dict[str, Any]:
+    with open_runtime_ledger(root, runtime, session_id) as ledger:
+        ledger.seek(0)
+        lines = ledger.readlines()
+        line_number = len(lines) + 1
+        event = build_event(parse_events(lines), line_number)
+        ledger.seek(0, os.SEEK_END)
+        ledger.write(json.dumps(event, sort_keys=True) + "\n")
+        ledger.flush()
+        return event
 
 
 def load_registry(root: Path, relative: str) -> dict[str, Any]:
@@ -310,6 +440,19 @@ def skill_name_from_tool_input(tool_input: Any, known: dict[str, str]) -> str | 
 def digest_id(prefix: str, seed: dict[str, Any]) -> str:
     payload = json.dumps(seed, sort_keys=True, separators=(",", ":"))
     return f"{prefix}_{hashlib.sha256(payload.encode()).hexdigest()[:24]}"
+
+
+def runtime_event_metadata(
+    runtime: str, payload: dict[str, Any]
+) -> dict[str, str]:
+    metadata = {
+        "runtime": runtime,
+        "provider": RUNTIME_PROVIDERS[runtime],
+    }
+    model = payload.get("model")
+    if isinstance(model, str) and model.strip():
+        metadata["model"] = model
+    return metadata
 
 
 def events_since_last_manifest(
@@ -547,6 +690,21 @@ def render_citation(runtime: str, source: dict[str, Any], root: Path) -> str:
     return f"[{citation['label']}](<{target}>)"
 
 
+def log_reference(root: Path, log_path: Path, line_number: int) -> str:
+    """Return the citation as ``path:line``.
+
+    Repository-relative so the citation stays a workspace file reference. An
+    absolute path is routed to the external-program handler, which requires a
+    URL scheme and rejects a line suffix.
+    """
+    absolute_path = log_path.absolute()
+    try:
+        reference = absolute_path.relative_to(root).as_posix()
+    except ValueError:
+        reference = absolute_path.as_posix()
+    return f"{reference}:{line_number}"
+
+
 def additional_context(runtime: str, sources: list[dict[str, Any]], root: Path) -> str:
     rows = "\n".join(
         f"| {source['instruction']} | {source['evidenceType']} | {source['reason']} |"
@@ -578,14 +736,17 @@ def additional_context(runtime: str, sources: list[dict[str, Any]], root: Path) 
 
 
 def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
-    session_id = str(payload.get("session_id") or "unknown-session")
+    session_value = payload.get("session_id")
+    if not isinstance(session_value, str) or not session_value.strip():
+        raise ValueError("session_id is required for instruction evidence")
+    session_id = session_value
     event_name = str(payload.get("hook_event_name") or "")
     cwd = Path(payload.get("cwd") or os.getcwd())
     root = repository_root(cwd)
     canonical_root = project_storage_root(root)
     view_root = project_view(root, canonical_root)
-    canonical_ledger = ledger_path(root, session_id)
-    log_path = view_root / canonical_ledger.name
+    canonical_ledger = ledger_path(root, runtime, session_id)
+    log_path = view_root / runtime / canonical_ledger.name
 
     if runtime == "claude" and event_name == "InstructionsLoaded":
         file_path = payload.get("file_path")
@@ -603,10 +764,11 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
             )
             append_event(
                 root,
+                runtime,
                 session_id,
                 {
                     "event": "instruction_loaded",
-                    "runtime": "claude",
+                    **runtime_event_metadata(runtime, payload),
                     "observation_id": (
                         "obs_"
                         + hashlib.sha256(observation_seed.encode()).hexdigest()[:24]
@@ -624,10 +786,11 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         if command_name in registered_skills(root):
             append_event(
                 root,
+                runtime,
                 session_id,
                 {
                     "event": "skill_invoked",
-                    "runtime": "claude",
+                    **runtime_event_metadata(runtime, payload),
                     "skill": command_name,
                     "path": "user-typed-command",
                     "invocation_id": digest_id(
@@ -651,10 +814,11 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         if skill and tool_use_id:
             append_event(
                 root,
+                runtime,
                 session_id,
                 {
                     "event": "skill_invoked",
-                    "runtime": "claude",
+                    **runtime_event_metadata(runtime, payload),
                     "skill": skill,
                     "path": "skill-tool",
                     "invocation_id": tool_use_id,
@@ -672,10 +836,11 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
             if instruction in instruction_sources(root):
                 append_event(
                     root,
+                    runtime,
                     session_id,
                     {
                         "event": "instruction_read",
-                        "runtime": "claude",
+                        **runtime_event_metadata(runtime, payload),
                         "instruction": instruction,
                         "tool_event_id": tool_use_id,
                         "prompt_id": payload.get("prompt_id"),
@@ -687,43 +852,39 @@ def handle(runtime: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     prompt_id = payload.get("prompt_id") or payload.get("turn_id")
-    events = read_events(root, session_id)
-    # Every record in this manifest lands on the single ledger line the manifest
-    # is about to occupy, so a citation opens the log at the record itself.
-    # Stored repository-relative so the citation stays a workspace file
-    # reference regardless of which runtime renders it; render_citation()
-    # resolves it to an absolute path for Codex's markdown link.
-    try:
-        log_reference = log_path.absolute().relative_to(root).as_posix()
-    except ValueError:
-        log_reference = log_path.absolute().as_posix()
-    log_href = f"{log_reference}:{len(events) + 1}"
-    if runtime == "claude":
-        sources = claude_observed(root, events, prompt_id, log_href)
-        sources += claude_explicitly_invoked(root, events, log_href)
-        sources += claude_read_during_turn(root, events, log_href)
-    elif runtime == "codex":
-        sources = codex_baselines(root, cwd, log_href)
-    elif runtime == "copilot":
-        sources = copilot_baselines(root, log_href)
-    else:
-        sources = []
-    sources += declared_adapters(
-        root,
-        runtime,
-        {source["instruction"] for source in sources},
-        log_href,
-    )
-    append_event(
-        root,
-        session_id,
-        {
+    def build_manifest(
+        events: list[dict[str, Any]], line_number: int
+    ) -> dict[str, Any]:
+        # Every record in this manifest lands on the single ledger line the
+        # manifest is about to occupy, so a citation opens the log at the
+        # record itself.
+        log_href = log_reference(root, log_path, line_number)
+        if runtime == "claude":
+            sources = claude_observed(root, events, prompt_id, log_href)
+            sources += claude_explicitly_invoked(root, events, log_href)
+            sources += claude_read_during_turn(root, events, log_href)
+        elif runtime == "codex":
+            sources = codex_baselines(root, cwd, log_href)
+        elif runtime == "copilot":
+            sources = copilot_baselines(root, log_href)
+        else:
+            sources = []
+        sources += declared_adapters(
+            root,
+            runtime,
+            {source["instruction"] for source in sources},
+            log_href,
+        )
+        return {
             "event": "prompt_manifest",
             "prompt_id": prompt_id,
-            "runtime": runtime,
+            **runtime_event_metadata(runtime, payload),
+            "runtimeSessionId": session_id,
             "sources": sources,
-        },
-    )
+        }
+
+    manifest = append_manifest(root, runtime, session_id, build_manifest)
+    sources = manifest["sources"]
     return {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
