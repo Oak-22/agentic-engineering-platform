@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmit": [
+      {
+        "type": "command",
+        "bash": "python3 \"$(git rev-parse --show-toplevel)/platform/agent-control-plane/scripts/instruction_manifest_hook.py\" --runtime copilot",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

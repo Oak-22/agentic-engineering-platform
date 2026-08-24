@@ -23,6 +23,13 @@
             "PostToolUse",
             "UserPromptSubmit"
           ]
+        },
+        {
+          "runtime": "github-copilot",
+          "registration": ".github/hooks/instruction-manifest.json",
+          "events": ["UserPromptSubmit"],
+          "verified": false,
+          "note": "Whether GitHub Copilot's hook system exposes a UserPromptSubmit-equivalent event, and whether this registration actually fires, is unconfirmed (AEPI-96) — same honesty standard as agent-permission-gate's Copilot leg below."
         }
       ],
       "documentation": "platform/agent-control-plane/agent-assets/instructions/prompt-instruction-manifest.md"
