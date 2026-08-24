@@ -62,8 +62,8 @@ class HookHarness:
 
 
 def citation_line_number(citation: dict) -> int:
-    """Line component of a `path:line` citation href."""
-    return int(citation["href"].rsplit(":", 1)[1])
+    """Line component of a structured citation location."""
+    return int(citation["line"])
 
 
 class InstructionManifestHookTests(HookHarness, unittest.TestCase):
@@ -193,7 +193,9 @@ class InstructionManifestHookTests(HookHarness, unittest.TestCase):
                 "agents-md-scope-discovery",
             )
             self.assertEqual(record["citation"]["worktreeState"], "clean")
-            self.assertRegex(record["citation"]["href"], r"/codex/codex-session\.jsonl:\d+$")
+            self.assertEqual(record["citation"]["runtime"], "codex")
+            self.assertIsInstance(record["citation"]["line"], int)
+            self.assertNotIn("href", record["citation"])
             event = json.loads(ledger.splitlines()[-1])
             self.assertEqual(event["provider"], "openai")
             self.assertEqual(event["model"], "test-codex-model")
@@ -368,11 +370,8 @@ class InstructionManifestHookTests(HookHarness, unittest.TestCase):
                 .splitlines()[-1]
             )
             citation = event["sources"][0]["citation"]
-            reference, _, line = citation["href"].rpartition(":")
-            citation_path = Path(reference)
-            if not citation_path.is_absolute():
-                citation_path = REPOSITORY_ROOT / citation_path
-            line_number = int(line)
+            citation_path = Path(citation["absolutePath"])
+            line_number = int(citation["line"])
             self.assertTrue(citation_path.is_file())
             # The citation lands on the ledger line holding this manifest.
             self.assertEqual(
@@ -524,6 +523,62 @@ class InstructionManifestHookTests(HookHarness, unittest.TestCase):
                 self.assertEqual(
                     citation_line_number(event["sources"][0]["citation"]), line_number
                 )
+
+
+class DeclaredSessionIdentityTests(HookHarness, unittest.TestCase):
+    """Session identity is a declared part of the injected context.
+
+    It used to be inferable only from the `Ledger citation:` filename,
+    which made it a side effect of the ledger's naming scheme and left it
+    absent entirely on turns with no hook-observed sources. See
+    evidence/side-effects/session-identity-via-instruction-ledger.md."""
+
+    def _context(self, storage, session_id, runtime="claude"):
+        storage = Path(storage)
+        result = self.run_hook(
+            runtime,
+            {
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": session_id,
+                "prompt_id": "prompt-1",
+                "cwd": str(REPOSITORY_ROOT),
+                "prompt": "anything",
+            },
+            storage,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+
+    def test_session_is_declared_alongside_runtime(self):
+        with tempfile.TemporaryDirectory() as storage:
+            context = self._context(storage, "abc-123")
+        self.assertIn("Runtime: claude. Session: abc-123.", context)
+
+    def test_declaration_survives_a_turn_with_no_hook_observed_sources(self):
+        """The citation line is omitted when sources is empty; the session
+        declaration must not be, or identity silently disappears exactly
+        where a consumer has nothing else to fall back on."""
+        with tempfile.TemporaryDirectory() as storage:
+            context = self._context(storage, "lonely-session")
+        self.assertIn("Session: lonely-session.", context)
+        if "Ledger citation:" not in context:
+            self.assertIn("(no hook-observed sources)", context)
+
+    def test_declared_identity_matches_the_ledger_filename(self):
+        """Both channels should still agree — the declaration replaces the
+        inference as the contract, it does not contradict it."""
+        with tempfile.TemporaryDirectory() as storage:
+            context = self._context(storage, "paired-session")
+            ledger = self.ledger_for(Path(storage), "paired-session")
+        self.assertIn("Session: paired-session.", context)
+        self.assertEqual(ledger.stem, "paired-session")
+
+    def test_session_id_is_sanitised_consistently_in_both_places(self):
+        with tempfile.TemporaryDirectory() as storage:
+            context = self._context(storage, "claude/session")
+            ledger = self.ledger_for(Path(storage), "claude/session")
+        self.assertIn("Session: claude/session.", context)
+        self.assertEqual(ledger.stem, "claude_session")
 
 
 class InstructionEvidenceContractTests(HookHarness, unittest.TestCase):
@@ -881,19 +936,24 @@ class InstructionEvidenceContractTests(HookHarness, unittest.TestCase):
                 .splitlines()[-1]
             )["sources"][0]["citation"]
 
-            href = citation["href"]
-            self.assertFalse(href.startswith("/"), f"citation escaped the workspace: {href}")
-            self.assertTrue(href.startswith(".local-mirrors/instruction-evidence/codex/"))
-            file_part, _, line_number = href.rpartition(":")
-            self.assertTrue((workspace / file_part).is_file())
+            workspace_path = citation["workspacePath"]
+            self.assertFalse(
+                workspace_path.startswith("/"),
+                f"citation escaped the workspace: {workspace_path}",
+            )
+            self.assertTrue(
+                workspace_path.startswith(".local-mirrors/instruction-evidence/codex/")
+            )
+            line_number = citation["line"]
+            self.assertTrue((workspace / workspace_path).is_file())
             self.assertGreater(int(line_number), 0)
             # Codex renders an absolute-path markdown link, not a bare reference:
             # Codex has no external-program handler forcing a URL scheme, so the
             # link format restores what Codex used before it was folded into
             # Claude's bare-reference renderer.
-            absolute_target = f"{(workspace / file_part).resolve().as_posix()}:{line_number}"
+            absolute_target = f"{citation['absolutePath']}:{line_number}"
             self.assertIn(f"](<{absolute_target}>)", context)
-            self.assertNotIn(f"`{href}`", context)
+            self.assertNotIn(f"`{workspace_path}:{line_number}`", context)
 
     def test_every_contract_evidence_type_has_a_producer(self):
         produced = set()

@@ -26,7 +26,10 @@
       "additionalProperties": false,
       "required": [
         "label",
-        "href",
+        "runtime",
+        "workspacePath",
+        "absolutePath",
+        "line",
         "activeRepositoryId",
         "repositoryId",
         "baseRevision",
@@ -41,11 +44,26 @@
           "minLength": 1,
           "description": "Compact UI label for the citation link."
         },
-        "href": {
+        "runtime": {
+          "type": "string",
+          "enum": ["claude", "codex", "copilot"],
+          "description": "Runtime partition containing the cited session ledger."
+        },
+        "workspacePath": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+          "description": "Repository-relative path to the project-local ledger view, or null when the configured view is outside the workspace."
+        },
+        "absolutePath": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^.+:[1-9][0-9]*$",
-          "description": "Path to the project-scoped evidence log view, suffixed with the 1-based line holding this record, as path:line. Repository-relative whenever the view resolves inside the active repository, so consumers open it as a workspace file reference rather than through an external-program handler; absolute only when the view is configured outside the repository."
+          "description": "Absolute local path to the project-scoped evidence ledger, without presentation syntax or a line suffix."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "One-based JSONL line containing this evidence record."
         },
         "repositoryId": {
           "type": "string",
@@ -100,7 +118,7 @@
       ],
       "properties": {
         "schemaVersion": {
-          "const": 1
+          "const": 2
         },
         "recordId": {
           "type": "string",
