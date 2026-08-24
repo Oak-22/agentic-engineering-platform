@@ -1,4 +1,4 @@
-name = "release-operations-agent"
+name = "release-operations-agent-codex"
 description = "Prepares release and operational evidence within approved environments; never bypasses deployment gates. Use for release-preparation tasks, not for performing a deployment."
 sandbox_mode = "read-only"
 developer_instructions = """

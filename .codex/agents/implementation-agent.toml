@@ -1,4 +1,4 @@
-name = "implementation-agent"
+name = "implementation-agent-codex"
 description = "Translates approved plans and architecture decisions into scoped code changes, tests, documentation, and reproducible evidence. Use for implementation tasks with an already-approved scope."
 sandbox_mode = "workspace-write"
 developer_instructions = """
