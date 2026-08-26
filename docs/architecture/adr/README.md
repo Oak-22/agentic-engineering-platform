@@ -68,3 +68,4 @@ the earlier record under `supersedes`.
 
 - [ADR-0001: Separate implementation knowledge from organizational governance](0001-separate-implementation-knowledge-from-organizational-governance.md)
 - [ADR-0002: Shield personal learning signals from observation](0002-shield-personal-learning-signals-from-observation.md)
+- [ADR-0003: Adopt LangGraph and LangSmith as orchestration and telemetry backends](0003-adopt-langgraph-and-langsmith-as-orchestration-and-telemetry-backends.md)
