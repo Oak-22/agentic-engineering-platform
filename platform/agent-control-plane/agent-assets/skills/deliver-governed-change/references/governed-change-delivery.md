@@ -157,7 +157,10 @@ traceability easy to inspect and does not serve as a numerical quality target.
 - If it is the primary checkout, switch to local `main`, update it by
   fast-forward, and return the visible checkout to an existing clean
   `workbench/local` branch or leave `main` checked out as fallback. Never
-  delete the primary checkout directory.
+  delete the primary checkout directory. When returning to `workbench/local`,
+  sync it with the newly fast-forwarded base — fast-forward when possible,
+  otherwise merge — instead of leaving it to drift out of date; never resolve
+  a resulting conflict automatically, abort and report it instead.
 - Remove a linked worktree only when it is a verified secondary-worktree
   exception, then delete its local feature branch.
 - For squash merges, use the verified pull-request state, head identifier,

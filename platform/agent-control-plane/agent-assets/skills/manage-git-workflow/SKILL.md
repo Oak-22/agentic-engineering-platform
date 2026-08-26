@@ -243,8 +243,15 @@ The script applies the following contract:
    After a squash merge, force-delete only when the pull-request, head, merge,
    and target-branch checks above all succeeded.
 8. Prune stale worktree metadata and re-read the worktree and branch lists.
-9. Report whether GitHub already deleted the remote branch. Delete it only
-   when remote cleanup was explicitly authorized.
+9. When step 5 returned to `workbench/local`, sync it with the newly
+   fast-forwarded base rather than leaving it to drift: fast-forward it when
+   possible, otherwise merge; never resolve a conflicting merge automatically.
+   The plan reports whether the sync ran, and, if it hit a conflict, aborts
+   the merge and reports that `workbench/local` still needs a manual
+   `git merge <base>` — the base branch and feature-branch cleanup already
+   completed correctly regardless of this outcome.
+10. Report whether GitHub already deleted the remote branch. Delete it only
+    when remote cleanup was explicitly authorized.
 
 Stop without deletion when the pull request is open or unknown, the target
 does not contain the merge result, the active checkout is dirty, its branch or
@@ -284,3 +291,12 @@ Governed-task preflight invokes the reconciler with `--no-fetch` and JSON
 output. It reports safe stale branches as cleanup debt but never blocks the new
 task or mutates branch state. Resolve `manual-review` entries deliberately;
 their lack of pull-request evidence is not authority for automatic deletion.
+
+`workbench/local` itself is not a Jira-keyed branch, so it never appears in
+this reconciler's output — its drift is a separate concern with its own
+backstop. Single-PR cleanup normally keeps it synced automatically (see step 9
+above); governed-task preflight also reports, non-blockingly, how many commits
+`main` has that `workbench/local` lacks, as a check for cleanups skipped or
+run outside this tooling — for example a PR merged and cleaned up through the
+GitHub web UI rather than the bundled script. Resolve it directly with
+`git switch workbench/local && git merge main` when reported.

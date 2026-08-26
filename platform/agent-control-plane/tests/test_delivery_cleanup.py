@@ -343,6 +343,73 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(MODULE.CleanupError, "is not merged"):
             MODULE.build_cleanup_plan(scenario.primary, pull_request)
 
+    def test_workbench_return_branch_is_fast_forwarded_after_cleanup(self):
+        scenario = self.scenario()
+        # workbench/local was captured before the feature merge landed on main.
+        scenario.git(scenario.primary, "branch", "workbench/local", "main~1")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        self.assertEqual(plan.return_branch, "workbench/local")
+        self.assertTrue(plan.workbench_sync_needed)
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, "fast-forwarded")
+        self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
+        self.assertEqual(
+            scenario.rev_parse("workbench/local"), scenario.rev_parse("main")
+        )
+
+    def test_workbench_return_branch_is_merged_when_it_has_unique_commits(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        (scenario.primary / "workbench-only.txt").write_text("wip\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "workbench-only.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Workbench capture")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        self.assertTrue(plan.workbench_sync_needed)
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, "merged")
+        self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
+        self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
+        self.assertTrue((scenario.primary / "workbench-only.txt").exists())
+        self.assertTrue((scenario.primary / "feature.txt").exists())
+
+    def test_workbench_return_branch_conflict_is_aborted_and_reported(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        (scenario.primary / "feature.txt").write_text(
+            "conflicting workbench content\n", encoding="utf-8"
+        )
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Conflicting workbench capture")
+        workbench_tip_before = scenario.rev_parse("workbench/local")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, "conflict-manual-resolution-required")
+        self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
+        self.assertEqual(scenario.rev_parse("workbench/local"), workbench_tip_before)
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
+    def test_sync_workbench_with_base_reports_already_up_to_date(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "branch", "workbench/local", "main")
+
+        result = MODULE.sync_workbench_with_base(
+            scenario.primary, workbench_branch="workbench/local", base_branch="main"
+        )
+
+        self.assertEqual(result, "already-up-to-date")
+
 
 class StaleRepositoryScenario:
     def __init__(self, root: Path):
