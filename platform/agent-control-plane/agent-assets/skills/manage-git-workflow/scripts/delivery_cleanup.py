@@ -57,6 +57,7 @@ class CleanupPlan:
     return_branch: str
     deletion_flag: str
     remote_branch_exists: bool
+    workbench_sync_needed: bool
 
 
 @dataclass(frozen=True)
@@ -662,6 +663,12 @@ def build_cleanup_plan(
         if not workbench_records or workbench_records[0].path == primary:
             return_branch = WORKBENCH_BRANCH
 
+    workbench_sync_needed = (
+        return_branch == WORKBENCH_BRANCH
+        and return_branch != pull_request.base_branch
+        and not is_ancestor(primary, remote_base, WORKBENCH_BRANCH)
+    )
+
     deletion_flag = "-d"
     if not is_ancestor(primary, pull_request.head_oid, remote_base):
         deletion_flag = "-D"
@@ -679,10 +686,32 @@ def build_cleanup_plan(
         return_branch=return_branch,
         deletion_flag=deletion_flag,
         remote_branch_exists=pull_request.head_branch in remotes,
+        workbench_sync_needed=workbench_sync_needed,
     )
 
 
-def execute_cleanup(plan: CleanupPlan) -> None:
+def sync_workbench_with_base(
+    workspace: Path, *, workbench_branch: str, base_branch: str
+) -> str:
+    """Bring workbench_branch up to date with a freshly fast-forwarded base.
+
+    Tries a fast-forward first, the common case when the workbench holds no
+    commits of its own beyond the merged history. Falls back to a real merge
+    when it does. Never resolves a conflicting merge automatically: aborts and
+    reports instead, matching this repository's "deny rather than silently
+    allow" pattern for outcomes that cannot be verified safe.
+    """
+    if is_ancestor(workspace, base_branch, workbench_branch):
+        return "already-up-to-date"
+    if git(workspace, "merge", "--ff-only", base_branch, check=False).returncode == 0:
+        return "fast-forwarded"
+    if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
+        return "merged"
+    git(workspace, "merge", "--abort", check=False)
+    return "conflict-manual-resolution-required"
+
+
+def execute_cleanup(plan: CleanupPlan) -> str | None:
     primary = plan.primary_workspace
     pull_request = plan.pull_request
 
@@ -709,6 +738,14 @@ def execute_cleanup(plan: CleanupPlan) -> None:
     if plan.return_branch != pull_request.base_branch:
         git(primary, "switch", "--", plan.return_branch)
     git(primary, "worktree", "prune")
+
+    workbench_sync: str | None = None
+    if plan.return_branch == WORKBENCH_BRANCH and plan.return_branch != pull_request.base_branch:
+        workbench_sync = sync_workbench_with_base(
+            primary,
+            workbench_branch=WORKBENCH_BRANCH,
+            base_branch=pull_request.base_branch,
+        )
 
     if branch_exists(primary, pull_request.head_branch):
         raise CleanupError(
@@ -737,8 +774,12 @@ def execute_cleanup(plan: CleanupPlan) -> None:
             f"does not match origin/{pull_request.base_branch}"
         )
 
+    return workbench_sync
 
-def render_plan(plan: CleanupPlan, *, executed: bool) -> str:
+
+def render_plan(
+    plan: CleanupPlan, *, executed: bool, workbench_sync: str | None = None
+) -> str:
     target = "not checked out"
     if plan.target_worktree:
         role = (
@@ -749,17 +790,25 @@ def render_plan(plan: CleanupPlan, *, executed: bool) -> str:
         target = f"{role} at {plan.target_worktree.path}"
     remote_state = "still exists" if plan.remote_branch_exists else "already absent"
     mode = "executed" if executed else "verified dry run"
-    return "\n".join(
-        [
-            f"Local cleanup {mode} for PR #{plan.pull_request.number}.",
-            f"  PR: {plan.pull_request.url}",
-            f"  Branch: {plan.pull_request.head_branch}",
-            f"  Checkout: {target}",
-            f"  Local deletion: git branch {plan.deletion_flag}",
-            f"  Return branch: {plan.return_branch}",
-            f"  Remote branch: {remote_state}; this script never deletes it",
-        ]
-    )
+    lines = [
+        f"Local cleanup {mode} for PR #{plan.pull_request.number}.",
+        f"  PR: {plan.pull_request.url}",
+        f"  Branch: {plan.pull_request.head_branch}",
+        f"  Checkout: {target}",
+        f"  Local deletion: git branch {plan.deletion_flag}",
+        f"  Return branch: {plan.return_branch}",
+        f"  Remote branch: {remote_state}; this script never deletes it",
+    ]
+    if plan.return_branch == WORKBENCH_BRANCH and plan.return_branch != plan.pull_request.base_branch:
+        if executed:
+            lines.append(f"  Workbench sync: {workbench_sync}")
+        else:
+            state = "behind" if plan.workbench_sync_needed else "already up to date"
+            lines.append(
+                f"  Workbench sync: {WORKBENCH_BRANCH} is {state} with "
+                f"{plan.pull_request.base_branch}; execute will sync it automatically"
+            )
+    return "\n".join(lines)
 
 
 def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
@@ -837,9 +886,18 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 pull_request,
                 remote_branches=remotes,
             )
+            workbench_sync = None
             if args.execute:
-                execute_cleanup(plan)
-            print(render_plan(plan, executed=args.execute))
+                workbench_sync = execute_cleanup(plan)
+            print(render_plan(plan, executed=args.execute, workbench_sync=workbench_sync))
+            if workbench_sync == "conflict-manual-resolution-required":
+                print(
+                    f"Workbench sync blocked: {WORKBENCH_BRANCH} could not be merged "
+                    f"with {pull_request.base_branch} without conflicts. Resolve "
+                    f"manually with `git merge {pull_request.base_branch}` on "
+                    f"{WORKBENCH_BRANCH}.",
+                    file=sys.stderr,
+                )
             if not args.execute:
                 print(
                     "Run again with --execute only after local cleanup is "

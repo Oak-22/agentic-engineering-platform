@@ -53,6 +53,7 @@ class RepositoryState:
     current_pull_request_state: str | None
     current_remote_branch_exists: bool
     stale_local_delivery_branches: tuple[str, ...]
+    workbench_commits_behind_main: int
 
 
 class InspectionError(RuntimeError):
@@ -80,6 +81,42 @@ def repository_root(cwd: Path) -> Path:
     except (OSError, subprocess.CalledProcessError) as error:
         raise InspectionError("not inside a Git working tree") from error
     return Path(result.stdout.strip())
+
+
+def local_branch_exists(root: Path, branch: str) -> bool:
+    result = run(
+        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+        cwd=root,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def workbench_commits_behind_main(root: Path) -> int:
+    """How far the private capture branch has drifted behind main, or 0.
+
+    Informational only: a nonzero count never blocks task creation, since a
+    Jira-keyed branch is always carved from main, not from the workbench.
+    Non-blocking cleanup debt is reported the same way in `warnings_for`. This
+    exists as a backstop for cleanups skipped or run outside this tooling —
+    the ordinary path re-syncs the workbench automatically as part of
+    `delivery_cleanup.py`'s single-PR cleanup.
+    """
+    if not local_branch_exists(root, "workbench/local") or not local_branch_exists(
+        root, "main"
+    ):
+        return 0
+    result = run(
+        ["git", "rev-list", "--count", "workbench/local..main"],
+        cwd=root,
+        check=False,
+    )
+    if result.returncode != 0:
+        return 0
+    try:
+        return int(result.stdout.strip())
+    except ValueError:
+        return 0
 
 
 def inspect_repository(root: Path) -> RepositoryState:
@@ -194,6 +231,7 @@ def inspect_repository(root: Path) -> RepositoryState:
             for candidate in reconciliation_candidates
             if candidate.get("classification") == "safe-to-delete"
         ),
+        workbench_commits_behind_main=workbench_commits_behind_main(root),
     )
 
 
@@ -245,17 +283,28 @@ def blockers_for(state: RepositoryState) -> list[str]:
 
 
 def warnings_for(state: RepositoryState) -> list[str]:
-    if not state.stale_local_delivery_branches:
-        return []
-    return [
-        "Local cleanup debt detected. These merged Jira-keyed branches are safe "
-        "reconciliation candidates; preflight will not delete them:\n"
-        + "\n".join(
-            f"  {branch}" for branch in state.stale_local_delivery_branches
+    warnings: list[str] = []
+
+    if state.stale_local_delivery_branches:
+        warnings.append(
+            "Local cleanup debt detected. These merged Jira-keyed branches are safe "
+            "reconciliation candidates; preflight will not delete them:\n"
+            + "\n".join(
+                f"  {branch}" for branch in state.stale_local_delivery_branches
+            )
+            + "\nRun delivery_cleanup.py stale in verification mode, then with "
+            "--execute after cleanup is authorized."
         )
-        + "\nRun delivery_cleanup.py stale in verification mode, then with "
-        "--execute after cleanup is authorized."
-    ]
+
+    if state.workbench_commits_behind_main > 0:
+        warnings.append(
+            f"workbench/local is {state.workbench_commits_behind_main} commit(s) "
+            "behind main. A single-PR cleanup normally syncs it automatically; if "
+            "one was skipped or run outside this tooling, sync it directly with "
+            "`git switch workbench/local && git merge main`."
+        )
+
+    return warnings
 
 
 BRANCH_CREATION_COMMAND_PATTERN = re.compile(r"\bgit\s+(?:checkout\s+-b\b|switch\s+-c\b)")

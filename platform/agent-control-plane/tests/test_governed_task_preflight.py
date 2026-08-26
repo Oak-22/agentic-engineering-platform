@@ -25,6 +25,7 @@ class GovernedTaskPreflightTests(unittest.TestCase):
             "current_pull_request_state": None,
             "current_remote_branch_exists": False,
             "stale_local_delivery_branches": (),
+            "workbench_commits_behind_main": 0,
         }
         values.update(overrides)
         return MODULE.RepositoryState(**values)
@@ -112,6 +113,29 @@ class GovernedTaskPreflightTests(unittest.TestCase):
         self.assertIn("agent/PROJ-27-old-delivery", warnings[0])
         self.assertIn("will not delete", warnings[0])
 
+    def test_workbench_behind_main_warns_without_blocking(self):
+        state = self.state(workbench_commits_behind_main=15)
+
+        self.assertEqual(MODULE.blockers_for(state), [])
+        warnings = MODULE.warnings_for(state)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("workbench/local is 15 commit(s) behind main", warnings[0])
+
+    def test_up_to_date_workbench_produces_no_warning(self):
+        self.assertEqual(MODULE.warnings_for(self.state()), [])
+
+    def test_both_warnings_are_reported_independently(self):
+        state = self.state(
+            stale_local_delivery_branches=("agent/PROJ-27-old-delivery",),
+            workbench_commits_behind_main=3,
+        )
+
+        warnings = MODULE.warnings_for(state)
+
+        self.assertEqual(len(warnings), 2)
+        self.assertIn("cleanup debt", warnings[0])
+        self.assertIn("workbench/local is 3 commit(s) behind main", warnings[1])
+
     def test_branch_recognition_requires_intent_category_and_full_issue_key(self):
         self.assertTrue(MODULE.is_governed_delivery_branch("fix/PROJ-123-login-timeout"))
         self.assertTrue(
@@ -132,6 +156,54 @@ class GovernedTaskPreflightTests(unittest.TestCase):
         self.assertTrue(
             MODULE.is_governed_delivery_branch("agent/PROJ-38-agent-control-plane")
         )
+
+
+class WorkbenchDriftDetectionTests(unittest.TestCase):
+    def repo(self):
+        import subprocess
+        import tempfile
+
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        root = Path(temporary_directory.name)
+
+        def git(*arguments):
+            return subprocess.run(
+                ["git", *arguments],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+        git("init", "--initial-branch=main", "-q")
+        git("config", "user.name", "Preflight Test")
+        git("config", "user.email", "preflight@example.invalid")
+        (root / "tracked.txt").write_text("main\n", encoding="utf-8")
+        git("add", "tracked.txt")
+        git("commit", "-q", "-m", "Initial")
+        return root, git
+
+    def test_zero_when_workbench_matches_main(self):
+        root, git = self.repo()
+        git("branch", "workbench/local", "main")
+
+        self.assertEqual(MODULE.workbench_commits_behind_main(root), 0)
+
+    def test_counts_commits_main_has_that_workbench_lacks(self):
+        root, git = self.repo()
+        git("branch", "workbench/local", "main")
+        for message in ("Second", "Third"):
+            (root / "tracked.txt").write_text(message + "\n", encoding="utf-8")
+            git("commit", "-q", "-am", message)
+
+        self.assertEqual(MODULE.workbench_commits_behind_main(root), 2)
+
+    def test_zero_when_workbench_branch_does_not_exist(self):
+        root, _git = self.repo()
+
+        self.assertEqual(MODULE.workbench_commits_behind_main(root), 0)
 
 
 class BranchCreationMatcherTests(unittest.TestCase):
@@ -170,6 +242,7 @@ class HookResponseTests(unittest.TestCase):
             current_pull_request_state=None,
             current_remote_branch_exists=False,
             stale_local_delivery_branches=(),
+            workbench_commits_behind_main=0,
         )
         with mock.patch.object(MODULE, "inspect_repository", return_value=clean_state):
             result = MODULE.hook_response(
@@ -185,6 +258,7 @@ class HookResponseTests(unittest.TestCase):
             current_pull_request_state=None,
             current_remote_branch_exists=False,
             stale_local_delivery_branches=(),
+            workbench_commits_behind_main=0,
         )
         with mock.patch.object(MODULE, "inspect_repository", return_value=dirty_state):
             result = MODULE.hook_response(
@@ -242,6 +316,7 @@ class RunAsHookTests(unittest.TestCase):
             current_pull_request_state=None,
             current_remote_branch_exists=False,
             stale_local_delivery_branches=(),
+            workbench_commits_behind_main=0,
         )
         with mock.patch.object(MODULE, "repository_root", return_value=Path("/repo")):
             with mock.patch.object(MODULE, "inspect_repository", return_value=dirty_state):
