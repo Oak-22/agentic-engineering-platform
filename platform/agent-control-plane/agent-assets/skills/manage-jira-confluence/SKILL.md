@@ -1,6 +1,6 @@
 ---
 name: manage-jira-confluence
-description: Read, create, update, link, transition, and verify Jira and Confluence artifacts as one traceable Atlassian workflow. Use for Jira projects, boards, backlogs, Product Discovery ideas, work items, comments, statuses, or links; for Confluence spaces, pages, architecture notes, decisions, runbooks, or experiment records; or when deliver-governed-change delegates an Atlassian operation.
+description: Read, create, update, link, transition, and verify Jira and Confluence artifacts as one traceable Atlassian workflow. Use for Jira projects, boards, backlogs, Product Discovery ideas, work items, comments, statuses, or links; for Confluence spaces or pages holding organizational policy, cross-repository governance, or non-code-contributor documentation; or when deliver-governed-change delegates an Atlassian operation.
 ---
 
 # Manage Jira and Confluence
@@ -29,8 +29,12 @@ permission, mutation, and verification requirements.
      prioritization, roadmap horizon, or promotion decision.
    - Jira implementation project: epic, feature, story, task, defect,
      acceptance criteria, delivery state, or release work.
-   - Confluence: architecture, decision rationale, research, runbook,
-     experiment design, outcome, or other durable knowledge.
+   - Confluence: content that is cross-repository, organizational,
+     independently governed, or meant for a non-code contributor — see
+     [ADR-0001](../../../../../docs/architecture/adr/0001-separate-implementation-knowledge-from-organizational-governance.md).
+     Everything else (implementation architecture, ADRs, role charters that
+     control runtime behavior, technical runbooks, execution evidence) stays
+     in Git.
 4. Plan the smallest coherent mutation set. Preserve existing artifacts and
    update them when they already represent the requested concept.
 5. Perform semantic connector or API operations before using browser
@@ -45,12 +49,17 @@ permission, mutation, and verification requirements.
 
 - Put execution-sized work, ownership, status, and acceptance criteria in
   Jira.
-- Put durable explanation, architecture, evidence, decisions, and operational
-  guidance in Confluence.
-- Put a large design in Confluence and create a Jira epic or task that links
-  to it. Do not paste the full design into both systems.
-- Keep implementation detail in the code repository when it must change with
-  code; link it from Jira or Confluence instead of copying it.
+- Create or update a Confluence page only when the knowledge is
+  cross-repository, organizational, independently governed, or meant for a
+  non-code contributor. This is the default gate, not an exception — most
+  durable engineering knowledge does not clear it.
+- Keep implementation architecture, ADRs, role charters that control runtime
+  behavior, technical runbooks, and execution evidence in Git, per
+  [ADR-0001](../../../../../docs/architecture/adr/0001-separate-implementation-knowledge-from-organizational-governance.md).
+  Link to it from Jira or Confluence instead of copying it.
+- When a large design genuinely is organizational (spans repositories or
+  independent governance), put it in Confluence and create a Jira epic or
+  task that links to it. Do not paste the full design into both systems.
 - Prefer native Jira delivery links for Product Discovery ideas and native
   Jira-Confluence relationships when available.
 

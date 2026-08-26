@@ -9,12 +9,20 @@ administrators can rename projects and spaces.
 | Surface | Current name | Current key | Owns |
 | --- | --- | --- | --- |
 | Jira Software | Agentic Engineering Platform Implementation | `AEPI` | opportunities, epics, features, stories, tasks, defects, testing, and delivery status |
-| Confluence | Agentic Engineering Platform | `AEP` | architecture, research, decisions, runbooks, experiment designs, and evidence-backed conclusions |
+| Confluence | Agentic Engineering Platform | `AEP` | organizational policy, authorization and exception process, cross-system proposals, and governance or decision records that evolve independently of any one repository |
 
 There is no separate Jira Product Discovery project. Early-stage ideas and
 opportunities live directly in AEPI (for example as `Task` issues) rather
 than in a dedicated discovery surface; promote them to more specific issue
 types as scope and evidence firm up.
+
+Per [ADR-0001](../../../../../../docs/architecture/adr/0001-separate-implementation-knowledge-from-organizational-governance.md),
+Confluence does not own implementation architecture, ADRs, role charters that
+control runtime behavior, technical runbooks, or execution evidence — those
+live in Git, where they change with the code. Create or update a Confluence
+page only when the content is cross-repository, organizational, independently
+governed, or meant for a non-code contributor; otherwise the canonical home is
+the repository.
 
 ## Relationship model
 

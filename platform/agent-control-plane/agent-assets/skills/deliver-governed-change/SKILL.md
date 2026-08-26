@@ -1,6 +1,6 @@
 ---
 name: deliver-governed-change
-description: Coordinate a traceable engineering outcome across Jira, Confluence, implementation, Git, GitHub, review, and closure while preserving each system's authority boundaries. Use for major repository changes that should follow the default Jira task to feature branch to pull request lifecycle; when the user asks to implement work as a tracked task; or when delivery state must remain synchronized across work management and source control.
+description: Coordinate a traceable engineering outcome across Jira, implementation, Git, GitHub, review, and closure while preserving each system's authority boundaries. Confluence joins the path only when the change touches cross-repository, organizational, independently governed, or non-code-contributor knowledge. Use for major repository changes that should follow the default Jira task to feature branch to pull request lifecycle; when the user asks to implement work as a tracked task; or when delivery state must remain synchronized across work management and source control.
 ---
 
 # Deliver Governed Change
@@ -251,7 +251,10 @@ Keep these identifiers synchronized as they become available:
 - Jira key, summary, status, accountable owner, and structured execution
   provenance;
 - durable change authority and selected delivery path;
-- Confluence design or decision link when durable documentation is needed;
+- Confluence design or decision link, only when the knowledge is
+  cross-repository, organizational, independently governed, or meant for a
+  non-code contributor (see
+  [ADR-0001](../../../../../docs/architecture/adr/0001-separate-implementation-knowledge-from-organizational-governance.md));
 - feature branch and target branch;
 - commit identifiers and verification evidence;
 - pull-request URL, review state, and required checks;
@@ -279,7 +282,7 @@ runtime provenance in structured work-item or telemetry metadata.
 Verify every mutated system before reporting completion. Report per delivery
 unit, then once for the run as a whole. Return:
 
-- the Jira and documentation records;
+- the Jira record and any Confluence link created, when applicable;
 - the selected delivery path and durable change authority;
 - branch, commits, pull request, and target branch when created;
 - external configuration identifiers and audit evidence when applicable;
