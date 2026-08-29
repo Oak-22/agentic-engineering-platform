@@ -13,6 +13,25 @@ Read
 [the governed change delivery workflow](references/governed-change-delivery.md)
 before planning or executing a delivery.
 
+## Coordination map
+
+This is a coordinator skill: its job is to sequence the phases below and
+delegate each one to the owning operational skill. One row per phase.
+
+| Phase | Delegate | Required input | Produced output | Stop condition |
+| --- | --- | --- | --- | --- |
+| Shape | `shape-repository-change` | The request, working tree, and any bounded commit range | Every candidate outcome with scope, dependencies, acceptance criteria, and verification expectations | All candidates classified, each with an accountable owner |
+| Isolate | `manage-git-workflow` | Confirmed outcome; clean checkout or workbench-parked changes | A Jira-keyed branch from current `main` carrying only this unit's evidence | Branch exists from `main` and holds only this unit's changes |
+| Implement | This skill, with `manage-jira-confluence` for external configuration | The bounded outcome and its acceptance criteria | Changed files, verification output, and re-read external configuration | Smallest relevant checks pass for the unit |
+| Commit | `manage-git-workflow` | A verified working tree | Coherent commits scoped to the outcome | Result partitioned into explainable commits |
+| Publish | `manage-git-workflow` | The committed branch | One pushed branch and one draft pull request | Draft pull request open against the target branch |
+| Review | `manage-jira-confluence` and `manage-git-workflow` | The draft pull request and synchronized evidence | Jira in review with branch, commit, and check evidence linked | An accountable human review is requested |
+| Merge | `manage-git-workflow` | Approval, required checks, and the requested merge method | Merged pull request with the target containing the result | Merge verified from pull-request and target-branch evidence |
+| Clean up | `manage-git-workflow` | A verified merge | Restored primary checkout, deleted delivery refs, completed Jira work | Local feature ref absent and Jira work completed |
+
+Deliver only the phases the current request authorizes; see
+[What a bare invocation authorizes](#what-a-bare-invocation-authorizes).
+
 ## Establish the delivery units
 
 1. Accept the bounded outcomes from `shape-repository-change`, or use that skill
