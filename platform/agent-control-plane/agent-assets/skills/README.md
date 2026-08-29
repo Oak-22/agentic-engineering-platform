@@ -41,12 +41,36 @@ In the current catalog, `deliver-governed-change` is a coordinator skill.
 - Keep shared behavioral rules in `../instructions/`. A rule that applies
   across workflows is an instruction, not a skill category.
 
+## Coordination map
+
+Every coordinator skill carries a `## Coordination map` section near the top of
+its `SKILL.md`. It makes the skill visibly a coordinator and states the
+delegation contract without adding frontmatter or registry keys.
+
+The section is a single Markdown table with one row per phase and these
+columns:
+
+| Column | Meaning |
+| --- | --- |
+| Phase | The named step in the coordinator's sequence |
+| Delegate | The operational skill that owns the phase, or the coordinator itself |
+| Required input | What must exist before the phase can run |
+| Produced output | What the phase hands to the next one |
+| Stop condition | The observable state that means the phase is complete |
+
+Keep it provider-neutral and readable: no runtime-specific syntax, no opaque
+identifiers, and no duplication of the delegate skill's own procedure.
+Operational skills do not carry this section.
+
 ## Canonical-first standardization
 
 New reusable workflows start here, before runtime registration:
 
 1. Define the workflow in `skills/<skill-name>/SKILL.md`, including its
-   trigger, procedure, boundaries, and completion condition.
+   trigger, procedure, boundaries, and completion condition. Classify it as
+   coordinator or operational and record that in
+   [`skills_registry.json`](skills_registry.json); a coordinator skill also
+   carries a `## Coordination map` section.
 2. Put supporting code beside the skill when it is intrinsic to that workflow;
    put it in `agent-control-plane/scripts/` when multiple assets or runtimes
    share it.
