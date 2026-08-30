@@ -50,8 +50,10 @@ unit that gets its own fresh runner and reports its own status check. A
 | `workflow_dispatch` | Manual run from the Actions tab or `gh workflow run`, for diagnostics. |
 
 GitHub registers `workflow_dispatch` only from a workflow's copy on the default
-branch. A workflow whose changes have not reached `main` is therefore dispatched
-against the ref that carries them, not against `main`.
+branch. Dispatching a workflow whose trigger is absent from that copy fails with
+`HTTP 422: Workflow does not have 'workflow_dispatch' trigger`, even when the
+ref being dispatched declares it. Dispatch the ref that carries the trigger
+instead.
 
 There is deliberately **no `paths:` filter**. A path filter looks like an
 optimization, but a required status check that is skipped never reports a
