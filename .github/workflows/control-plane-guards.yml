@@ -1,0 +1,153 @@
+name: Control Plane Guards
+
+# Deterministic enforcement for the Agent Control Plane's drift and integrity
+# guards. Each guard has a documented local equivalent in
+# `platform/agent-control-plane/scripts/README.md`. CI exists so that a
+# forgotten local run cannot let drift reach `main`.
+
+on:
+  # Gate every proposed change to the integration branch. There is deliberately
+  # no `paths:` filter: a required status check must report on every pull
+  # request, and a run skipped by a path filter reports nothing at all, which
+  # leaves the requirement permanently pending instead of passing.
+  pull_request:
+    branches:
+      - main
+  # Backstop for anything that reaches `main` outside a gated pull request.
+  push:
+    branches:
+      - main
+  # Manual trigger for diagnostics and for exercising the workflow directly.
+  workflow_dispatch:
+
+# Least privilege for the whole workflow. The guards only read the checked-out
+# tree, so the job token never needs write scopes, and no secret is referenced.
+#
+# The `pull_request` event (not `pull_request_target`) is deliberate: this
+# workflow checks out and executes pull-request code, including from forks.
+# `pull_request_target` would run that untrusted code in the base repository's
+# context with a writable token and access to secrets.
+permissions:
+  contents: read
+
+# One in-flight run per workflow and ref. A superseded pull-request run is
+# cancelled because only the newest commit's verdict matters; runs on `main`
+# are left to finish so the integration branch keeps a complete record.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # This job ID is the required status check context protecting `main`.
+  # Keep it stable: renaming it silently detaches the branch ruleset that
+  # requires it, and the rule then waits forever on a context nothing reports.
+  #
+  # One job is intentional. All five guards need the same lightweight Python
+  # environment, so a matrix would only multiply setup cost, and one stable
+  # check name is far easier to protect than several.
+  control-plane-guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the repository
+        # actions/checkout v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # The guards read the working tree and resolve the repository root
+          # through `git rev-parse --show-toplevel`. Neither walks history, so
+          # a single-commit checkout supplies everything they need.
+          fetch-depth: 1
+
+      - name: Set up Python from the control-plane project metadata
+        # actions/setup-python v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          # Resolved from `project.requires-python` in the control-plane
+          # package metadata so the YAML never restates a version that could
+          # drift away from the package's own contract.
+          python-version-file: platform/agent-control-plane/pyproject.toml
+          # A cache, not an artifact: it only shortens dependency resolution.
+          # The install step below runs whether or not the cache is warm, so a
+          # cold cache changes run time and never the result.
+          cache: pip
+          cache-dependency-path: platform/agent-control-plane/pyproject.toml
+
+      - name: Install control-plane validation dependencies
+        # Hosted runners start from a clean image with no repository state, so
+        # CI installs everything it needs rather than assuming a maintainer's
+        # local `platform/agent-control-plane/.venv`.
+        run: python -m pip install -e "platform/agent-control-plane[validation]"
+
+      # Each guard is a separately named step so a failing run names the broken
+      # contract in the job list without anyone reading the log.
+      - name: Guard - agent discovery layout
+        id: guard_discovery_layout
+        run: scripts/check-agent-discovery-layout.sh
+
+      - name: Guard - control-plane tests
+        id: guard_tests
+        run: python -m unittest discover -s platform/agent-control-plane/tests
+
+      - name: Guard - asset registries
+        id: guard_asset_registries
+        run: python platform/agent-control-plane/scripts/validate_asset_registries.py
+
+      - name: Guard - contract schemas
+        id: guard_contracts
+        run: python platform/agent-control-plane/scripts/validate_contracts.py
+
+      - name: Guard - instruction adapter freshness
+        id: guard_instruction_adapters
+        run: python platform/agent-control-plane/scripts/generate_instruction_adapters.py --check
+
+      - name: Summarize the guard run
+        # `always()` so a failed run still publishes the summary. Without it,
+        # the step inherits the default `success()` condition and the failure
+        # readers most need would be the one case that produces no summary.
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          DISCOVERY_LAYOUT: ${{ steps.guard_discovery_layout.outcome }}
+          TESTS: ${{ steps.guard_tests.outcome }}
+          ASSET_REGISTRIES: ${{ steps.guard_asset_registries.outcome }}
+          CONTRACTS: ${{ steps.guard_contracts.outcome }}
+          INSTRUCTION_ADAPTERS: ${{ steps.guard_instruction_adapters.outcome }}
+        run: |
+          set -eu
+
+          # A guard step that never ran reports an empty outcome, which reads
+          # as a blank table cell. Name that state instead.
+          outcome() {
+            if [ -z "$1" ]; then
+              echo "not reached"
+            else
+              echo "$1"
+            fi
+          }
+
+          {
+            echo "## Control plane guards"
+            echo
+            echo "Job status: \`${JOB_STATUS}\`"
+            echo
+            echo "| Guard | Outcome | Local equivalent |"
+            echo "| --- | --- | --- |"
+            echo "| Agent discovery layout | $(outcome "${DISCOVERY_LAYOUT}") | \`scripts/check-agent-discovery-layout.sh\` |"
+            echo "| Control-plane tests | $(outcome "${TESTS}") | \`python -m unittest discover -s platform/agent-control-plane/tests\` |"
+            echo "| Asset registries | $(outcome "${ASSET_REGISTRIES}") | \`python platform/agent-control-plane/scripts/validate_asset_registries.py\` |"
+            echo "| Contract schemas | $(outcome "${CONTRACTS}") | \`python platform/agent-control-plane/scripts/validate_contracts.py\` |"
+            echo "| Instruction adapter freshness | $(outcome "${INSTRUCTION_ADAPTERS}") | \`python platform/agent-control-plane/scripts/generate_instruction_adapters.py --check\` |"
+            echo
+
+            if [ "${JOB_STATUS}" = "success" ]; then
+              echo "Every control-plane guard passed for this commit."
+            else
+              echo "A guard did not pass. Open the failing step above for its"
+              echo "exit code and output, then reproduce it with the local"
+              echo "equivalent in the same row. A stale instruction adapter is"
+              echo "fixed by rerunning"
+              echo "\`python platform/agent-control-plane/scripts/generate_instruction_adapters.py\`"
+              echo "and committing the regenerated files."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
