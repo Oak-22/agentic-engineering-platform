@@ -73,9 +73,12 @@ def resolve_snapshot_root(
     Resolved through local_store.py's single StoreSpec definition — a
     snapshot may be captured from Claude Code or Codex, so this must not
     nest under a single provider's own directory."""
-    return _local_store.store_root(
-        "session-snapshots", project_dir=project_dir, base=snapshot_base
+    if project_dir is None:
+        raise ValueError("project_dir is required for session snapshot placement")
+    root, _ = _local_store.ensure_store(
+        "session-snapshots", project_dir=project_dir, base=snapshot_base, create=True
     )
+    return root
 
 
 def snapshot_project_view(repo_root: Path, canonical_root: Path) -> Path:

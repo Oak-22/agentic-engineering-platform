@@ -25,9 +25,8 @@ class ResolveArchiveRootTests(unittest.TestCase):
             os.environ.pop("AEP_ARTIFACT_ARCHIVE_DIR", None)
             os.environ.pop("XDG_DATA_HOME", None)
             root = archiver.resolve_archive_root(project_dir=Path("/repo/myHealth"))
-        self.assertEqual(
-            root, Path.home() / ".local" / "share" / "aep" / "artifact-archive" / "myHealth"
-        )
+        self.assertEqual(root.parent, Path.home() / ".local" / "share" / "aep" / "artifact-archive")
+        self.assertTrue(root.name.startswith("myhealth--"))
 
 
 class ArchiveArtifactPublishTests(unittest.TestCase):
@@ -100,7 +99,7 @@ class ArchiveArtifactPublishTests(unittest.TestCase):
             expected_destination = (
                 archive_base
                 / archiver.DEFAULT_ARCHIVE_DIRNAME
-                / "repo-checkout"
+                / archiver._local_store.repository_identity(project_dir).partition_name
                 / "diagram.html"
             )
             self.assertTrue(expected_destination.is_file())

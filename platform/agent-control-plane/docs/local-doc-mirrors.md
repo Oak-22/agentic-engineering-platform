@@ -10,10 +10,10 @@ but they differ in trigger, scope, and whether the result is tracked here.
 | Mechanism | Trigger | Destination | Tracked in repo? |
 | --- | --- | --- | --- |
 | [Provider-docs mirror](#provider-docs-mirror) | `SessionStart` hook, automatic | `$TMPDIR/aep-provider-docs/claude-code-manual.md` (OS per-user temp dir; **not** `/tmp/` on macOS) | No |
-| [Artifact archive](#artifact-archive) | `PostToolUse` hook on the `Artifact` tool, automatic | `$XDG_DATA_HOME/aep/artifact-archive/<project-slug>/` | No |
+| [Artifact archive](#artifact-archive) | `PostToolUse` hook on the `Artifact` tool, automatic | `$XDG_DATA_HOME/aep/artifact-archive/<repository-name>--<identity-hash>/` | No |
 | [Artifact promotion](#artifact-promotion) | Manual, deliberate | `docs/diagrams/` | Yes |
-| [Show-me viewing cache](#show-me-viewing-cache) | Manual, deliberate — the `show-me` skill | `$XDG_DATA_HOME/aep/engineering-knowledge-base/<project-slug>/` | No |
-| [Session snapshots](#session-snapshots) | Manual, deliberate — the `capture-session-trail` skill | `$XDG_DATA_HOME/aep/session-snapshots/<project-slug>/` | No |
+| [Show-me viewing cache](#show-me-viewing-cache) | Manual, deliberate — the `show-me` skill | `$XDG_DATA_HOME/aep/show-me-captures/<repository-name>--<identity-hash>/` | No |
+| [Session snapshots](#session-snapshots) | Manual, deliberate — the `capture-session-trail` skill | `$XDG_DATA_HOME/aep/session-snapshots/<repository-name>--<identity-hash>/` | No |
 | [Public-skills store](#public-skills-store) | Manual, deliberate — authored or installed by the developer | `$XDG_DATA_HOME/aep/skills/` | No |
 
 ## What `.local-mirrors/` is for
@@ -105,7 +105,7 @@ as `.local-mirrors/instruction-evidence` before its own first write.
 `platform/agent-control-plane/scripts/archive_artifact_publish.py`, wired
 in as a `PostToolUse` hook matching the `Artifact` tool in
 `.claude/settings.json`, copies every file the `Artifact` tool publishes or
-republishes to `$XDG_DATA_HOME/aep/artifact-archive/<project-slug>/<filename>`
+republishes to `$XDG_DATA_HOME/aep/artifact-archive/<repository-name>--<identity-hash>/<filename>`
 (default `~/.local/share/aep/...`, override via `AEP_ARTIFACT_ARCHIVE_DIR`).
 Republishing the same path overwrites the archive copy — it mirrors
 current state, not a version history.
@@ -183,7 +183,7 @@ The `show-me` skill (`platform/agent-control-plane/agent-assets/skills/show-me/`
 writes the rendered explanation of a mechanism under discussion (and, when
 produced, the published Artifact HTML) to a machine-local, provider-neutral
 cache via `resolve_capture_root.py`, under
-`$XDG_DATA_HOME/aep/show-me-captures/<project-slug>/` (default
+`$XDG_DATA_HOME/aep/show-me-captures/<repository-name>--<identity-hash>/` (default
 `~/.local/share/aep/...`, override via `AEP_SHOW_ME_CAPTURE_DIR`). This
 directory name is deliberately distinct from the Engineering Knowledge Base
 (EKB) below — the two must not be confused with each other on disk.
@@ -230,7 +230,7 @@ The `capture-session-trail` skill
 (`platform/agent-control-plane/agent-assets/skills/capture-session-trail/`)
 renders one session's message text **and** per-turn tool-call summaries
 into a Markdown snapshot at
-`$XDG_DATA_HOME/aep/session-snapshots/<project-slug>/<runtime>-<session-id>.md`
+`$XDG_DATA_HOME/aep/session-snapshots/<repository-name>--<identity-hash>/<runtime>-<session-id>.md`
 (override via `AEP_SESSION_SNAPSHOT_DIR`), with a repo-local view at
 `.local-mirrors/session-snapshots` following the same symlink pattern as
 the show-me cache above.

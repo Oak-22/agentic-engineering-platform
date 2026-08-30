@@ -13,13 +13,9 @@ This is the same port discipline
 one shared definition per concern, with purpose-built consumers layered on
 top, rather than each consumer re-deriving the namespace independently.
 
-Consumers today: `archive_artifact_publish.py`, `resolve_capture_root.py`,
+Consumers today: `instruction_manifest_hook.py`,
+`archive_artifact_publish.py`, `resolve_capture_root.py`,
 `render_session_snapshot.py`, and the view-only public-skills store.
-`instruction_manifest_hook.py` still computes the namespace inline — it
-scopes by sha256 of the git remote, treats its env var as a full store path
-rather than a namespace base, and is live-writing on every prompt, so it
-needs `StoreSpec` extended with `env_semantics` and `scope` fields first.
-Migrating it is separate, deliberate work, tracked apart from this module.
 
 `provider-docs` is deliberately absent: it caches under the OS temp directory
 rather than this namespace, because it is refetchable scratch rather than
@@ -29,11 +25,21 @@ retained state.
 from __future__ import annotations
 
 import os
+import hashlib
+import json
+import re
+import subprocess
+import tempfile
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 DEFAULT_NAMESPACE = "aep"
 MIRROR_DIRNAME = ".local-mirrors"
+IDENTITY_HASH_LENGTH = 24
+REPOSITORY_METADATA = "repository.json"
+REPOSITORY_METADATA_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -52,6 +58,7 @@ class StoreSpec:
     env_var: str | None
     project_scoped: bool
     summary: str
+    env_is_store_root: bool = False
 
 
 STORES: dict[str, StoreSpec] = {
@@ -66,6 +73,7 @@ STORES: dict[str, StoreSpec] = {
         env_var="AEP_INSTRUCTION_MANIFEST_DIR",
         project_scoped=True,
         summary="Per-prompt instruction-load evidence ledgers, keyed by runtime and session.",
+        env_is_store_root=True,
     ),
     "show-me-captures": StoreSpec(
         dirname="show-me-captures",
@@ -116,9 +124,173 @@ def storage_root(*, base: Path | None = None, env_var: str | None = None) -> Pat
     return Path(xdg).expanduser() / DEFAULT_NAMESPACE
 
 
-def project_slug(project_dir: Path | None) -> str:
-    """Directory name used to scope a per-project store."""
-    return project_dir.name if project_dir else "unknown-project"
+@dataclass(frozen=True)
+class RepositoryIdentity:
+    """Stable identity plus the readable, non-authoritative display name."""
+
+    readable_name: str
+    repository_id: str
+    identity_hash: str
+    partition_name: str
+    normalized_remote: str | None
+    workspace_path: str
+
+
+def _git_output(root: Path, *arguments: str) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", *arguments], cwd=root, check=False, capture_output=True, text=True
+        )
+    except OSError:
+        return ""
+    return completed.stdout.strip() if completed.returncode == 0 else ""
+
+
+DEFAULT_REMOTE_PORTS = {"ssh": "22", "https": "443", "http": "80", "git": "9418"}
+
+
+def canonical_authority(scheme: str, authority: str) -> str:
+    """Lowercase the host, keeping a port only when it identifies the server.
+
+    Two instances on one host behind different ports are different
+    repositories, so a non-default port belongs in the identity. It is
+    bracketed to keep the SCP-form ':' separator unambiguous and to guarantee
+    a ported identity can never collide with a portless one. A default or
+    absent port renders exactly as before, so existing partitions keep their
+    hashes.
+    """
+    if authority.startswith("["):
+        # IPv6 literal, which carries its own brackets and may be followed
+        # by :port. Splitting on the first ':' here would truncate the address.
+        literal, _, remainder = authority.partition("]")
+        host, port = f"{literal}]", remainder.lstrip(":")
+    else:
+        host, _, port = authority.partition(":")
+    host = host.lower()
+    if port and port != DEFAULT_REMOTE_PORTS.get(scheme.lower()):
+        return f"[{host}:{port}]"
+    return host
+
+
+def normalize_remote(remote: str) -> str:
+    """Return a credential-free repository identity for common Git URL forms."""
+    value = remote.strip()
+    if not value:
+        return ""
+    # SCP-like SSH form: user@host:owner/repo.git. The host needs at least two
+    # characters: a single letter before ':' is a Windows drive, so `C:/repo`
+    # is a local path and must not be read as a host named `c`.
+    match = re.match(r"^(?:[^@/]+@)?([^:/]{2,}):(.+)$", value)
+    if match and "://" not in value:
+        host, path = match.groups()
+        clean_path = path.removesuffix(".git").strip("/")
+        return f"git@{host.lower()}:{clean_path}.git"
+    match = re.match(r"^([a-zA-Z][a-zA-Z0-9+.-]*)://([^/]+)/(.*)$", value)
+    if match:
+        scheme, authority, path = match.groups()
+        host = canonical_authority(scheme, authority.rsplit("@", 1)[-1])
+        clean_path = path.removesuffix(".git").strip("/")
+        return f"git@{host}:{clean_path}.git"
+    return value.removesuffix(".git").rstrip("/")
+
+
+def normalize_readable_name(value: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-._")
+    return normalized.lower() or "unknown-project"
+
+
+def repository_identity(project_dir: Path) -> RepositoryIdentity:
+    root = project_dir.expanduser().resolve()
+    remote = normalize_remote(_git_output(root, "config", "--get", "remote.origin.url"))
+    if remote:
+        repository_id = remote
+        raw_name = remote.rsplit("/", 1)[-1].removesuffix(".git")
+    else:
+        # A path-derived fallback cannot unify separate no-remote clones, but it
+        # is deterministic and, unlike a directory-name slug, does not silently
+        # alias unrelated repositories with the same basename.
+        repository_id = f"local:{root.as_posix()}"
+        raw_name = root.name
+    readable = normalize_readable_name(raw_name)
+    digest = hashlib.sha256(repository_id.encode("utf-8")).hexdigest()[:IDENTITY_HASH_LENGTH]
+    return RepositoryIdentity(
+        readable_name=readable,
+        repository_id=repository_id,
+        identity_hash=digest,
+        partition_name=f"{readable}--{digest}",
+        normalized_remote=remote or None,
+        workspace_path=str(root),
+    )
+
+
+def repository_metadata(identity: RepositoryIdentity, *, now: str | None = None) -> dict[str, Any]:
+    observed = now or datetime.now(timezone.utc).isoformat()
+    return {
+        "schemaVersion": REPOSITORY_METADATA_SCHEMA_VERSION,
+        "readableRepositoryName": identity.readable_name,
+        "repositoryId": identity.repository_id,
+        "repositoryIdentityHash": identity.identity_hash,
+        "partitionName": identity.partition_name,
+        "normalizedRemote": identity.normalized_remote,
+        "lastObservedWorkspacePath": identity.workspace_path,
+        "lastObservedAt": observed,
+    }
+
+
+def write_json_atomically(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    # A failing os.replace would otherwise strand the temporary beside the
+    # store; unlink is a no-op once the replace has consumed it.
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.",
+            suffix=".tmp", delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(json.dumps(value, indent=2, sort_keys=True) + "\n")
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def ensure_repository_metadata(root: Path, identity: RepositoryIdentity) -> Path:
+    path = root / REPOSITORY_METADATA
+    current: dict[str, Any] = {}
+    try:
+        current = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        pass
+    value = repository_metadata(identity)
+    value["createdAt"] = current.get("createdAt", value["lastObservedAt"])
+    write_json_atomically(path, value)
+    return path
+
+
+def validate_repository_metadata(root: Path, identity: RepositoryIdentity) -> list[str]:
+    errors: list[str] = []
+    if root.name != identity.partition_name:
+        errors.append(
+            f"partition {root.name!r} does not match canonical {identity.partition_name!r}"
+        )
+    try:
+        value = json.loads((root / REPOSITORY_METADATA).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return [f"repository metadata is unreadable: {error}"]
+    expected = {
+        "readableRepositoryName": identity.readable_name,
+        "repositoryId": identity.repository_id,
+        "repositoryIdentityHash": identity.identity_hash,
+        "partitionName": identity.partition_name,
+        "normalizedRemote": identity.normalized_remote,
+    }
+    for key, expected_value in expected.items():
+        if value.get(key) != expected_value:
+            errors.append(f"metadata {key} does not match canonical repository identity")
+    return errors
 
 
 def store_root(
@@ -134,9 +306,15 @@ def store_root(
     except KeyError:
         raise UnknownStore(name) from None
 
-    root = storage_root(base=base, env_var=spec.env_var) / spec.dirname
+    configured = os.environ.get(spec.env_var) if spec.env_var else None
+    if base is None and configured and spec.env_is_store_root:
+        root = Path(configured).expanduser()
+    else:
+        root = storage_root(base=base, env_var=spec.env_var) / spec.dirname
     if spec.project_scoped:
-        root = root / project_slug(project_dir)
+        if project_dir is None:
+            raise ValueError(f"project_dir is required for project-scoped store {name!r}")
+        root = root / repository_identity(project_dir).partition_name
     return root
 
 
@@ -182,6 +360,9 @@ def ensure_store(
     canonical = store_root(name, project_dir=project_dir, base=base)
     if create:
         canonical.mkdir(parents=True, exist_ok=True)
+        if STORES[name].project_scoped:
+            assert project_dir is not None
+            ensure_repository_metadata(canonical, repository_identity(project_dir))
     if repo_root is None:
         return canonical, None
     return canonical, project_view(repo_root, name, canonical)

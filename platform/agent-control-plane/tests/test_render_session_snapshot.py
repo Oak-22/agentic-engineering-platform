@@ -79,21 +79,18 @@ class PlacementTests(unittest.TestCase):
             os.environ.pop("AEP_SESSION_SNAPSHOT_DIR", None)
             os.environ.pop("XDG_DATA_HOME", None)
             root = snapshot.resolve_snapshot_root(project_dir=Path("/repo/myHealth"))
-        self.assertEqual(
-            root,
-            Path.home() / ".local" / "share" / "aep" / "session-snapshots" / "myHealth",
-        )
+        self.assertEqual(root.parent, Path.home() / ".local" / "share" / "aep" / "session-snapshots")
+        self.assertTrue(root.name.startswith("myhealth--"))
 
     def test_env_override_wins(self):
         with patch.dict(os.environ, {"AEP_SESSION_SNAPSHOT_DIR": "/tmp/custom"}):
             root = snapshot.resolve_snapshot_root(project_dir=Path("/repo/aep"))
-        self.assertEqual(root, Path("/tmp/custom") / "session-snapshots" / "aep")
+        self.assertEqual(root.parent, Path("/tmp/custom") / "session-snapshots")
+        self.assertTrue(root.name.startswith("aep--"))
 
-    def test_missing_project_dir_falls_back_to_placeholder_slug(self):
-        root = snapshot.resolve_snapshot_root(
-            project_dir=None, snapshot_base=Path("/base")
-        )
-        self.assertEqual(root.name, "unknown-project")
+    def test_missing_project_dir_is_rejected(self):
+        with self.assertRaises(ValueError):
+            snapshot.resolve_snapshot_root(project_dir=None, snapshot_base=Path("/base"))
 
     def test_filename_is_stable_per_session_not_per_capture(self):
         name = snapshot.snapshot_filename(runtime="codex", session_id="dead-beef")

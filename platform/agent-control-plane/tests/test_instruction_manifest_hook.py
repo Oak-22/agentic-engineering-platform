@@ -13,6 +13,7 @@ SCRIPTS = REPOSITORY_ROOT / "platform" / "agent-control-plane" / "scripts"
 HOOK = SCRIPTS / "instruction_manifest_hook.py"
 
 sys.path.insert(0, str(SCRIPTS))
+import local_store  # noqa: E402
 import validate_contracts  # noqa: E402
 
 SKILL_ID = "deliver-governed-change"
@@ -29,19 +30,22 @@ INSTRUCTION_FILE = (
 def expected_repository_id(root):
     """Mirror `instruction_manifest_hook.repository_id` for this checkout.
 
-    The hook keys evidence by the clone's `origin` URL, so the value depends
-    on how the checkout was made: SSH on a maintainer's machine, HTTPS under
-    `actions/checkout`, and the directory-name fallback in a clone with no
-    remote. Reading it keeps the assertion about which remote the hook
-    consults instead of which machine happens to be running the test."""
+    The hook keys evidence by the clone's `origin` URL, normalized so that SSH
+    and HTTPS clones of one repository resolve to a single identity. The raw URL
+    depends on how the checkout was made: SSH on a maintainer's machine, HTTPS
+    under `actions/checkout`, and a path-derived fallback in a clone with no
+    remote. Reading and normalizing it keeps the assertion about which remote
+    the hook consults instead of which machine happens to be running the test.
+    Normalization comes from `local_store` rather than a second copy of the
+    rules here; `test_local_store.py` covers that function's own behavior."""
     completed = subprocess.run(
         ["git", "-C", str(root), "config", "--get", "remote.origin.url"],
         capture_output=True,
         text=True,
         check=False,
     )
-    remote = completed.stdout.strip()
-    return remote or f"git:{root.name}"
+    remote = local_store.normalize_remote(completed.stdout.strip())
+    return remote or f"local:{root.resolve().as_posix()}"
 
 
 EXPECTED_REPOSITORY_ID = expected_repository_id(REPOSITORY_ROOT)

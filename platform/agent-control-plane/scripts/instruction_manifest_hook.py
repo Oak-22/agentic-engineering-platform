@@ -20,6 +20,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import importlib.util
 from typing import Any, Callable, Iterator, TextIO
 
 CONTRACT_PATH = (
@@ -101,6 +102,23 @@ STORE_INDEX = {
 }
 
 
+def _load_local_store():
+    cached = sys.modules.get("local_store")
+    if cached is not None:
+        return cached
+    path = Path(__file__).resolve().parent / "local_store.py"
+    spec = importlib.util.spec_from_file_location("local_store", path)
+    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+        raise RuntimeError(f"cannot load local_store at {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_local_store = _load_local_store()
+
+
 def repository_root(start: Path) -> Path:
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -136,8 +154,7 @@ def display_path(path_value: str, root: Path) -> str:
 
 
 def repository_id(root: Path) -> str:
-    remote = git_output(root, "config", "--get", "remote.origin.url")
-    return remote or f"git:{root.name}"
+    return _local_store.repository_identity(root).repository_id
 
 
 def worktree_state(root: Path, relative_path: str) -> str:
@@ -200,13 +217,9 @@ def evidence_record(
 
 
 def storage_root() -> Path:
-    configured = os.environ.get("AEP_INSTRUCTION_MANIFEST_DIR")
-    default_root = (
-        Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-        / "aep"
-        / "instruction-evidence"
-    )
-    root = Path(configured) if configured else default_root
+    root = _local_store.store_root(
+        "instruction-evidence", project_dir=repository_root(Path.cwd())
+    ).parent
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     return root
 
@@ -233,18 +246,11 @@ def write_json_atomically(path: Path, value: dict[str, Any]) -> None:
 
 
 def project_storage_root(root: Path) -> Path:
-    project_key = hashlib.sha256(repository_id(root).encode()).hexdigest()[:24]
-    project_root = storage_root() / project_key
-    project_root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    metadata = project_root / "repository.json"
-    if not metadata.exists():
-        write_json_atomically(
-            metadata,
-            {
-                "repositoryId": repository_id(root),
-                "projectKey": project_key,
-            },
-        )
+    identity = _local_store.repository_identity(root)
+    project_key = identity.identity_hash
+    project_root, _ = _local_store.ensure_store(
+        "instruction-evidence", project_dir=root, create=True
+    )
     index = project_root / "store-index.json"
     expected_index = {
         **STORE_INDEX,

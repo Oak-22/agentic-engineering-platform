@@ -19,6 +19,9 @@ schemas.
 - [`instruction-evidence-store.schema.json`](instruction-evidence-store.schema.json)
   describes the generated project partition, its session-ledger files, and
   their retention classes. See the [instruction evidence store guide](../docs/instruction-evidence-store.md).
+- [`repository-identity.schema.json`](repository-identity.schema.json)
+  validates the shared repository metadata generated in every project-scoped
+  machine-local AEP store.
 
 ## Instruction evidence and citations
 

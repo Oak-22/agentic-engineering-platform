@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -49,13 +50,15 @@ class StoreRootTests(unittest.TestCase):
         root = store.store_root("public-skills", project_dir=Path("/repo/aep"), base=Path("/b"))
         self.assertEqual(root, Path("/b") / "skills")
 
-    def test_project_scoped_store_appends_the_project_slug(self):
+    def test_project_scoped_store_appends_readable_stable_partition(self):
         root = store.store_root("show-me-captures", project_dir=Path("/repo/myHealth"), base=Path("/b"))
-        self.assertEqual(root, Path("/b") / "show-me-captures" / "myHealth")
+        identity = store.repository_identity(Path("/repo/myHealth"))
+        self.assertEqual(root, Path("/b") / "show-me-captures" / identity.partition_name)
+        self.assertTrue(root.name.startswith("myhealth--"))
 
-    def test_project_scoped_store_without_project_dir_uses_placeholder(self):
-        root = store.store_root("session-snapshots", base=Path("/b"))
-        self.assertEqual(root.name, "unknown-project")
+    def test_project_scoped_store_requires_project_dir(self):
+        with self.assertRaises(ValueError):
+            store.store_root("session-snapshots", base=Path("/b"))
 
     def test_unknown_store_raises_and_names_the_registry(self):
         with self.assertRaises(store.UnknownStore) as caught:
@@ -142,6 +145,89 @@ class EnsureStoreTests(unittest.TestCase):
             )
             self.assertEqual(view, repo / ".local-mirrors" / "public-skills")
             self.assertEqual(view.resolve(), canonical.resolve())
+
+    def test_project_store_writes_matching_repository_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "Readable Repo"
+            repo.mkdir()
+            canonical, _ = store.ensure_store(
+                "show-me-captures", project_dir=repo, base=Path(tmp) / "data", create=True
+            )
+            metadata = __import__("json").loads(
+                (canonical / "repository.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["partitionName"], canonical.name)
+            self.assertEqual(metadata["readableRepositoryName"], "readable-repo")
+            self.assertEqual(metadata["repositoryIdentityHash"], canonical.name.rsplit("--", 1)[1])
+            self.assertEqual(store.validate_repository_metadata(canonical, store.repository_identity(repo)), [])
+
+
+class RepositoryIdentityTests(unittest.TestCase):
+    def test_remote_forms_normalize_without_credentials(self):
+        expected = "git@github.com:Owner/repo.git"
+        self.assertEqual(store.normalize_remote("git@github.com:Owner/repo.git"), expected)
+        self.assertEqual(store.normalize_remote("https://token@github.com/Owner/repo.git"), expected)
+        self.assertNotIn("token", store.normalize_remote("https://token@github.com/Owner/repo.git"))
+
+    def test_windows_drive_letter_is_a_path_not_a_host(self):
+        """`C:` is a drive; reading it as a host invents `git@c:repo.git`."""
+        self.assertEqual(store.normalize_remote("C:/repo"), "C:/repo")
+        self.assertEqual(store.normalize_remote("C:\\repo"), "C:\\repo")
+        self.assertEqual(store.normalize_remote("/plain/local/path"), "/plain/local/path")
+
+    def test_non_default_port_distinguishes_two_servers(self):
+        """Dropping the port would alias separate instances into one store."""
+        first = store.normalize_remote("https://git.example.com:8443/owner/repo.git")
+        second = store.normalize_remote("https://git.example.com:9443/owner/repo.git")
+        self.assertNotEqual(first, second)
+        self.assertIn("8443", first)
+
+    def test_default_port_matches_the_portless_form(self):
+        portless = store.normalize_remote("https://git.example.com/owner/repo.git")
+        self.assertEqual(store.normalize_remote("https://git.example.com:443/owner/repo.git"), portless)
+        self.assertEqual(
+            store.normalize_remote("ssh://git@github.com:22/Owner/repo.git"),
+            store.normalize_remote("ssh://git@github.com/Owner/repo.git"),
+        )
+
+    def test_ipv6_literal_survives_normalization(self):
+        """Splitting the authority on its first ':' would truncate the address."""
+        self.assertIn("::1", store.normalize_remote("https://[::1]:8443/owner/repo.git"))
+
+    def test_established_remote_forms_keep_their_identity(self):
+        """Guards the stored partitions: a changed identity orphans them."""
+        expected = "git@github.com:Oak-22/agentic-engineering-platform.git"
+        for form in (
+            "git@github.com:Oak-22/agentic-engineering-platform.git",
+            "https://github.com/Oak-22/agentic-engineering-platform",
+            "ssh://git@github.com/Oak-22/agentic-engineering-platform.git",
+        ):
+            with self.subTest(form=form):
+                self.assertEqual(store.normalize_remote(form), expected)
+
+    def test_same_remote_different_checkout_names_has_same_partition(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            roots = [Path(tmp) / "first", Path(tmp) / "renamed"]
+            for root in roots:
+                root.mkdir()
+                # check=True reports a failing git directly; without it the run
+                # surfaces later as an unexplained partition mismatch, since
+                # remoteless roots fall back to their differing paths.
+                subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+                subprocess.run(
+                    ["git", "-C", str(root), "remote", "add", "origin",
+                     "git@github.com:Owner/repo.git"],
+                    check=True,
+                )
+            self.assertEqual(
+                store.repository_identity(roots[0]).partition_name,
+                store.repository_identity(roots[1]).partition_name,
+            )
+
+    def test_no_remote_same_name_paths_do_not_collide(self):
+        first = store.repository_identity(Path("/one/repo"))
+        second = store.repository_identity(Path("/two/repo"))
+        self.assertNotEqual(first.identity_hash, second.identity_hash)
 
 
 if __name__ == "__main__":
