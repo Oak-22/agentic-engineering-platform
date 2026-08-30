@@ -4,6 +4,30 @@ Operational scripts in this directory implement deterministic Agent Control
 Plane behavior. Runtime adapters and governed workflows invoke them; maintainers
 can also run them directly when diagnosing or verifying that behavior.
 
+## Continuous enforcement
+
+`.github/workflows/control-plane-guards.yml` runs the control-plane guards on
+every pull request to `main`, on pushes to `main`, and on manual dispatch. Its
+job ID, `control-plane-guards`, is the required status check that the `main`
+branch ruleset enforces, so a guard failure blocks merge rather than depending
+on someone remembering a local command.
+
+| Guard | Local equivalent |
+| --- | --- |
+| Agent discovery layout | `scripts/check-agent-discovery-layout.sh` |
+| Control-plane tests | `python -m unittest discover -s platform/agent-control-plane/tests` |
+| Asset registries | `validate_asset_registries.py` |
+| Contract schemas | `validate_contracts.py` |
+| Instruction adapter freshness | `generate_instruction_adapters.py --check` |
+
+Use the maintainer virtualenv described in the
+[component README](../README.md) to run these locally. The workflow's job
+summary pairs each guard's outcome with the command that reproduces it.
+
+[`../docs/control-plane-guards-ci.md`](../docs/control-plane-guards-ci.md)
+explains the workflow's triggers, permissions, caching, concurrency, required
+check, Copilot advisory review, and troubleshooting commands.
+
 ## Protect the integration branch
 
 Enable the repository-owned Git hooks once per clone:
