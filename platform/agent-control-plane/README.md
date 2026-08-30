@@ -19,10 +19,8 @@ human intention
   -> authorized agent behavior
 ```
 
-Inference Telemetry and Developer Learning remain peer platform pillars that
-observe outcomes and feed validated lessons back into this control surface.
-Shared contracts and schemas define concrete interfaces between the three
-pillars without becoming another control plane.
+The root [Platform Model](../../README.md#platform-model) owns the cross-pillar
+producer and analytics boundary.
 
 The control plane organizes agent customization from governing intent through
 runtime operation:

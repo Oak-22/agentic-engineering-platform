@@ -10,6 +10,9 @@ This project builds an end-to-end observability platform that transforms raw exe
 
 Rather than focusing on model development, the platform emphasizes the engineering systems surrounding production AI deployments.
 
+The root [Platform Model](../../README.md#platform-model) owns the cross-pillar
+producer and analytics boundary.
+
 ---
 
 ## Engineering Objectives
@@ -42,8 +45,7 @@ Rather than focusing on model development, the platform emphasizes the engineeri
 
 ## High-Level Architecture
 
-LLM Query (CLI, IDE Chat, Desktop App, etc)
-(initial telemetry producer)
+Telemetry producers
         │
         ▼
 Telemetry SDK
