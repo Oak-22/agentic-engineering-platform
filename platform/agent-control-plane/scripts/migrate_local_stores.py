@@ -20,6 +20,15 @@ PROJECT_STORES = tuple(
 )
 
 
+RUN_MANIFEST = "run.json"
+
+# experiment-runs is the only store whose pre-registration layout nests content
+# directly under the store root, as <experiment>/<run-id>/, with no partition
+# segment for the hash-only and slug-only probes to find. Its runs record the
+# repository they ran against, so they are attributed from that record.
+EVIDENCE_ATTRIBUTED_STORES = frozenset({"experiment-runs"})
+
+
 @dataclass(frozen=True)
 class MigrationEntry:
     store: str
@@ -29,6 +38,7 @@ class MigrationEntry:
     fileCount: int
     collisions: tuple[str, ...]
     action: str
+    reason: str = ""
 
 
 def file_digest(path: Path) -> str:
@@ -77,6 +87,44 @@ def compatible_file(relative: str, source: Path, target: Path) -> bool:
     return False
 
 
+def claimed_partition(entry: Path) -> str | None:
+    """Partition the runs beneath `entry` claim, from their own manifests.
+
+    Returns None when no run records a readable repository, or when runs
+    disagree. Attribution has to come from the run's own record: treating
+    unpartitioned content as belonging to whichever repository happens to be
+    migrating is the silent misattribution this partitioning exists to
+    prevent, and it is unrecoverable once two repositories' runs are merged.
+    """
+    claimed = set()
+    for manifest in sorted(entry.rglob(RUN_MANIFEST)):
+        try:
+            recorded = json.loads(manifest.read_text(encoding="utf-8")).get("repo")
+        except (OSError, json.JSONDecodeError, AttributeError):
+            continue
+        if recorded:
+            claimed.add(local_store.repository_identity(Path(recorded)).partition_name)
+    return claimed.pop() if len(claimed) == 1 else None
+
+
+def unpartitioned_entries(store_parent: Path, target: Path) -> list[Path]:
+    """Directories sitting directly under the store root, outside any partition.
+
+    A partition name always carries the `--` separator, so anything without one
+    predates registration. The target itself is excluded.
+    """
+    if not store_parent.is_dir():
+        return []
+    return sorted(
+        path
+        for path in store_parent.iterdir()
+        if path.is_dir()
+        and not path.is_symlink()
+        and path != target
+        and "--" not in path.name
+    )
+
+
 def plan(repo_root: Path, namespace: Path | None = None) -> dict:
     identity = local_store.repository_identity(repo_root)
     entries: list[MigrationEntry] = []
@@ -123,12 +171,56 @@ def plan(repo_root: Path, namespace: Path | None = None) -> dict:
                     ),
                 )
             )
+        if name in EVIDENCE_ATTRIBUTED_STORES:
+            entries.extend(
+                unpartitioned_entry(name, source, target, identity)
+                for source in unpartitioned_entries(store_parent, target)
+            )
     return {
         "schemaVersion": 1,
         "repository": asdict(identity),
         "entries": [asdict(entry) for entry in entries],
-        "blocked": any(entry.collisions for entry in entries),
+        "blocked": any(entry.action == "blocked" for entry in entries),
     }
+
+
+def unpartitioned_entry(
+    store: str, source: Path, target: Path, identity
+) -> MigrationEntry:
+    """Classify one pre-registration directory against this repository."""
+    claimed = claimed_partition(source)
+    if claimed is None:
+        reason = (
+            f"no run manifest under {source.name} records a repository, or its "
+            "runs disagree; attribute it by hand rather than by assumption"
+        )
+    elif claimed != identity.partition_name:
+        reason = (
+            f"{source.name} records repository {claimed}, not "
+            f"{identity.partition_name}"
+        )
+    else:
+        reason = ""
+
+    destination = target / source.name
+    source_files, target_files = files_under(source), files_under(destination)
+    already_copied = bool(source_files) and all(
+        relative in target_files
+        and compatible_file(relative, path, target_files[relative])
+        for relative, path in source_files.items()
+    )
+    return MigrationEntry(
+        store=store,
+        source=str(source),
+        target=str(destination),
+        sourceKind="unpartitioned",
+        fileCount=len(source_files),
+        collisions=(),
+        action=(
+            "blocked" if reason else "already-migrated" if already_copied else "merge"
+        ),
+        reason=reason,
+    )
 
 
 def execute(plan_value: dict) -> None:

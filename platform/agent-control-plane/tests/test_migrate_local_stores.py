@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -122,6 +123,109 @@ class MigrationTests(unittest.TestCase):
             self.assertFalse(migration.starts_with(divergent, short, chunk_size=4))
             self.assertFalse(migration.starts_with(short, extended, chunk_size=4))
             self.assertTrue(migration.starts_with(short, short, chunk_size=4))
+
+
+class ExperimentRunsMigrationTests(unittest.TestCase):
+    """The experiment-runs store's pre-registration layout nests content under
+    the store root with no partition, so it is attributed from run manifests
+    rather than from whichever repository happens to be migrating."""
+
+    def write_run(self, root: Path, experiment: str, run: str, repo: str | None) -> Path:
+        run_dir = root / "experiments" / experiment / run
+        run_dir.mkdir(parents=True)
+        (run_dir / "comparison.md").write_text(f"# {experiment}\n", encoding="utf-8")
+        if repo is not None:
+            (run_dir / migration.RUN_MANIFEST).write_text(
+                json.dumps({"run_id": run, "repo": repo}), encoding="utf-8"
+            )
+        return run_dir
+
+    def entry_for(self, plan_value: dict, kind: str = "unpartitioned") -> dict:
+        matches = [e for e in plan_value["entries"] if e["sourceKind"] == kind]
+        self.assertEqual(len(matches), 1, plan_value["entries"])
+        return matches[0]
+
+    def test_run_claiming_this_repository_migrates_into_its_partition(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base, repo = Path(tmp) / "data", Path(tmp) / "checkout"
+            make_repo(repo)
+            self.write_run(base, "repo-context-handoff", "20260731T180525Z", str(repo))
+            identity = migration.local_store.repository_identity(repo)
+
+            value = migration.plan(repo, base)
+            entry = self.entry_for(value)
+            self.assertEqual(entry["action"], "merge")
+            self.assertFalse(value["blocked"])
+            self.assertIn(identity.partition_name, entry["target"])
+
+            migration.execute(value)
+            migrated = (
+                base / "experiments" / identity.partition_name
+                / "repo-context-handoff" / "20260731T180525Z" / "comparison.md"
+            )
+            self.assertTrue(migrated.is_file())
+            # Source deletion stays a separate, explicit operation.
+            self.assertTrue(
+                (base / "experiments" / "repo-context-handoff").exists()
+            )
+
+    def test_run_claiming_another_repository_blocks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base, repo = Path(tmp) / "data", Path(tmp) / "checkout"
+            other = Path(tmp) / "somewhere-else"
+            make_repo(repo)
+            self.write_run(base, "foreign-run", "20260101T000000Z", str(other))
+
+            value = migration.plan(repo, base)
+            entry = self.entry_for(value)
+            self.assertEqual(entry["action"], "blocked")
+            self.assertTrue(value["blocked"])
+            self.assertIn("records repository", entry["reason"])
+            with self.assertRaises(RuntimeError):
+                migration.execute(value)
+
+    def test_run_without_a_readable_manifest_blocks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base, repo = Path(tmp) / "data", Path(tmp) / "checkout"
+            make_repo(repo)
+            self.write_run(base, "unattributed", "20260101T000000Z", repo=None)
+
+            value = migration.plan(repo, base)
+            self.assertEqual(self.entry_for(value)["action"], "blocked")
+            self.assertTrue(value["blocked"])
+
+    def test_disagreeing_runs_under_one_experiment_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base, repo = Path(tmp) / "data", Path(tmp) / "checkout"
+            make_repo(repo)
+            self.write_run(base, "mixed", "run-a", str(repo))
+            self.write_run(base, "mixed", "run-b", str(Path(tmp) / "elsewhere"))
+
+            value = migration.plan(repo, base)
+            self.assertEqual(self.entry_for(value)["action"], "blocked")
+
+    def test_rerunning_the_migration_is_a_no_op(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base, repo = Path(tmp) / "data", Path(tmp) / "checkout"
+            make_repo(repo)
+            self.write_run(base, "repo-context-handoff", "20260731T180525Z", str(repo))
+            migration.execute(migration.plan(repo, base))
+
+            rerun = migration.plan(repo, base)
+            self.assertEqual(self.entry_for(rerun)["action"], "already-migrated")
+            self.assertFalse(rerun["blocked"])
+
+    def test_an_existing_partition_is_not_probed_as_unpartitioned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base, repo = Path(tmp) / "data", Path(tmp) / "checkout"
+            make_repo(repo)
+            identity = migration.local_store.repository_identity(repo)
+            (base / "experiments" / identity.partition_name).mkdir(parents=True)
+
+            value = migration.plan(repo, base)
+            self.assertEqual(
+                [e for e in value["entries"] if e["sourceKind"] == "unpartitioned"], []
+            )
 
 
 if __name__ == "__main__":
