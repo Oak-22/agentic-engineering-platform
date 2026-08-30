@@ -15,6 +15,7 @@ but they differ in trigger, scope, and whether the result is tracked here.
 | [Show-me viewing cache](#show-me-viewing-cache) | Manual, deliberate — the `show-me` skill | `$XDG_DATA_HOME/aep/show-me-captures/<repository-name>--<identity-hash>/` | No |
 | [Session snapshots](#session-snapshots) | Manual, deliberate — the `capture-session-trail` skill | `$XDG_DATA_HOME/aep/session-snapshots/<repository-name>--<identity-hash>/` | No |
 | [Public-skills store](#public-skills-store) | Manual, deliberate — authored or installed by the developer | `$XDG_DATA_HOME/aep/skills/` | No |
+| [Experiment runs](#experiment-runs) | Manual, deliberate — an evaluation harness | `$XDG_DATA_HOME/aep/experiments/<repository-name>--<identity-hash>/` | No |
 
 ## What `.local-mirrors/` is for
 
@@ -287,6 +288,33 @@ so no runtime discovers its contents as project skills. `.local-mirrors/` is
 gitignored, so the mirror exposes the files to a human or an agent working
 inside the checkout without making them part of this repository or its
 runtime-native discovery surfaces.
+
+## Experiment runs
+
+Raw per-run output from platform evaluation experiments lives at
+`$XDG_DATA_HOME/aep/experiments/<repository-name>--<identity-hash>/` (override
+via `AEP_EXPERIMENT_RUNS_DIR`), with a repo-local view at
+`.local-mirrors/experiment-runs`.
+
+A run is bulky, machine-specific, and mostly uninteresting once its conclusion
+is drawn: transcripts, per-variant raw answers, session inventories, and the
+comparison that summarizes them. The store keeps that volume out of the
+repository while leaving it browsable. **Curated results are promoted into
+tracked `evidence/experiments/`** — that is where a conclusion belongs, and
+where the reader looks for one.
+
+Registering the store fixes where runs land. Before it, output accumulated
+directly under `experiments/<experiment-name>/<run-id>/` with no partition
+segment, so two repositories' runs would have shared one directory.
+
+Because that layout carries no partition, migrating it cannot use the
+repository-identity probes the other stores rely on. Each run records the
+repository it ran against in its own `run.json`, and migration attributes runs
+from that record alone: a run naming another repository, a run with no readable
+manifest, and runs that disagree with each other all stop the migration for a
+human decision. Assuming unattributed content belongs to whoever happens to be
+migrating is the misattribution this partitioning exists to prevent, and it
+cannot be undone once two repositories' runs are merged.
 
 ## Resolving these paths
 

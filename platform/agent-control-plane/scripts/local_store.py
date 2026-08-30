@@ -87,6 +87,12 @@ STORES: dict[str, StoreSpec] = {
         project_scoped=True,
         summary="Reviewable text and tool-call transcripts of agent sessions.",
     ),
+    "experiment-runs": StoreSpec(
+        dirname="experiments",
+        env_var="AEP_EXPERIMENT_RUNS_DIR",
+        project_scoped=True,
+        summary="Raw per-run output from platform evaluation experiments.",
+    ),
     "artifact-archive": StoreSpec(
         dirname="artifact-archive",
         env_var="AEP_ARTIFACT_ARCHIVE_DIR",
