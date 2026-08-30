@@ -107,3 +107,14 @@ defined by
 `../contracts/instruction-evidence-record.schema.json`.
 The generated `store-index.json` describes which files are metadata, indexes,
 or session ledgers; see [`../docs/instruction-evidence-store.md`](../docs/instruction-evidence-store.md).
+
+All retained project-scoped stores use
+`<repository-name>--<identity-hash>`. Preview migration from older hash-only or
+slug-only partitions with:
+
+```bash
+python3 migrate_local_stores.py --repo-root ../../..
+```
+
+After reviewing the JSON plan, add `--execute` to copy and verify content and
+repoint safe `.local-mirrors/` views. The command never deletes legacy sources.

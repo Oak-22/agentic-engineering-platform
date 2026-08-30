@@ -51,9 +51,12 @@ def resolve_capture_root(
     Resolved through local_store.py's single StoreSpec definition, since
     show-me runs under Claude Code, Codex, and Copilot alike — never nest
     this under a single provider's own directory (e.g. `~/.claude/`)."""
-    return _local_store.store_root(
-        "show-me-captures", project_dir=project_dir, base=capture_base
+    if project_dir is None:
+        raise ValueError("project_dir is required for show-me capture placement")
+    root, _ = _local_store.ensure_store(
+        "show-me-captures", project_dir=project_dir, base=capture_base, create=True
     )
+    return root
 
 
 def capture_filename(*, slug: str, runtime: str, date: dt.date | None = None) -> str:

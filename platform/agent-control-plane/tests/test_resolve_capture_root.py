@@ -30,15 +30,8 @@ class ResolveCaptureRootTests(unittest.TestCase):
             os.environ.pop("AEP_SHOW_ME_CAPTURE_DIR", None)
             os.environ.pop("XDG_DATA_HOME", None)
             root = capture.resolve_capture_root(project_dir=Path("/repo/myHealth"))
-        self.assertEqual(
-            root,
-            Path.home()
-            / ".local"
-            / "share"
-            / "aep"
-            / "show-me-captures"
-            / "myHealth",
-        )
+        self.assertEqual(root.parent, Path.home() / ".local" / "share" / "aep" / "show-me-captures")
+        self.assertTrue(root.name.startswith("myhealth--"))
 
     def test_xdg_data_home_env_var_overrides_default_base(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -46,9 +39,7 @@ class ResolveCaptureRootTests(unittest.TestCase):
             with patch.dict(os.environ, {"XDG_DATA_HOME": str(xdg_home)}, clear=False):
                 os.environ.pop("AEP_SHOW_ME_CAPTURE_DIR", None)
                 root = capture.resolve_capture_root(project_dir=Path("/repo/myHealth"))
-            self.assertEqual(
-                root, xdg_home / "aep" / "show-me-captures" / "myHealth"
-            )
+            self.assertEqual(root.parent, xdg_home / "aep" / "show-me-captures")
 
     def test_explicit_base_overrides_default(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -56,15 +47,13 @@ class ResolveCaptureRootTests(unittest.TestCase):
             root = capture.resolve_capture_root(
                 project_dir=Path("/repo/myHealth"), capture_base=base
             )
-            self.assertEqual(root, base / "show-me-captures" / "myHealth")
+            self.assertEqual(root.parent, base / "show-me-captures")
 
-    def test_missing_project_dir_falls_back_to_unknown_project(self):
+    def test_missing_project_dir_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
-            root = capture.resolve_capture_root(project_dir=None, capture_base=base)
-            self.assertEqual(
-                root, base / "show-me-captures" / "unknown-project"
-            )
+            with self.assertRaises(ValueError):
+                capture.resolve_capture_root(project_dir=None, capture_base=base)
 
 
 class CaptureFilenameTests(unittest.TestCase):

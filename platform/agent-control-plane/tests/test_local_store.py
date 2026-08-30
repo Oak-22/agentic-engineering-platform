@@ -49,13 +49,15 @@ class StoreRootTests(unittest.TestCase):
         root = store.store_root("public-skills", project_dir=Path("/repo/aep"), base=Path("/b"))
         self.assertEqual(root, Path("/b") / "skills")
 
-    def test_project_scoped_store_appends_the_project_slug(self):
+    def test_project_scoped_store_appends_readable_stable_partition(self):
         root = store.store_root("show-me-captures", project_dir=Path("/repo/myHealth"), base=Path("/b"))
-        self.assertEqual(root, Path("/b") / "show-me-captures" / "myHealth")
+        identity = store.repository_identity(Path("/repo/myHealth"))
+        self.assertEqual(root, Path("/b") / "show-me-captures" / identity.partition_name)
+        self.assertTrue(root.name.startswith("myhealth--"))
 
-    def test_project_scoped_store_without_project_dir_uses_placeholder(self):
-        root = store.store_root("session-snapshots", base=Path("/b"))
-        self.assertEqual(root.name, "unknown-project")
+    def test_project_scoped_store_requires_project_dir(self):
+        with self.assertRaises(ValueError):
+            store.store_root("session-snapshots", base=Path("/b"))
 
     def test_unknown_store_raises_and_names_the_registry(self):
         with self.assertRaises(store.UnknownStore) as caught:
@@ -142,6 +144,46 @@ class EnsureStoreTests(unittest.TestCase):
             )
             self.assertEqual(view, repo / ".local-mirrors" / "public-skills")
             self.assertEqual(view.resolve(), canonical.resolve())
+
+    def test_project_store_writes_matching_repository_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "Readable Repo"
+            repo.mkdir()
+            canonical, _ = store.ensure_store(
+                "show-me-captures", project_dir=repo, base=Path(tmp) / "data", create=True
+            )
+            metadata = __import__("json").loads(
+                (canonical / "repository.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["partitionName"], canonical.name)
+            self.assertEqual(metadata["readableRepositoryName"], "readable-repo")
+            self.assertEqual(metadata["repositoryIdentityHash"], canonical.name.rsplit("--", 1)[1])
+            self.assertEqual(store.validate_repository_metadata(canonical, store.repository_identity(repo)), [])
+
+
+class RepositoryIdentityTests(unittest.TestCase):
+    def test_remote_forms_normalize_without_credentials(self):
+        expected = "git@github.com:Owner/repo.git"
+        self.assertEqual(store.normalize_remote("git@github.com:Owner/repo.git"), expected)
+        self.assertEqual(store.normalize_remote("https://token@github.com/Owner/repo.git"), expected)
+        self.assertNotIn("token", store.normalize_remote("https://token@github.com/Owner/repo.git"))
+
+    def test_same_remote_different_checkout_names_has_same_partition(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            roots = [Path(tmp) / "first", Path(tmp) / "renamed"]
+            for root in roots:
+                root.mkdir()
+                os.system(f"git -C '{root}' init -q")
+                os.system(f"git -C '{root}' remote add origin git@github.com:Owner/repo.git")
+            self.assertEqual(
+                store.repository_identity(roots[0]).partition_name,
+                store.repository_identity(roots[1]).partition_name,
+            )
+
+    def test_no_remote_same_name_paths_do_not_collide(self):
+        first = store.repository_identity(Path("/one/repo"))
+        second = store.repository_identity(Path("/two/repo"))
+        self.assertNotEqual(first.identity_hash, second.identity_hash)
 
 
 if __name__ == "__main__":

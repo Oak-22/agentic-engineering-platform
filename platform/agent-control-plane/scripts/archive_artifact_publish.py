@@ -47,9 +47,12 @@ def resolve_archive_root(
     Resolved through local_store.py's single StoreSpec definition — see that
     module for why the namespace stays provider-neutral rather than nested
     under `~/.claude/`, even though this feature is Claude-specific today."""
-    return _local_store.store_root(
-        "artifact-archive", project_dir=project_dir, base=archive_base
+    if project_dir is None:
+        raise ValueError("project_dir is required for artifact archive placement")
+    root, _ = _local_store.ensure_store(
+        "artifact-archive", project_dir=project_dir, base=archive_base, create=True
     )
+    return root
 
 
 def archive_file(source: Path, archive_root: Path) -> Path:

@@ -2,8 +2,9 @@
 
 The instruction-evidence store is generated local runtime evidence. It is not
 an authored repository knowledge base and it does not contain prompt text.
-Canonical data is kept outside the repository, partitioned by repository
-identity and runtime. The ignored `.local-mirrors/instruction-evidence` path is
+Canonical data is kept outside the repository, partitioned by
+`<readable-repository-name>--<repository-identity-hash>` and runtime. The hash
+is authoritative; the readable name is only a browsing aid. The ignored `.local-mirrors/instruction-evidence` path is
 a project-local view of that project partition.
 
 ![Example instruction-reference output in a developer terminal](assets/instruction-evidence-store-workflow.png)
@@ -14,6 +15,23 @@ the evidence record that supports it.*
 The generated `store-index.json` is the machine-readable description of this
 layout and is validated by
 [`instruction-evidence-store.schema.json`](../contracts/instruction-evidence-store.schema.json).
+Every project partition also contains generated `repository.json` metadata
+validated by
+[`repository-identity.schema.json`](../contracts/repository-identity.schema.json).
+It records the normalized credential-free remote when available and the last
+observed workspace path as non-authoritative diagnostic context.
+
+All four retained project-scoped stores share this resolver. The same remote
+resolves to the same partition across differently named checkouts, while
+same-named repositories with different identities remain separate. A
+repository without a remote uses its absolute workspace path as a deterministic
+fallback that cannot silently alias an unrelated same-named repository.
+
+Run `scripts/migrate_local_stores.py --repo-root <path>` to inspect the
+verification-first migration plan for hash-only and slug-only layouts. Add
+`--execute` after reviewing sources, targets, counts, and collisions. Execution
+copies and verifies artifacts and repoints safe `.local-mirrors/` views; it
+does not delete legacy sources.
 
 ## How humans use the instruction references
 

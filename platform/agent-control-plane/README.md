@@ -114,8 +114,9 @@ Runtime evidence retains its source:
   supplies authoritative load evidence.
 
 The shared hook writes a session ledger with one snapshot per prompt to a
-canonical local-data store partitioned first by repository identity and then by
-runtime. Codex and Claude Code never append to the same JSONL ledger even if
+canonical local-data store partitioned first by
+`<repository-name>--<identity-hash>` and then by runtime. The hash is the
+identity authority and the name is a browsing aid. Codex and Claude Code never append to the same JSONL ledger even if
 they supply the same session identifier. An ignored
 `.local-mirrors/instruction-evidence` symlink exposes only the active project's logs so
 citation clicks open the relevant runtime ledger directly. Evidence records
