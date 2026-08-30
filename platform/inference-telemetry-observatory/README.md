@@ -45,6 +45,7 @@ producer and analytics boundary.
 
 ## High-Level Architecture
 
+```text
 Telemetry producers
         │
         ▼
@@ -70,6 +71,7 @@ Analytics APIs
         │
         ▼
 Observatory Dashboard
+```
 
 ---
 
