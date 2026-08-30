@@ -33,8 +33,9 @@ A branch ruleset holds that boundary on the remote. Merging into `main`
 requires the `control-plane-guards` status check — the GitHub Actions run of
 the control-plane guards, described in
 [Control Plane Guards in CI](platform/agent-control-plane/docs/control-plane-guards-ci.md)
-— plus an accountable human approval. The same ruleset requests an automatic
-GitHub Copilot review, which comments but approves nothing.
+— plus an accountable human review. The same ruleset carries an automatic
+GitHub Copilot review rule, which is advisory: it comments and approves
+nothing, and it stays inert until the owning account holds a Copilot plan.
 
 ## Repository Structure
 
