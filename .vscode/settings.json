@@ -1,0 +1,12 @@
+{
+  "search.useIgnoreFiles": false,
+  "search.exclude": {
+    "**/.local-mirrors": false
+  },
+  "files.exclude": {
+    "**/.local-mirrors": false
+  },
+  "explorer.excludeGitIgnore": false,
+  "explorer.sortOrder": "modified",
+  "git.autofetch": "all"
+}

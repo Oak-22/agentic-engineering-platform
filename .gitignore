@@ -15,3 +15,9 @@ __pycache__/
 prompt-scratch.md
 *.egg-info/
 .claude/settings.local.json
+
+# settings.json is the shared workspace default and is tracked; everything
+# else under .vscode/ is per-developer. Without this, an untracked file here
+# makes the tree dirty and blocks the governed preflight and delivery cleanup.
+.vscode/*
+!.vscode/settings.json
