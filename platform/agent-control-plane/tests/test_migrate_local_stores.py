@@ -94,6 +94,35 @@ class MigrationTests(unittest.TestCase):
             self.assertFalse(value["blocked"])
             self.assertEqual(value["entries"][0]["action"], "already-migrated")
 
+    def test_repoint_views_follows_the_migrated_namespace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base, repo = Path(tmp) / "data", Path(tmp) / "checkout"
+            make_repo(repo)
+            source = base / "artifact-archive" / repo.name
+            source.mkdir(parents=True)
+            (source / "artifact.txt").write_text("preserved", encoding="utf-8")
+            migration.execute(migration.plan(repo, base))
+            migration.repoint_views(repo, base)
+            view = repo / migration.local_store.MIRROR_DIRNAME / "artifact-archive"
+            expected = migration.local_store.store_root(
+                "artifact-archive", project_dir=repo, base=base
+            )
+            # Resolving through the ambient default namespace instead would
+            # leave this view outside the migrated tree entirely.
+            self.assertEqual(view.resolve(), expected.resolve())
+            self.assertEqual((view / "artifact.txt").read_text(), "preserved")
+
+    def test_starts_with_streams_without_loading_whole_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            short, extended, divergent = (Path(tmp) / name for name in ("a", "b", "c"))
+            short.write_bytes(b'{"turn":1}\n')
+            extended.write_bytes(b'{"turn":1}\n{"turn":2}\n')
+            divergent.write_bytes(b'{"turn":9}\n{"turn":2}\n')
+            self.assertTrue(migration.starts_with(extended, short, chunk_size=4))
+            self.assertFalse(migration.starts_with(divergent, short, chunk_size=4))
+            self.assertFalse(migration.starts_with(short, extended, chunk_size=4))
+            self.assertTrue(migration.starts_with(short, short, chunk_size=4))
+
 
 if __name__ == "__main__":
     unittest.main()

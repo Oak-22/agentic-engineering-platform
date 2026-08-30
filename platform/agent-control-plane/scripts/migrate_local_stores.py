@@ -49,6 +49,22 @@ def files_under(root: Path) -> dict[str, Path]:
     }
 
 
+def starts_with(target: Path, prefix: Path, chunk_size: int = 1 << 20) -> bool:
+    """Report whether `target` begins with the whole content of `prefix`.
+
+    Append-only ledgers grow without bound, so both files are streamed rather
+    than read whole: a long-lived session ledger should not have to fit in
+    memory to be recognized as an already-migrated copy of a shorter one.
+    """
+    if prefix.stat().st_size > target.stat().st_size:
+        return False
+    with prefix.open("rb") as expected, target.open("rb") as actual:
+        while block := expected.read(chunk_size):
+            if actual.read(len(block)) != block:
+                return False
+    return True
+
+
 def compatible_file(relative: str, source: Path, target: Path) -> bool:
     if relative == local_store.REPOSITORY_METADATA:
         # Generated identity metadata is intentionally regenerated for the new
@@ -57,7 +73,7 @@ def compatible_file(relative: str, source: Path, target: Path) -> bool:
     if file_digest(source) == file_digest(target):
         return True
     if relative.endswith(".jsonl"):
-        return target.read_bytes().startswith(source.read_bytes())
+        return starts_with(target, source)
     return False
 
 
@@ -135,10 +151,16 @@ def execute(plan_value: dict) -> None:
                 raise RuntimeError(f"verification failed for {source / relative}")
 
 
-def repoint_views(repo_root: Path, plan_value: dict) -> None:
+def repoint_views(repo_root: Path, namespace: Path | None = None) -> None:
+    """Repoint `.local-mirrors/` at the partitions this run actually migrated.
+
+    The namespace must match the one `plan` and `execute` used. Resolving it
+    from the ambient default instead would leave every view of a non-default
+    namespace pointing at the pre-migration target.
+    """
     identity = local_store.repository_identity(repo_root)
     for name in PROJECT_STORES:
-        target = local_store.store_root(name, project_dir=repo_root)
+        target = local_store.store_root(name, project_dir=repo_root, base=namespace)
         if not target.exists():
             continue
         local_store.ensure_repository_metadata(target, identity)
@@ -162,7 +184,7 @@ def main() -> int:
         return 2 if value["blocked"] else 0
     try:
         execute(value)
-        repoint_views(repo_root, value)
+        repoint_views(repo_root, arguments.namespace)
     except (OSError, RuntimeError) as error:
         print(f"migration failed: {error}", file=sys.stderr)
         return 1

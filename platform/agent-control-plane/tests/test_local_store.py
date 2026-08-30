@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -173,8 +174,15 @@ class RepositoryIdentityTests(unittest.TestCase):
             roots = [Path(tmp) / "first", Path(tmp) / "renamed"]
             for root in roots:
                 root.mkdir()
-                os.system(f"git -C '{root}' init -q")
-                os.system(f"git -C '{root}' remote add origin git@github.com:Owner/repo.git")
+                # check=True reports a failing git directly; without it the run
+                # surfaces later as an unexplained partition mismatch, since
+                # remoteless roots fall back to their differing paths.
+                subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+                subprocess.run(
+                    ["git", "-C", str(root), "remote", "add", "origin",
+                     "git@github.com:Owner/repo.git"],
+                    check=True,
+                )
             self.assertEqual(
                 store.repository_identity(roots[0]).partition_name,
                 store.repository_identity(roots[1]).partition_name,

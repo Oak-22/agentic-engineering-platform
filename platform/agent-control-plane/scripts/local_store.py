@@ -211,15 +211,22 @@ def repository_metadata(identity: RepositoryIdentity, *, now: str | None = None)
 
 def write_json_atomically(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.",
-        suffix=".tmp", delete=False
-    ) as temporary:
-        temporary_path = Path(temporary.name)
-        temporary.write(json.dumps(value, indent=2, sort_keys=True) + "\n")
-        temporary.flush()
-        os.fsync(temporary.fileno())
-    os.replace(temporary_path, path)
+    # A failing os.replace would otherwise strand the temporary beside the
+    # store; unlink is a no-op once the replace has consumed it.
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.",
+            suffix=".tmp", delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(json.dumps(value, indent=2, sort_keys=True) + "\n")
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def ensure_repository_metadata(root: Path, identity: RepositoryIdentity) -> Path:
