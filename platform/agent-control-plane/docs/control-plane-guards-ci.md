@@ -49,6 +49,10 @@ unit that gets its own fresh runner and reports its own status check. A
 | `push` to `main` | Backstop for anything reaching `main` outside a gated pull request. |
 | `workflow_dispatch` | Manual run from the Actions tab or `gh workflow run`, for diagnostics. |
 
+GitHub only registers `workflow_dispatch` from the copy of the workflow on the
+default branch. Dispatching `--ref main` therefore fails until the workflow has
+merged; before that, dispatch the feature ref that carries the file.
+
 There is deliberately **no `paths:` filter**. A path filter looks like an
 optimization, but a required status check that is skipped never reports a
 conclusion at all, so the merge requirement stays pending forever instead of
@@ -238,10 +242,22 @@ Findings are triaged by the author or a human reviewer. Suggestions are not
 applied automatically, and a Copilot comment is not evidence that a change is
 correct.
 
+### Availability
+
 Automatic review requires a Copilot Pro, Pro+, or Max plan on the account that
-owns the repository. When it is unavailable, the fallback is to request the
-review manually from the pull request's Reviewers menu, and the Actions gate is
-unaffected — it never depended on Copilot.
+owns the repository. The account owning this repository has no qualifying plan,
+so the `copilot_code_review` rule is configured and stored on the ruleset but
+currently produces nothing: no review is requested when a pull request opens or
+receives a push, and adding the Copilot reviewer through the API returns success
+while leaving the reviewer list empty.
+
+The rule is kept in place deliberately. It costs nothing while inert and starts
+working the moment a qualifying plan is added, with no configuration change.
+
+Until then the fallback is an ordinary human reviewer, requested from the pull
+request's Reviewers menu. The Actions gate is unaffected either way — it never
+depended on Copilot, which is the point of keeping deterministic enforcement and
+advisory review as separate mechanisms.
 
 ## Local equivalents
 
