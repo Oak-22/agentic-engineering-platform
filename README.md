@@ -29,6 +29,14 @@ files, or hunks in dependency order to Jira-keyed branches created from
 current `main`. Reviewed pull requests advance `main`; the workbench does not.
 See the [governed repository delivery guide](docs/operations/governed-repository-delivery.md).
 
+A branch ruleset holds that boundary on the remote. Merging into `main`
+requires the `control-plane-guards` status check — the GitHub Actions run of
+the control-plane guards, described in
+[Control Plane Guards in CI](platform/agent-control-plane/docs/control-plane-guards-ci.md)
+— plus an accountable human review. The same ruleset requests an automatic
+GitHub Copilot review, which is advisory: it comments and approves nothing,
+though an unresolved comment thread still has to be triaged before merging.
+
 ## Repository Structure
 
 ```text
@@ -38,7 +46,7 @@ agentic-engineering-platform/
 ├── .agents/skills/                   # Codex Agent Skill discovery links
 ├── .codex/                           # Codex project config and hooks
 ├── .claude/                          # Claude Code rules, skills, and hooks
-├── .github/                          # GitHub Copilot definitions and hooks
+├── .github/                          # Copilot definitions, hooks, CI workflows
 ├── platform/                         # Canonical platform components
 │   ├── agent-control-plane/           # Governed instructions and execution
 │   │   ├── adapters/                  # Runtime and destination integrations

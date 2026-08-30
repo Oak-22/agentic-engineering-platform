@@ -22,6 +22,10 @@ machine-local overlay.
 - [Developer Learning Retrieval Service](../../developer-learning-retrieval/docs/design.md)
   Describes a future extension for turning engineering activity into
   learning and retrieval signals.
+- [Control Plane Guards in CI](control-plane-guards-ci.md)
+  Explains the GitHub Actions workflow that enforces the control-plane guards,
+  the required status check protecting `main`, the advisory Copilot review, and
+  how to operate and troubleshoot a run.
 - [Local Documentation and Artifact Mirrors](local-doc-mirrors.md)
   Distinguishes the automatic provider-docs mirror, the automatic artifact
   archive, and manual artifact promotion into the repository.

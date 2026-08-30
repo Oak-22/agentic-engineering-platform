@@ -26,6 +26,27 @@ INSTRUCTION_FILE = (
 )
 
 
+def expected_repository_id(root):
+    """Mirror `instruction_manifest_hook.repository_id` for this checkout.
+
+    The hook keys evidence by the clone's `origin` URL, so the value depends
+    on how the checkout was made: SSH on a maintainer's machine, HTTPS under
+    `actions/checkout`, and the directory-name fallback in a clone with no
+    remote. Reading it keeps the assertion about which remote the hook
+    consults instead of which machine happens to be running the test."""
+    completed = subprocess.run(
+        ["git", "-C", str(root), "config", "--get", "remote.origin.url"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    remote = completed.stdout.strip()
+    return remote or f"git:{root.name}"
+
+
+EXPECTED_REPOSITORY_ID = expected_repository_id(REPOSITORY_ROOT)
+
+
 class HookHarness:
     """Subprocess helpers shared by the hook test classes.
 
@@ -116,7 +137,7 @@ class InstructionManifestHookTests(HookHarness, unittest.TestCase):
             )
             self.assertEqual(
                 record["citation"]["repositoryId"],
-                "git@github.com:Oak-22/agentic-engineering-platform.git",
+                EXPECTED_REPOSITORY_ID,
             )
             self.assertEqual(
                 record["citation"]["activeRepositoryId"],
