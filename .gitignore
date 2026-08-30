@@ -15,6 +15,10 @@ __pycache__/
 prompt-scratch.md
 *.egg-info/
 .claude/settings.local.json
+# Personal mental-model notes, placed in whichever directory they clarify.
+# Machine-local by design: they record how a maintainer holds a mechanism,
+# not a repository requirement, decision, or contract.
+mental-model.md
 
 # settings.json is the shared workspace default and is tracked; everything
 # else under .vscode/ is per-developer. Without this, an untracked file here
