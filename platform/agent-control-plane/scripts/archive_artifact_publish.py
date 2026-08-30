@@ -11,9 +11,11 @@ equivalent Artifact event registration.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 import sys
@@ -55,12 +57,68 @@ def resolve_archive_root(
     return root
 
 
-def archive_file(source: Path, archive_root: Path) -> Path:
-    """Copy source into archive_root, preserving its filename. Returns the copy's path."""
+def file_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def superseded_name(current: Path) -> str:
+    """Name for the version being displaced, stamped with when it was archived.
+
+    The existing file's own mtime is the right stamp: it records when that
+    version was the published one, which is what a reader wants to know. The
+    wall clock at the moment it is displaced would say only when a newer
+    version arrived.
+    """
+    stamped = datetime.fromtimestamp(current.stat().st_mtime, timezone.utc)
+    return f"{current.stem}.{stamped.strftime('%Y%m%dT%H%M%SZ')}{current.suffix}"
+
+
+def preserve_existing(destination: Path) -> Path | None:
+    """Move the archived version aside so a republish cannot destroy it.
+
+    Returns the path it was preserved at, or None when there was nothing to
+    preserve. A second-level timestamp can repeat, so a repeated name is
+    accepted only when it already holds identical bytes; otherwise a counter
+    disambiguates rather than one version overwriting another.
+    """
+    if not destination.exists():
+        return None
+    archived = destination.parent / superseded_name(destination)
+    if archived.exists():
+        if file_digest(archived) == file_digest(destination):
+            return archived
+        stem, suffix = archived.stem, archived.suffix
+        counter = 2
+        while (candidate := archived.parent / f"{stem}-{counter}{suffix}").exists():
+            counter += 1
+        archived = candidate
+    shutil.move(destination, archived)
+    return archived
+
+
+def archive_file(source: Path, archive_root: Path) -> tuple[Path, Path | None]:
+    """Copy source into archive_root under its own filename.
+
+    The published name always holds the current version, so existing archive
+    paths stay resolvable. Any version it displaces is preserved alongside it
+    rather than overwritten: republishing from one local path is how an
+    artifact keeps its URL, so that path is reused routinely and the archive
+    would otherwise retain only the most recent publish.
+
+    Returns (current, superseded_or_None). Republishing identical content
+    supersedes nothing.
+    """
     archive_root.mkdir(parents=True, exist_ok=True)
     destination = archive_root / source.name
+    if destination.exists() and file_digest(destination) == file_digest(source):
+        return destination, None
+    superseded = preserve_existing(destination)
     shutil.copy2(source, destination)
-    return destination
+    return destination, superseded
 
 
 def handle(payload: dict[str, Any], *, project_dir: Path | None) -> dict[str, Any] | None:
@@ -86,7 +144,7 @@ def handle(payload: dict[str, Any], *, project_dir: Path | None) -> dict[str, An
 
     archive_root = resolve_archive_root(project_dir=project_dir)
     try:
-        destination = archive_file(source, archive_root)
+        destination, superseded = archive_file(source, archive_root)
     except OSError as error:
         return {
             "hookSpecificOutput": {
@@ -98,10 +156,13 @@ def handle(payload: dict[str, Any], *, project_dir: Path | None) -> dict[str, An
             }
         }
 
+    context = f"Artifact mirrored to local archive: {destination}"
+    if superseded is not None:
+        context += f" (previous version kept as {superseded.name})"
     return {
         "hookSpecificOutput": {
             "hookEventName": "PostToolUse",
-            "additionalContext": f"Artifact mirrored to local archive: {destination}",
+            "additionalContext": context,
         }
     }
 

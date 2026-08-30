@@ -112,18 +112,65 @@ class ArchiveArtifactPublishTests(unittest.TestCase):
                 result["hookSpecificOutput"]["additionalContext"],
             )
 
-    def test_republish_overwrites_previous_archive_copy(self):
+    def test_republish_keeps_the_version_it_replaces(self):
+        """Republishing from one path is how an artifact keeps its URL, so the
+        archive would otherwise retain only the most recent publish."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "diagram.html"
             archive_root = root / "archive"
             source.write_text("v1", encoding="utf-8")
-            first = archiver.archive_file(source, archive_root)
-            source.write_text("v2", encoding="utf-8")
-            second = archiver.archive_file(source, archive_root)
+            first, superseded_first = archiver.archive_file(source, archive_root)
+            self.assertIsNone(superseded_first)
 
+            source.write_text("v2", encoding="utf-8")
+            second, superseded = archiver.archive_file(source, archive_root)
+
+            # The published name always holds the current version, so paths
+            # recorded before this change stay resolvable.
             self.assertEqual(first, second)
             self.assertEqual(second.read_text(encoding="utf-8"), "v2")
+            self.assertIsNotNone(superseded)
+            self.assertEqual(superseded.read_text(encoding="utf-8"), "v1")
+            self.assertEqual(
+                sorted(path.name for path in archive_root.iterdir()),
+                sorted([second.name, superseded.name]),
+            )
+
+    def test_republishing_identical_content_supersedes_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "diagram.html"
+            archive_root = root / "archive"
+            source.write_text("unchanged", encoding="utf-8")
+            archiver.archive_file(source, archive_root)
+            _, superseded = archiver.archive_file(source, archive_root)
+
+            self.assertIsNone(superseded)
+            self.assertEqual(len(list(archive_root.iterdir())), 1)
+
+    def test_versions_sharing_a_timestamp_do_not_overwrite_each_other(self):
+        """The stamp resolves to the second, so distinct versions can collide."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "diagram.html"
+            archive_root = root / "archive"
+            archive_root.mkdir()
+            destination = archive_root / "diagram.html"
+
+            for content in ("v1", "v2", "v3"):
+                source.write_text(content, encoding="utf-8")
+                if destination.exists():
+                    # Freeze the mtime so every superseded version competes for
+                    # one name, which a real burst of republishes can do.
+                    os.utime(destination, (1_760_000_000, 1_760_000_000))
+                archiver.archive_file(source, archive_root)
+
+            preserved = sorted(
+                path.read_text(encoding="utf-8")
+                for path in archive_root.iterdir()
+            )
+            self.assertEqual(preserved, ["v1", "v2", "v3"])
 
 
 if __name__ == "__main__":
