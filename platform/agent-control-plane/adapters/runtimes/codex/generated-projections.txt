@@ -1,2 +1,8 @@
 # Checked-in Codex projections generated into .agents/ or .codex/.
 # Add one repository-relative path per line when a renderer is implemented.
+.codex/agents/architecture-agent.toml
+.codex/agents/documentation-agent.toml
+.codex/agents/evaluation-agent.toml
+.codex/agents/implementation-agent.toml
+.codex/agents/release-operations-agent.toml
+.codex/agents/security-agent.toml
