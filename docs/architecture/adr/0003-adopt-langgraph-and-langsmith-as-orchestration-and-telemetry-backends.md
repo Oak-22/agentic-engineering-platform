@@ -8,7 +8,7 @@ scope: platform
 affected_components:
   - platform/agent-control-plane
   - platform/inference-telemetry-observatory
-related_jira: []
+related_jira: [AEPI-100]
 related_confluence: []
 supersedes: []
 ---
