@@ -49,9 +49,9 @@ unit that gets its own fresh runner and reports its own status check. A
 | `push` to `main` | Backstop for anything reaching `main` outside a gated pull request. |
 | `workflow_dispatch` | Manual run from the Actions tab or `gh workflow run`, for diagnostics. |
 
-GitHub only registers `workflow_dispatch` from the copy of the workflow on the
-default branch. Dispatching `--ref main` therefore fails until the workflow has
-merged; before that, dispatch the feature ref that carries the file.
+GitHub registers `workflow_dispatch` only from a workflow's copy on the default
+branch. A workflow whose changes have not reached `main` is therefore dispatched
+against the ref that carries them, not against `main`.
 
 There is deliberately **no `paths:` filter**. A path filter looks like an
 optimization, but a required status check that is skipped never reports a
@@ -356,7 +356,7 @@ would cost maintenance and teach a pattern this repository does not need.
 | Deployment environments | Nothing is deployed, so there is no environment to gate, approve, or scope secrets to. |
 | Service containers | The guards run in-process against the checked-out tree with no database, queue, or network dependency. |
 | Self-hosted runners | The job needs only Python and a checkout, which hosted runners provide with better isolation and no maintenance. |
-| Reusable workflows | Reuse needs a second caller. This repository has one workflow; extracting it now would add indirection with no consumer. |
+| Reusable workflows | Reuse needs a second caller. Extracting a single call site adds indirection with no consumer. |
 | Composite actions | Same reason: the guard steps are called once, from one place. |
 | Path filters | A required check that is skipped never reports, leaving the merge requirement pending forever. |
 | Scheduled runs | The guards verify repository content, which only changes when a commit changes it. A cron run would re-verify an unchanged tree. |
