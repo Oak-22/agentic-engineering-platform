@@ -169,6 +169,42 @@ class RepositoryIdentityTests(unittest.TestCase):
         self.assertEqual(store.normalize_remote("https://token@github.com/Owner/repo.git"), expected)
         self.assertNotIn("token", store.normalize_remote("https://token@github.com/Owner/repo.git"))
 
+    def test_windows_drive_letter_is_a_path_not_a_host(self):
+        """`C:` is a drive; reading it as a host invents `git@c:repo.git`."""
+        self.assertEqual(store.normalize_remote("C:/repo"), "C:/repo")
+        self.assertEqual(store.normalize_remote("C:\\repo"), "C:\\repo")
+        self.assertEqual(store.normalize_remote("/plain/local/path"), "/plain/local/path")
+
+    def test_non_default_port_distinguishes_two_servers(self):
+        """Dropping the port would alias separate instances into one store."""
+        first = store.normalize_remote("https://git.example.com:8443/owner/repo.git")
+        second = store.normalize_remote("https://git.example.com:9443/owner/repo.git")
+        self.assertNotEqual(first, second)
+        self.assertIn("8443", first)
+
+    def test_default_port_matches_the_portless_form(self):
+        portless = store.normalize_remote("https://git.example.com/owner/repo.git")
+        self.assertEqual(store.normalize_remote("https://git.example.com:443/owner/repo.git"), portless)
+        self.assertEqual(
+            store.normalize_remote("ssh://git@github.com:22/Owner/repo.git"),
+            store.normalize_remote("ssh://git@github.com/Owner/repo.git"),
+        )
+
+    def test_ipv6_literal_survives_normalization(self):
+        """Splitting the authority on its first ':' would truncate the address."""
+        self.assertIn("::1", store.normalize_remote("https://[::1]:8443/owner/repo.git"))
+
+    def test_established_remote_forms_keep_their_identity(self):
+        """Guards the stored partitions: a changed identity orphans them."""
+        expected = "git@github.com:Oak-22/agentic-engineering-platform.git"
+        for form in (
+            "git@github.com:Oak-22/agentic-engineering-platform.git",
+            "https://github.com/Oak-22/agentic-engineering-platform",
+            "ssh://git@github.com/Oak-22/agentic-engineering-platform.git",
+        ):
+            with self.subTest(form=form):
+                self.assertEqual(store.normalize_remote(form), expected)
+
     def test_same_remote_different_checkout_names_has_same_partition(self):
         with tempfile.TemporaryDirectory() as tmp:
             roots = [Path(tmp) / "first", Path(tmp) / "renamed"]

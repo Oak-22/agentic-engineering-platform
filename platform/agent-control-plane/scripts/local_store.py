@@ -146,21 +146,49 @@ def _git_output(root: Path, *arguments: str) -> str:
     return completed.stdout.strip() if completed.returncode == 0 else ""
 
 
+DEFAULT_REMOTE_PORTS = {"ssh": "22", "https": "443", "http": "80", "git": "9418"}
+
+
+def canonical_authority(scheme: str, authority: str) -> str:
+    """Lowercase the host, keeping a port only when it identifies the server.
+
+    Two instances on one host behind different ports are different
+    repositories, so a non-default port belongs in the identity. It is
+    bracketed to keep the SCP-form ':' separator unambiguous and to guarantee
+    a ported identity can never collide with a portless one. A default or
+    absent port renders exactly as before, so existing partitions keep their
+    hashes.
+    """
+    if authority.startswith("["):
+        # IPv6 literal, which carries its own brackets and may be followed
+        # by :port. Splitting on the first ':' here would truncate the address.
+        literal, _, remainder = authority.partition("]")
+        host, port = f"{literal}]", remainder.lstrip(":")
+    else:
+        host, _, port = authority.partition(":")
+    host = host.lower()
+    if port and port != DEFAULT_REMOTE_PORTS.get(scheme.lower()):
+        return f"[{host}:{port}]"
+    return host
+
+
 def normalize_remote(remote: str) -> str:
     """Return a credential-free repository identity for common Git URL forms."""
     value = remote.strip()
     if not value:
         return ""
-    # SCP-like SSH form: user@host:owner/repo.git
-    match = re.match(r"^(?:[^@/]+@)?([^:/]+):(.+)$", value)
+    # SCP-like SSH form: user@host:owner/repo.git. The host needs at least two
+    # characters: a single letter before ':' is a Windows drive, so `C:/repo`
+    # is a local path and must not be read as a host named `c`.
+    match = re.match(r"^(?:[^@/]+@)?([^:/]{2,}):(.+)$", value)
     if match and "://" not in value:
         host, path = match.groups()
         clean_path = path.removesuffix(".git").strip("/")
         return f"git@{host.lower()}:{clean_path}.git"
-    match = re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://([^/]+)/(.*)$", value)
+    match = re.match(r"^([a-zA-Z][a-zA-Z0-9+.-]*)://([^/]+)/(.*)$", value)
     if match:
-        authority, path = match.groups()
-        host = authority.rsplit("@", 1)[-1].split(":", 1)[0].lower()
+        scheme, authority, path = match.groups()
+        host = canonical_authority(scheme, authority.rsplit("@", 1)[-1])
         clean_path = path.removesuffix(".git").strip("/")
         return f"git@{host}:{clean_path}.git"
     return value.removesuffix(".git").rstrip("/")
