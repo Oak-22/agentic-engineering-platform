@@ -242,22 +242,37 @@ Findings are triaged by the author or a human reviewer. Suggestions are not
 applied automatically, and a Copilot comment is not evidence that a change is
 correct.
 
+### How an unresolved Copilot comment still stops a merge
+
+The `pull_request` rule sets `required_review_thread_resolution: true`, so every
+review thread must be resolved before the merge button unlocks. A Copilot
+comment opens a thread like any other.
+
+The two statements above are both true and easy to trip over together: Copilot's
+*review* cannot block a merge, but an *unresolved thread* it opened can — the
+block comes from the thread-resolution rule, not from Copilot's authority. The
+author or reviewer clears it by acting on the comment or by resolving it with a
+reason. That is the intended shape: Copilot raises something, a person decides,
+and the decision is recorded.
+
+Do not resolve a thread merely to unlock the merge. That converts a review
+signal into a formality.
+
 ### Availability
 
-Automatic review requires a Copilot Pro, Pro+, or Max plan on the account that
-owns the repository. The account owning this repository has no qualifying plan,
-so the `copilot_code_review` rule is configured and stored on the ruleset but
-currently produces nothing: no review is requested when a pull request opens or
-receives a push, and adding the Copilot reviewer through the API returns success
-while leaving the reviewer list empty.
+Automatic review needs a Copilot plan that includes code review on the account
+or organization that owns the repository — the individual Pro, Pro+, and Max
+plans, and the Business and Enterprise plans. It is active on this repository:
+reviews arrive when a pull request is marked ready and again on each new push.
 
-The rule is kept in place deliberately. It costs nothing while inert and starts
-working the moment a qualifying plan is added, with no configuration change.
+Note that an already-reviewed pull request shows an empty `requested_reviewers`
+list, because Copilot leaves the request list once it submits. An empty list
+means "already reviewed", not "unavailable" — check the reviews themselves.
 
-Until then the fallback is an ordinary human reviewer, requested from the pull
-request's Reviewers menu. The Actions gate is unaffected either way — it never
-depended on Copilot, which is the point of keeping deterministic enforcement and
-advisory review as separate mechanisms.
+If a plan lapses, the rule stays stored and simply stops producing reviews; the
+fallback is an ordinary human reviewer requested from the Reviewers menu. The
+Actions gate is unaffected either way. That independence is the point of keeping
+deterministic enforcement and advisory review as separate mechanisms.
 
 ## Local equivalents
 

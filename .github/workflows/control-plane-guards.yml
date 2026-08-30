@@ -58,6 +58,11 @@ jobs:
           # through `git rev-parse --show-toplevel`. Neither walks history, so
           # a single-commit checkout supplies everything they need.
           fetch-depth: 1
+          # Do not leave the job token in the checkout's git config. Nothing
+          # here pushes or calls the API, and this job executes pull-request
+          # code, so the token should not be sitting where a later step — or
+          # anything that step runs — could read it.
+          persist-credentials: false
 
       - name: Set up Python from the control-plane project metadata
         # actions/setup-python v7.0.0

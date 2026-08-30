@@ -222,9 +222,9 @@ The `main` branch ruleset requires a pull request and the
 `control-plane-guards` status check, produced by
 `.github/workflows/control-plane-guards.yml`. A delivery branch therefore
 reaches `main` only after the control-plane guards pass on its head commit and
-an accountable human reviews it. The same ruleset carries an automatic GitHub
-Copilot code review rule, which is advisory: it comments, and it neither
-approves the pull request nor satisfies the required check.
+an accountable human reviews it. The same ruleset requests an automatic GitHub
+Copilot code review, which is advisory: it comments, and it neither approves
+the pull request nor satisfies the required check.
 
 This is the enforcement layer the local guardrail above cannot provide. See
 [Control Plane Guards in CI](control-plane-guards-ci.md).
