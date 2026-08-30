@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import importlib.util
-import os
 from pathlib import Path
 import re
 import sys
@@ -30,7 +29,6 @@ import textwrap
 from typing import Iterable, Sequence
 
 
-DEFAULT_SNAPSHOT_DIRNAME = "session-snapshots"
 WATERMARK_PATTERN = re.compile(
     r"^<!-- aep-session-snapshot turns-consumed=(\d+) -->$", re.MULTILINE
 )
@@ -38,22 +36,30 @@ _RENDERED_ROLES = frozenset({"user", "assistant"})
 _PROSE_WRAP_COLUMNS = 72
 
 
-def _load_reader():
-    """Import the canonical reader by path.
-
-    The skill lives under agent-assets/ and the reader under scripts/;
-    neither is an installed package, so path-based loading is the same
-    mechanism this repository's tests already use."""
-    reader_path = (
-        Path(__file__).resolve().parents[4] / "scripts" / "session_transcript_reader.py"
-    )
-    spec = importlib.util.spec_from_file_location("session_transcript_reader", reader_path)
+def _load_by_path(name: str, relative_path: str):
+    """Import a sibling script by path; neither directory is an installed
+    package, so path-based loading is the mechanism this repository's tests
+    already use."""
+    cached = sys.modules.get(name)
+    if cached is not None:
+        return cached
+    script_path = Path(__file__).resolve().parents[4] / relative_path
+    spec = importlib.util.spec_from_file_location(name, script_path)
     if spec is None or spec.loader is None:  # pragma: no cover - defensive
-        raise RuntimeError(f"cannot load session reader at {reader_path}")
+        raise RuntimeError(f"cannot load {name} at {script_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _load_reader():
+    """Import the canonical reader by path."""
+    return _load_by_path("session_transcript_reader", "scripts/session_transcript_reader.py")
+
+
+_local_store = _load_by_path("local_store", "scripts/local_store.py")
+DEFAULT_SNAPSHOT_DIRNAME = _local_store.STORES["session-snapshots"].dirname
 
 
 # ---------------------------------------------------------------- placement
@@ -64,18 +70,12 @@ def resolve_snapshot_root(
 ) -> Path:
     """Return the per-project snapshot directory, outside the repository.
 
-    Defaults under the same provider-neutral XDG ``aep`` namespace
-    resolve_capture_root() and instruction_manifest_hook.storage_root()
-    use — a snapshot may be captured from Claude Code or Codex, so this
-    must not nest under a single provider's own directory."""
-    base = snapshot_base or Path(
-        os.environ.get(
-            "AEP_SESSION_SNAPSHOT_DIR",
-            Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "aep",
-        )
-    ).expanduser()
-    project_slug = project_dir.name if project_dir else "unknown-project"
-    return base / DEFAULT_SNAPSHOT_DIRNAME / project_slug
+    Resolved through local_store.py's single StoreSpec definition — a
+    snapshot may be captured from Claude Code or Codex, so this must not
+    nest under a single provider's own directory."""
+    return _local_store.store_root(
+        "session-snapshots", project_dir=project_dir, base=snapshot_base
+    )
 
 
 def snapshot_project_view(repo_root: Path, canonical_root: Path) -> Path:
@@ -86,13 +86,7 @@ def snapshot_project_view(repo_root: Path, canonical_root: Path) -> Path:
     the same machine-local files — it does not make them tracked, shared, or
     visible to anyone else. Falls back to canonical_root when a view already
     exists and points elsewhere."""
-    view = repo_root / ".local-mirrors" / DEFAULT_SNAPSHOT_DIRNAME
-    view.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if not view.exists() and not view.is_symlink():
-        view.symlink_to(canonical_root, target_is_directory=True)
-    if view.resolve(strict=False) == canonical_root.resolve():
-        return view
-    return canonical_root
+    return _local_store.project_view(repo_root, "session-snapshots", canonical_root)
 
 
 def snapshot_filename(*, runtime: str, session_id: str) -> str:
