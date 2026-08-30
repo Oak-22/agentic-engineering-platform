@@ -121,6 +121,49 @@ def archive_file(source: Path, archive_root: Path) -> tuple[Path, Path | None]:
     return destination, superseded
 
 
+PUBLISH_INDEX = "published.json"
+
+
+def record_publish(
+    archive_root: Path, source: Path, current: Path, superseded: Path | None
+) -> None:
+    """Record which local file a published artifact came from.
+
+    The archive keys entries by published filename and the show-me store keys
+    captures by date and runtime, so a capture that is published lands in both
+    with no link between the copies. Without the source path, neither "was
+    this capture ever published" nor "which capture produced this artifact"
+    can be answered, and a revised capture diverges silently from its archived
+    copy.
+
+    Absent or unreadable index content is rebuilt rather than raised on: this
+    runs inside a PostToolUse hook, where losing the index is recoverable but
+    failing the publish is not.
+    """
+    index_path = archive_root / PUBLISH_INDEX
+    try:
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        entries = index["entries"] if isinstance(index.get("entries"), dict) else {}
+    except (OSError, json.JSONDecodeError, AttributeError):
+        entries = {}
+
+    entry = entries.get(current.name, {})
+    versions = entry.get("supersededVersions", [])
+    if superseded is not None and superseded.name not in versions:
+        versions.append(superseded.name)
+    entries[current.name] = {
+        # Absolute at capture time and only a pointer: the source may be moved
+        # or deleted later, so this records provenance, not a live location.
+        "sourcePath": str(source),
+        "sha256": file_digest(current),
+        "publishedAt": datetime.now(timezone.utc).isoformat(),
+        "supersededVersions": versions,
+    }
+    _local_store.write_json_atomically(
+        index_path, {"schemaVersion": 1, "entries": entries}
+    )
+
+
 def handle(payload: dict[str, Any], *, project_dir: Path | None) -> dict[str, Any] | None:
     event_name = str(payload.get("hook_event_name") or "")
     if event_name and event_name != "PostToolUse":
@@ -155,6 +198,13 @@ def handle(payload: dict[str, Any], *, project_dir: Path | None) -> dict[str, An
                 ),
             }
         }
+
+    try:
+        record_publish(archive_root, source, destination, superseded)
+    except OSError:
+        # The copy is the durable outcome; a missing index entry is not worth
+        # reporting the publish as failed.
+        pass
 
     context = f"Artifact mirrored to local archive: {destination}"
     if superseded is not None:
