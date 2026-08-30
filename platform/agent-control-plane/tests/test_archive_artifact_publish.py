@@ -112,18 +112,155 @@ class ArchiveArtifactPublishTests(unittest.TestCase):
                 result["hookSpecificOutput"]["additionalContext"],
             )
 
-    def test_republish_overwrites_previous_archive_copy(self):
+    def test_republish_keeps_the_version_it_replaces(self):
+        """Republishing from one path is how an artifact keeps its URL, so the
+        archive would otherwise retain only the most recent publish."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "diagram.html"
             archive_root = root / "archive"
             source.write_text("v1", encoding="utf-8")
-            first = archiver.archive_file(source, archive_root)
-            source.write_text("v2", encoding="utf-8")
-            second = archiver.archive_file(source, archive_root)
+            first, superseded_first = archiver.archive_file(source, archive_root)
+            self.assertIsNone(superseded_first)
 
+            source.write_text("v2", encoding="utf-8")
+            second, superseded = archiver.archive_file(source, archive_root)
+
+            # The published name always holds the current version, so paths
+            # recorded before this change stay resolvable.
             self.assertEqual(first, second)
             self.assertEqual(second.read_text(encoding="utf-8"), "v2")
+            self.assertIsNotNone(superseded)
+            self.assertEqual(superseded.read_text(encoding="utf-8"), "v1")
+            self.assertEqual(
+                sorted(path.name for path in archive_root.iterdir()),
+                sorted([second.name, superseded.name]),
+            )
+
+    def test_republishing_identical_content_supersedes_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "diagram.html"
+            archive_root = root / "archive"
+            source.write_text("unchanged", encoding="utf-8")
+            archiver.archive_file(source, archive_root)
+            _, superseded = archiver.archive_file(source, archive_root)
+
+            self.assertIsNone(superseded)
+            self.assertEqual(len(list(archive_root.iterdir())), 1)
+
+    def test_versions_sharing_a_timestamp_do_not_overwrite_each_other(self):
+        """The stamp resolves to the second, so distinct versions can collide."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "diagram.html"
+            archive_root = root / "archive"
+            archive_root.mkdir()
+            destination = archive_root / "diagram.html"
+
+            for content in ("v1", "v2", "v3"):
+                source.write_text(content, encoding="utf-8")
+                if destination.exists():
+                    # Freeze the mtime so every superseded version competes for
+                    # one name, which a real burst of republishes can do.
+                    os.utime(destination, (1_760_000_000, 1_760_000_000))
+                archiver.archive_file(source, archive_root)
+
+            preserved = sorted(
+                path.read_text(encoding="utf-8")
+                for path in archive_root.iterdir()
+            )
+            self.assertEqual(preserved, ["v1", "v2", "v3"])
+
+
+class PublishIndexTests(unittest.TestCase):
+    def archive_root_for(self, root: Path) -> Path:
+        return root / "archive"
+
+    def index_of(self, archive_root: Path) -> dict:
+        import json
+
+        return json.loads(
+            (archive_root / archiver.PUBLISH_INDEX).read_text(encoding="utf-8")
+        )
+
+    def test_records_the_capture_a_published_artifact_came_from(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = root / "2026-08-27-show-me-discovery-path.html"
+            capture.write_text("<p>diagram</p>", encoding="utf-8")
+            archive_root = self.archive_root_for(root)
+            current, superseded = archiver.archive_file(capture, archive_root)
+            archiver.record_publish(archive_root, capture, current, superseded)
+
+            entry = self.index_of(archive_root)["entries"][current.name]
+            self.assertEqual(entry["sourcePath"], str(capture))
+            self.assertEqual(entry["sha256"], archiver.file_digest(capture))
+            self.assertEqual(entry["supersededVersions"], [])
+
+    def test_superseded_versions_accumulate_across_republishes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "page.html"
+            archive_root = self.archive_root_for(root)
+            for content in ("v1", "v2", "v3"):
+                source.write_text(content, encoding="utf-8")
+                current, superseded = archiver.archive_file(source, archive_root)
+                archiver.record_publish(archive_root, source, current, superseded)
+
+            entry = self.index_of(archive_root)["entries"]["page.html"]
+            self.assertEqual(len(entry["supersededVersions"]), 2)
+            for name in entry["supersededVersions"]:
+                self.assertTrue((archive_root / name).is_file())
+
+    def test_source_outside_any_capture_store_records_no_fabricated_link(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "scratch-report.html"
+            source.write_text("<p>report</p>", encoding="utf-8")
+            archive_root = self.archive_root_for(root)
+            current, superseded = archiver.archive_file(source, archive_root)
+            archiver.record_publish(archive_root, source, current, superseded)
+
+            entry = self.index_of(archive_root)["entries"][current.name]
+            self.assertEqual(entry["sourcePath"], str(source))
+            self.assertNotIn("captureId", entry)
+
+    def test_unreadable_index_is_rebuilt_rather_than_failing_the_publish(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "page.html"
+            source.write_text("v1", encoding="utf-8")
+            archive_root = self.archive_root_for(root)
+            archive_root.mkdir()
+            (archive_root / archiver.PUBLISH_INDEX).write_text("{not json", encoding="utf-8")
+
+            current, superseded = archiver.archive_file(source, archive_root)
+            archiver.record_publish(archive_root, source, current, superseded)
+
+            self.assertIn(current.name, self.index_of(archive_root)["entries"])
+
+    def test_handle_writes_the_index_end_to_end(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "repo"
+            project.mkdir()
+            source = project / "diagram.html"
+            source.write_text("<p>x</p>", encoding="utf-8")
+            with patch.dict(
+                os.environ, {"AEP_ARTIFACT_ARCHIVE_DIR": str(root / "base")}
+            ):
+                archiver.handle(
+                    {
+                        "hook_event_name": "PostToolUse",
+                        "tool_name": "Artifact",
+                        "tool_input": {"file_path": str(source)},
+                    },
+                    project_dir=project,
+                )
+                archive_root = archiver.resolve_archive_root(project_dir=project)
+            entry = self.index_of(archive_root)["entries"]["diagram.html"]
+            self.assertEqual(entry["sourcePath"], str(source))
 
 
 if __name__ == "__main__":
