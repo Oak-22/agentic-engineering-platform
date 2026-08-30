@@ -1,2 +1,8 @@
 # Checked-in Claude Code projections generated into .claude/.
 # Add one repository-relative path per line when a renderer is implemented.
+.claude/agents/architecture-agent.md
+.claude/agents/documentation-agent.md
+.claude/agents/evaluation-agent.md
+.claude/agents/implementation-agent.md
+.claude/agents/release-operations-agent.md
+.claude/agents/security-agent.md

@@ -1,2 +1,10 @@
 # Checked-in GitHub Copilot projections generated into agent-related .github/ paths.
 # Add one repository-relative path per line when a renderer is implemented.
+.github/agents/architecture-agent.agent.md
+.github/agents/documentation-agent.agent.md
+.github/agents/evaluation-agent.agent.md
+.github/agents/implementation-agent.agent.md
+.github/agents/release-operations-agent.agent.md
+.github/agents/security-agent.agent.md
+.github/hooks/agent-permission-gate.json
+.github/hooks/instruction-manifest.json
