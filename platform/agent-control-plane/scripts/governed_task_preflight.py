@@ -16,7 +16,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 
 JIRA_ISSUE_KEY_PATTERN = r"[A-Z][A-Z0-9_]*-[1-9][0-9]*"
@@ -321,7 +321,7 @@ def targets_branch_creation(command: str) -> bool:
     return bool(BRANCH_CREATION_COMMAND_PATTERN.search(command))
 
 
-def deny_decision(reason: str) -> dict:
+def deny_decision(reason: str) -> dict[str, dict[str, str]]:
     """The PreToolUse JSON shape both Claude Code and Codex accept for deny."""
     return {
         "hookSpecificOutput": {
@@ -332,7 +332,7 @@ def deny_decision(reason: str) -> dict:
     }
 
 
-def hook_response(tool_input: dict, root: Path) -> dict | None:
+def hook_response(tool_input: dict[str, Any], root: Path) -> dict[str, dict[str, str]] | None:
     """Return a deny decision for an unsafe branch-creation command.
 
     Returns None — no opinion — for every other command, and for a safe
