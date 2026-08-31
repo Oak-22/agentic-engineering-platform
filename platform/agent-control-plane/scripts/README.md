@@ -132,6 +132,43 @@ The `PreToolUse` hook denies a bare `git switch -c` / `git checkout -b` for a Ji
 branch when blockers apply, and its denial names this operation as the recovery
 path.
 
+## Developer-owned skills
+
+Resolve the developer's cross-project skills, with no part of this platform
+involved:
+
+```bash
+python3 platform/agent-control-plane/scripts/developer_skills.py
+python3 platform/agent-control-plane/scripts/developer_skills.py --shell
+```
+
+The module imports nothing but the standard library and never imports from the
+rest of the control plane, because the skills must resolve in a checkout where
+this platform is not installed. The rule is small enough to reimplement in a
+shell, which is the practical test of that independence:
+
+```bash
+echo "${AGENT_SKILLS_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/agent-skills}"
+```
+
+Nothing here writes. Resolution and lifecycle stay separate so that asking
+where the skills live never hands out a path to modify them.
+
+Move content out of the legacy `aep/skills` location:
+
+```bash
+python3 platform/agent-control-plane/scripts/migrate_developer_skills.py
+python3 platform/agent-control-plane/scripts/migrate_developer_skills.py --execute
+```
+
+Verification first. The plan is printed and nothing moves without `--execute`;
+a file already at the target with different content blocks the run rather than
+being overwritten, since this content has no second copy and no review step.
+Each copied file is re-digested after writing, so a partial copy fails rather
+than reporting success. The source is left in place — deleting the only copy of
+content this platform does not own is not its decision — and `--remove-source`
+makes that a separate, explicit act that only runs after verification passes.
+
 ## Parallel delivery worktrees
 
 Give each concurrent Jira delivery its own worktree, with ownership recorded so
