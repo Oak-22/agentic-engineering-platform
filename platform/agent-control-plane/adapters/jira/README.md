@@ -27,6 +27,32 @@ vocabulary as `shape-repository-change`. It belongs on every non-subtask issue
 type, including outcomes with no Git artifacts. The delivery branch category is
 derived from it, so one classification decides both.
 
+### Class is authoritative over issue type
+
+Jira issue type describes where work sits in the hierarchy and how it is
+reported on. `Class` describes what the change does. The two vocabularies
+overlap by name — a `Feature` type and a `Feature` class, a `Bug` type and a
+`Fix` class — but they answer different questions, and the overlap is not a
+reason to collapse either one. A `Bug` may be resolved by a `Fix`, by a
+`Refactor`, or by `Docs` alone; the type cannot express which.
+
+Read `Class` and never issue type when deriving governed behavior, including
+the delivery branch category. Issue type remains a Jira-native affordance for
+boards, backlog, and reporting.
+
+### Fields owned by the Jira vendor
+
+A Jira deployment may expose vendor fields that resemble platform concepts,
+such as a field recording the vendor's own agent sessions. Those record
+activity in the vendor's runtime, not this platform's. Execution evidence is
+owned by
+[`agent-run-attempt.schema.json`](../../contracts/agent-run-attempt.schema.json)
+and the telemetry observatory.
+
+Leave such fields out of the portable contract and out of this mapping, and do
+not make them required: nothing outside the vendor's runtime can populate
+them, so a required vendor field rejects every programmatic create.
+
 Record the standard accountability field and Jira-generated `customfield_*`
 identifiers in `aepi-field-mapping.json` using
 [`jira-field-mapping.schema.json`](jira-field-mapping.schema.json). Do not
