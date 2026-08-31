@@ -99,6 +99,12 @@ STORES: dict[str, StoreSpec] = {
         project_scoped=True,
         summary="Parked and superseded decisions about workbench-only evidence.",
     ),
+    "delivery-worktrees": StoreSpec(
+        dirname="delivery-worktrees",
+        env_var="AEP_DELIVERY_WORKTREE_DIR",
+        project_scoped=True,
+        summary="Ownership of the Git worktree backing each active Jira delivery.",
+    ),
     "artifact-archive": StoreSpec(
         dirname="artifact-archive",
         env_var="AEP_ARTIFACT_ARCHIVE_DIR",

@@ -132,6 +132,54 @@ The `PreToolUse` hook denies a bare `git switch -c` / `git checkout -b` for a Ji
 branch when blockers apply, and its denial names this operation as the recovery
 path.
 
+## Parallel delivery worktrees
+
+Give each concurrent Jira delivery its own worktree, with ownership recorded so
+two agents cannot claim the same branch or directory:
+
+```bash
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
+  create feature/PROJ-12-thing --agent agent-a
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py overlap
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
+  release feature/PROJ-12-thing --remove
+```
+
+Sharing one checkout makes concurrent work impossible: whichever agent switches
+branches last decides what the other sees, and neither can tell it happened.
+Separate worktrees remove that contention, but only if ownership is recorded —
+otherwise the collision moves from the branch to the directory.
+
+`create` refuses a second claim on the branch *and* a second claim on the path.
+Both matter: two agents on one ref publish incompatible histories to it, two in
+one directory overwrite each other's files. Branch creation delegates to
+`prepare_delivery_branch.py`, so a worktree never starts from an unverified
+`main` — that would be the same defect in a new directory.
+
+Worktrees are placed beside the repository (`<repo>.worktrees/<JIRA-KEY>`)
+rather than inside it. A nested worktree appears in the primary checkout's
+status as untracked content, which is the dirty-tree condition that blocks the
+next delivery.
+
+`list` reconciles the record against `git worktree list` rather than trusting
+it, and exits 1 when anything needs attention:
+
+| Status | Meaning |
+| --- | --- |
+| `active` | Recorded and present |
+| `missing` | Recorded, directory gone — abandoned or cleaned up elsewhere |
+| `unregistered` | Present with no record, so nobody can be held to it |
+
+A `missing` record is reported, never silently dropped: it is the only trace
+that the delivery existed, and which of the two happened is a question for a
+person.
+
+`overlap` reports files that two active deliveries both change. It is
+coordination risk, not a conflict, and never blocks — two deliveries may
+legitimately touch one file. It is surfaced before integration because a clean
+textual merge is not evidence that two outcomes are compatible.
+
 ## Workbench evidence reconciliation
 
 Classify what `workbench/local` still carries that `main` does not:
