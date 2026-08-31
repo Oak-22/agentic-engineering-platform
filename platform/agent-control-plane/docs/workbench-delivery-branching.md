@@ -2,32 +2,34 @@
 
 ## Purpose
 
-Keep continuous capture and stewardship easy without allowing repository
-history to outrun the delivery model or the agent's edits to outrun the
-developer's visible filesystem. Treat `main`, a private workbench, and
-delivery branches as three different Git roles while using one primary
-checkout by default.
+Make the private workbench a recommended, first-class path for ongoing agent
+co-programming while preserving the conventional direct-delivery path for
+bounded work. Keep repository history from outrunning the delivery model or
+the agent's edits from outrunning the developer's visible filesystem. Treat
+`main`, delivery branches, and the optional workbench as different Git roles
+while using one primary checkout by default.
 
 ```text
 one primary IDE checkout
 
-  workbench/local       A ─ B ─ C ─ D       capture, steward, and shape
+  workbench/local       A ─ B ─ C ─ D       recommended agent capture and shaping
                           \   \     /
                            selected evidence
                                   │
   main ref              M0 ───────┼──────── M1 ───────── M2
                            \       │          \
-  refactor/PROJ-101       delivery A ─ PR ────┘
+  fix/PROJ-101            direct outcome ─ PR ───┘
                                            \
-  feature/PROJ-102                        delivery B ─ PR ─┘
+  feature/PROJ-102                        selected B ─ PR ─┘
 
-  visible branch: workbench/local ⇄ refactor/PROJ-101 ⇄ feature/PROJ-102
+  visible branch: main or workbench/local ⇄ Jira-keyed delivery branch
 ```
 
 The IDE and agent operate on the same primary checkout and switch its visible
-branch as work changes. Both delivery branches derive from current `main` at
-their start. The workbench supplies selected evidence; it is not their
-ancestry base or merge target.
+branch as work changes. Bounded work may proceed directly from current `main`
+to its delivery branch. When used, the workbench supplies selected evidence;
+it is not a delivery branch's ancestry base or merge target. Every delivery
+branch derives from current `main` at its start.
 
 ## Visibility invariant
 
@@ -58,10 +60,13 @@ ancestry base or merge target.
 
 ### Private workbench: capture-and-stewardship stream
 
+- Prefer the workbench for ongoing agent co-programming when observations,
+  experiments, context switches, or changes across files and modules may
+  alter the eventual delivery boundaries. When a Jira outcome is already
+  bounded and this shaping buffer adds no value, create its delivery branch
+  directly from current `main`.
 - Use one unpublished local branch in the primary checkout for low-friction
-  observations, reports, experiments, semantic cleanup, renames, and other
-  continuous stewardship. Use `workbench/local` as the neutral persistent
-  name.
+  capture. Use `workbench/local` as the neutral persistent name.
 - Keep the workbench private. Pushing it changes its role and requires an
   explicit publication decision.
 - Commit each coherent captured idea atomically. Atomic means one explainable
@@ -122,6 +127,16 @@ worktree is dirty with unrelated work, or the developer cannot establish which
 filesystem view is authoritative.
 
 ## Primary-checkout transitions
+
+### Main to direct delivery
+
+1. Start from a bounded Jira outcome with explicit acceptance criteria.
+2. Run the governed-task preflight.
+3. Fetch the remote, switch the primary checkout to `main`, and update it by
+   fast-forward only.
+4. Create and switch to the Jira-keyed delivery branch from that current
+   `main`.
+5. Implement and verify only the selected delivery outcome.
 
 ### Workbench to delivery
 

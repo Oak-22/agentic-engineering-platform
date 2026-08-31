@@ -46,10 +46,13 @@ dependencies, or stacked branches are in scope.
 ## Separate capture from delivery
 
 - Keep `main` as the clean integration base and ordinary pull-request target.
-- Use a private, unpublished `workbench/local` branch in the primary checkout
-  for continuous capture and stewardship, including experiments, reports,
-  semantic cleanup, and renames. Commit each coherent idea atomically without
-  assuming that capture commits are final delivery units.
+- Prefer a private, unpublished `workbench/local` branch in the primary
+  checkout for ongoing agent co-programming when work may cross contexts,
+  files, modules, or delivery boundaries. Commit each coherent idea atomically
+  without assuming that capture commits are final delivery units.
+- Keep the workbench optional. When a Jira outcome is already bounded by
+  explicit scope and acceptance criteria and shaping adds no value, create its
+  delivery branch directly from current `main`.
 - Use `shape-repository-change` to partition workbench evidence before
   delivery. Switch that same primary checkout to an ordinary Jira-keyed branch
   created from current `main`, then transfer only the selected commits, files,

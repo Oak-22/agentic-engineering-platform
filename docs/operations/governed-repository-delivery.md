@@ -2,10 +2,14 @@
 
 ## Operating thesis
 
-`workbench/local` is the private continuous capture-and-stewardship stream.
-Coherent outcomes move from it, in dependency order, to Jira-keyed delivery
-branches created from current `main`. Reviewed pull requests advance `main`;
-the workbench does not.
+Use `workbench/local` as the recommended, first-class capture-and-stewardship
+stream for ongoing agent co-programming, especially when work may cross
+contexts, files, modules, or delivery boundaries. It remains optional: use a
+Jira-keyed delivery branch created directly from current `main` when work
+already has a bounded outcome and acceptance criteria. Shape coherent outcomes
+from the workbench and transfer them, in dependency order, to Jira-keyed
+delivery branches. Reviewed pull requests advance `main`; the workbench does
+not.
 
 ## Why this exists
 
@@ -24,15 +28,17 @@ understand -> generate many changes -> shape -> coordinate -> review -> integrat
                                        ^ new expensive step
 ```
 
-The workbench buffers that evolving intent from the integration branch, giving
-the developer room to checkpoint, separate, and order changes before they
-become independently reviewable merges. Together, the workbench, shaping
-workflow, Jira delivery units, runtime provenance, instruction boundaries, and
-telemetry help maintain coherence at a change velocity that human memory and
-informal coordination can no longer safely absorb.
+For work whose scope is already clear, the conventional Jira task to branch to
+pull-request path remains the shortest route. For work whose boundaries emerge
+during exploration or agent execution, the recommended workbench buffers evolving
+intent from the integration branch so the developer can checkpoint, separate,
+and order changes before they become independently reviewable merges. Together,
+these two entry paths preserve familiar developer workflows while adding a
+shaping surface for change velocity that human memory and informal coordination
+can no longer safely absorb.
 
-Each repository retains its own workbench; cross-repository dependencies still
-require explicit coordination.
+Each repository that uses the recommended workbench retains its own;
+cross-repository dependencies still require explicit coordination.
 
 ## Delivery fundamentals
 
@@ -51,19 +57,29 @@ should not be. See DORA's guidance on
 [trunk-based development](https://dora.dev/capabilities/trunk-based-development/)
 and [continuous integration](https://dora.dev/capabilities/continuous-integration/).
 
-## Three repository states
+## Repository states
 
 | State | Role | Expected contents |
 | --- | --- | --- |
-| `workbench/local` | Evolving developer-intent state | Atomic checkpoints for experiments, reports, semantic cleanup, and other continuous stewardship |
+| `workbench/local` (recommended for agent co-programming; optional) | Evolving developer-intent state | Atomic checkpoints for experiments, reports, semantic cleanup, and other continuous stewardship |
 | `<category>/<JIRA-ISSUE-KEY>-<slug>` | Bounded delivery state | One Jira outcome assembled for verification and review |
 | `main` | Reviewed integration state | Accepted outcomes merged through pull requests |
 
-Use the primary developer-visible checkout for all three states by switching
-its active branch. A second worktree is an explicit concurrency or isolation
-exception, not the normal workflow.
+Use the primary developer-visible checkout for the states active in that
+repository by switching its branch. A second worktree is an explicit
+concurrency or isolation exception, not the normal workflow.
 
-## Normal flow
+## Entry paths
+
+### Bounded work: direct delivery
+
+1. Start from a Jira outcome with explicit scope and acceptance criteria.
+2. Create its Jira-keyed delivery branch from current `main`.
+3. Implement and verify the bounded outcome on that branch.
+4. Review and merge the pull request before starting a dependent branch from
+   updated `main`.
+
+### Agent co-programming: recommended workbench
 
 1. Capture each coherent idea as an atomic commit on `workbench/local`.
 2. Shape the accumulated evidence into independently valuable outcomes and
@@ -72,7 +88,7 @@ exception, not the normal workflow.
 4. Create each Jira-keyed branch from current `main`, not from the workbench.
 5. Transfer only the selected commits, files, or hunks for that outcome.
 6. Verify, review, and merge the pull request before starting a dependent
-   branch from the updated `main`.
+   branch from updated `main`.
 7. Return the primary checkout to the private workbench after delivery cleanup.
 
 Atomic workbench commits are capture boundaries, not guaranteed Jira or pull
@@ -98,10 +114,15 @@ exclusions, dependencies, acceptance criteria, verification checks, and a
 clear review boundary. Split independently valuable, reviewable, reversible,
 or separately owned work into separate units.
 
-Use the private `workbench/local` branch for continuous capture and
-stewardship. Commit each coherent idea atomically there: one explainable
-change per commit. Treat those commits as capture evidence, not automatically
-as final delivery boundaries.
+When the requested outcome is already bounded by a Jira task and acceptance
+criteria and a shaping buffer adds no value, create its Jira-keyed branch
+directly from current `main`.
+
+Prefer the private `workbench/local` branch for ongoing agent co-programming
+when work may cross contexts, files, modules, or delivery boundaries. Commit
+each coherent idea atomically there: one explainable change per commit. Treat
+those commits as capture evidence, not automatically as final delivery
+boundaries.
 
 For each shaped repository outcome, use the default relationship:
 
