@@ -16,6 +16,7 @@ but they differ in trigger, scope, and whether the result is tracked here.
 | [Session snapshots](#session-snapshots) | Manual, deliberate — the `capture-session-trail` skill | `$XDG_DATA_HOME/aep/session-snapshots/<repository-name>--<identity-hash>/` | No |
 | [Public-skills store](#public-skills-store) | Manual, deliberate — authored or installed by the developer | `$XDG_DATA_HOME/aep/skills/` | No |
 | [Experiment runs](#experiment-runs) | Manual, deliberate — an evaluation harness | `$XDG_DATA_HOME/aep/experiments/<repository-name>--<identity-hash>/` | No |
+| [Workbench dispositions](#workbench-dispositions) | Manual, deliberate — reconciling workbench evidence | `$XDG_DATA_HOME/aep/workbench-dispositions/<repository-name>--<identity-hash>/` | No |
 
 ## What `.local-mirrors/` is for
 
@@ -315,6 +316,32 @@ manifest, and runs that disagree with each other all stop the migration for a
 human decision. Assuming unattributed content belongs to whoever happens to be
 migrating is the misattribution this partitioning exists to prevent, and it
 cannot be undone once two repositories' runs are merged.
+
+## Workbench dispositions
+
+Decisions to park or supersede workbench-only evidence live at
+`$XDG_DATA_HOME/aep/workbench-dispositions/<repository-name>--<identity-hash>/`
+(override via `AEP_WORKBENCH_DISPOSITION_DIR`), with a repo-local view at
+`.local-mirrors/workbench-dispositions`.
+
+`workbench_evidence.py` classifies what `workbench/local` still holds that
+`main` does not. Most of it resolves automatically: work whose paths no longer
+differ between the branches has been delivered, however it travelled. What
+remains needs a human judgment — deliver it, park it as capture work, or record
+that later work superseded it — and this store is where the second and third
+answers are kept.
+
+They are kept here rather than in tracked content because a disposition is one
+developer's judgment about their own capture stream, not a repository fact.
+Committing it would publish machine-specific state and make every other
+checkout inherit a decision it never made. The record keys each decision by
+patch identity rather than commit SHA, so it survives the workbench being
+re-merged or rebased from `main`.
+
+Only `parked` and `superseded` are recordable. `represented` and `in-delivery`
+are observed from the repository on each run and cannot be asserted by hand,
+and an observation always outranks a stale recording: work that has since been
+delivered reports as delivered even if someone once parked it.
 
 ## Resolving these paths
 

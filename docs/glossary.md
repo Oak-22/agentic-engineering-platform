@@ -41,8 +41,11 @@ for how runtime adapters fit the layer model.
 
 ### `workbench/local`
 
-The private continuous capture-and-stewardship branch where evolving developer
-intent can be checkpointed, separated, and ordered before delivery.
+A first-class private continuous capture-and-stewardship branch where evolving
+developer intent can be checkpointed, separated, and ordered before delivery.
+It is recommended for ongoing agent co-programming and optional for bounded
+Jira work, which may proceed directly from current `main` to its delivery
+branch.
 
 ### Delivery branch
 

@@ -53,7 +53,11 @@ class RepositoryState:
     current_pull_request_state: str | None
     current_remote_branch_exists: bool
     stale_local_delivery_branches: tuple[str, ...]
+    workbench_exists: bool
     workbench_commits_behind_main: int
+    remote_main_tracked: bool
+    main_ahead_of_remote: int
+    main_behind_remote: int
 
 
 class InspectionError(RuntimeError):
@@ -95,12 +99,11 @@ def local_branch_exists(root: Path, branch: str) -> bool:
 def workbench_commits_behind_main(root: Path) -> int:
     """How far the private capture branch has drifted behind main, or 0.
 
-    Informational only: a nonzero count never blocks task creation, since a
-    Jira-keyed branch is always carved from main, not from the workbench.
-    Non-blocking cleanup debt is reported the same way in `warnings_for`. This
-    exists as a backstop for cleanups skipped or run outside this tooling —
-    the ordinary path re-syncs the workbench automatically as part of
-    `delivery_cleanup.py`'s single-PR cleanup.
+    Any nonzero count blocks. A workbench missing even one main commit cannot
+    be reconciled against main honestly: evidence that looks workbench-only
+    may simply be main content the workbench has not seen yet. Counting
+    commits is not a proxy for that judgment, which is why there is no
+    tolerance threshold here.
     """
     if not local_branch_exists(root, "workbench/local") or not local_branch_exists(
         root, "main"
@@ -117,6 +120,37 @@ def workbench_commits_behind_main(root: Path) -> int:
         return int(result.stdout.strip())
     except ValueError:
         return 0
+
+
+def main_divergence(root: Path) -> tuple[bool, int, int]:
+    """Compare local main with origin/main: (tracked, ahead, behind).
+
+    Reads the remote-tracking ref as it stands rather than fetching. This
+    check is read-only by contract, so a result is only as current as the
+    last fetch; the governed preparation operation fetches before it trusts
+    this comparison.
+    """
+    if not local_branch_exists(root, "main"):
+        return (False, 0, 0)
+    remote = run(
+        ["git", "show-ref", "--verify", "--quiet", "refs/remotes/origin/main"],
+        cwd=root,
+        check=False,
+    )
+    if remote.returncode != 0:
+        return (False, 0, 0)
+    result = run(
+        ["git", "rev-list", "--left-right", "--count", "main...origin/main"],
+        cwd=root,
+        check=False,
+    )
+    if result.returncode != 0:
+        return (False, 0, 0)
+    try:
+        ahead_text, behind_text = result.stdout.split()
+        return (True, int(ahead_text), int(behind_text))
+    except ValueError:
+        return (False, 0, 0)
 
 
 def inspect_repository(root: Path) -> RepositoryState:
@@ -220,6 +254,8 @@ def inspect_repository(root: Path) -> RepositoryState:
             raise InspectionError(f"could not inspect the current remote branch: {detail}")
         current_remote_branch_exists = remote_result.returncode == 0
 
+    remote_main_tracked, main_ahead, main_behind = main_divergence(root)
+
     return RepositoryState(
         dirty_entries=tuple(line for line in status.stdout.splitlines() if line),
         open_governed_pull_requests=open_governed_pull_requests,
@@ -231,12 +267,51 @@ def inspect_repository(root: Path) -> RepositoryState:
             for candidate in reconciliation_candidates
             if candidate.get("classification") == "safe-to-delete"
         ),
+        workbench_exists=local_branch_exists(root, "workbench/local"),
         workbench_commits_behind_main=workbench_commits_behind_main(root),
+        remote_main_tracked=remote_main_tracked,
+        main_ahead_of_remote=main_ahead,
+        main_behind_remote=main_behind,
     )
 
 
 def blockers_for(state: RepositoryState) -> list[str]:
     blockers: list[str] = []
+
+    if state.remote_main_tracked:
+        ahead = state.main_ahead_of_remote
+        behind = state.main_behind_remote
+        if ahead and behind:
+            blockers.append(
+                f"Can't implement the next task: local main has diverged from "
+                f"origin/main ({ahead} unique local commit(s), {behind} unique "
+                "remote commit(s)). A delivery branch cut from this main would "
+                "carry commits that were never reviewed. Reconcile the two "
+                "deliberately; this check will not rewrite history for you."
+            )
+        elif ahead:
+            blockers.append(
+                f"Can't implement the next task: local main is {ahead} commit(s) "
+                "ahead of origin/main. Those commits reached main without a "
+                "reviewed pull request. Deliver or remove them deliberately "
+                "before carving another branch from this main."
+            )
+        elif behind:
+            blockers.append(
+                f"Can't implement the next task: local main is {behind} commit(s) "
+                "behind origin/main, so a branch cut from it would start from a "
+                "stale integration baseline. Fast-forward first with "
+                "`git switch main && git merge --ff-only origin/main`."
+            )
+
+    if state.workbench_exists and state.workbench_commits_behind_main > 0:
+        blockers.append(
+            f"Can't implement the next task: workbench/local is "
+            f"{state.workbench_commits_behind_main} commit(s) behind main, so its "
+            "remaining changes cannot be told apart from main content it has not "
+            "seen yet. Sync it with `git switch workbench/local && git merge main` "
+            "before reconciling workbench evidence."
+        )
 
     if state.dirty_entries:
         blockers.append(
@@ -296,16 +371,16 @@ def warnings_for(state: RepositoryState) -> list[str]:
             "--execute after cleanup is authorized."
         )
 
-    if state.workbench_commits_behind_main > 0:
-        warnings.append(
-            f"workbench/local is {state.workbench_commits_behind_main} commit(s) "
-            "behind main. A single-PR cleanup normally syncs it automatically; if "
-            "one was skipped or run outside this tooling, sync it directly with "
-            "`git switch workbench/local && git merge main`."
-        )
-
     return warnings
 
+
+CANONICAL_PREPARATION = (
+    "Create the branch through the governed preparation operation instead, "
+    "which verifies the baseline and cuts the branch from the exact commit it "
+    "verified:\n"
+    "  python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py "
+    "<category>/<JIRA-ISSUE-KEY>-<slug>"
+)
 
 BRANCH_CREATION_COMMAND_PATTERN = re.compile(r"\bgit\s+(?:checkout\s+-b\b|switch\s+-c\b)")
 
@@ -350,7 +425,7 @@ def hook_response(tool_input: dict[str, Any], root: Path) -> dict[str, dict[str,
     blockers = blockers_for(state)
     if not blockers:
         return None
-    return deny_decision("\n\n".join(blockers))
+    return deny_decision("\n\n".join([*blockers, CANONICAL_PREPARATION]))
 
 
 def run_as_hook(stdin_payload: str, cwd: Path) -> int:

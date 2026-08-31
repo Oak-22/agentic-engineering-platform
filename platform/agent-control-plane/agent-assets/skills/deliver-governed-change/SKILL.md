@@ -120,6 +120,12 @@ how many units one invocation delivers.
    creating empty Git artifacts. Use another branch base only for an explicit
    dependency exception.
 
+   Prefer `workbench/local` for ongoing agent co-programming when the work may
+   cross contexts, files, modules, or delivery boundaries. When the Jira
+   outcome is already bounded, the checkout is clean, and shaping adds no
+   value, proceed directly from current `main` to its Jira-keyed delivery
+   branch.
+
    When preflight reports uncommitted changes, the sanctioned resolution is the
    workbench-to-delivery transition, not a question back to the user: commit
    each coherent idea to the private `workbench/local` branch to reach a clean
@@ -150,10 +156,11 @@ gate without treating it as approved.
 ## What a bare invocation authorizes
 
 Invoking this skill with no stated scope authorizes **Shape through Commit**
-for every shaped delivery unit: create the Jira work items, park uncommitted
-work on the workbench, carve each Jira-keyed branch from current `main`,
-transfer that unit's evidence, run its verification, and partition the result
-into coherent commits.
+for every shaped delivery unit: create the Jira work items; park uncommitted,
+not-yet-bounded work on the workbench when needed; create each Jira-keyed
+branch from current `main`; transfer applicable evidence; run verification;
+and partition the result into coherent commits. Already-bounded work may
+proceed directly to its Jira-keyed branch when a shaping buffer adds no value.
 
 It does **not** authorize Publish, Review, Merge, or Cleanup. Everything it
 produces is local and reversible, which is the point: the accountable human

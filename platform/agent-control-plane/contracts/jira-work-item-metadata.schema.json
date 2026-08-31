@@ -11,11 +11,12 @@
     "accountableHumanId",
     "executionMode",
     "initiationMode",
-    "approvalPolicy"
+    "approvalPolicy",
+    "class"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 2
+      "const": 3
     },
     "workItemKey": {
       "type": "string",
@@ -50,6 +51,17 @@
         "human-required",
         "human-on-exception",
         "automated"
+      ]
+    },
+    "class": {
+      "type": "string",
+      "description": "Primary change nature of the delivery unit, as classified by shape-repository-change. One classification decides both this value and the delivery branch category.",
+      "enum": [
+        "feature",
+        "fix",
+        "refactor",
+        "chore",
+        "docs"
       ]
     }
   }

@@ -95,6 +95,17 @@ rules, read [references/aep-information-model.md](references/aep-information-mod
 - Preserve user-authored description content unless replacement was requested.
 - Apply labels and custom fields only when supported by the live project
   schema.
+- Populate every governed field on each non-subtask work item: the change
+  `Class` from `shape-repository-change`'s primary classification, plus
+  execution mode, initiation mode, and approval policy. Read each field
+  identifier from the project's mapping file rather than hardcoding it, and do
+  not invent identifiers. A repository delivery derives its branch category
+  from `Class`; a non-repository outcome still records its change nature there.
+- Always set the accountable human at creation, including when execution mode
+  is agent. Some project configurations cannot mark the assignment field
+  required, so this workflow is the enforcement point rather than the form.
+  Re-read the created work item and report an unassigned governed item as a
+  defect rather than leaving it for later.
 - Use a valid workflow transition rather than attempting to edit `status`
   directly.
 

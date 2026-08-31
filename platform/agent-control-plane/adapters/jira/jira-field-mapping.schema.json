@@ -12,7 +12,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 2
+      "const": 3
     },
     "projectKey": {
       "type": "string",
@@ -25,7 +25,8 @@
         "accountableHuman",
         "executionMode",
         "initiationMode",
-        "approvalPolicy"
+        "approvalPolicy",
+        "class"
       ],
       "properties": {
         "accountableHuman": {
@@ -38,6 +39,9 @@
           "$ref": "#/$defs/jiraCustomFieldId"
         },
         "approvalPolicy": {
+          "$ref": "#/$defs/jiraCustomFieldId"
+        },
+        "class": {
           "$ref": "#/$defs/jiraCustomFieldId"
         }
       }

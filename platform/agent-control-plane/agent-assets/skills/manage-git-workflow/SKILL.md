@@ -46,10 +46,13 @@ dependencies, or stacked branches are in scope.
 ## Separate capture from delivery
 
 - Keep `main` as the clean integration base and ordinary pull-request target.
-- Use a private, unpublished `workbench/local` branch in the primary checkout
-  for continuous capture and stewardship, including experiments, reports,
-  semantic cleanup, and renames. Commit each coherent idea atomically without
-  assuming that capture commits are final delivery units.
+- Prefer a private, unpublished `workbench/local` branch in the primary
+  checkout for ongoing agent co-programming when work may cross contexts,
+  files, modules, or delivery boundaries. Commit each coherent idea atomically
+  without assuming that capture commits are final delivery units.
+- Keep the workbench optional. When a Jira outcome is already bounded by
+  explicit scope and acceptance criteria and shaping adds no value, create its
+  delivery branch directly from current `main`.
 - Use `shape-repository-change` to partition workbench evidence before
   delivery. Switch that same primary checkout to an ordinary Jira-keyed branch
   created from current `main`, then transfer only the selected commits, files,
@@ -110,12 +113,39 @@ branch name and use the category that describes the change's intent:
 ```
 
 Use the full Jira issue key, including its numeric issue identifier. The
-canonical form is `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`, with one of
-`feature`, `fix`, `bugfix`, `hotfix`, `refactor`, `chore`, `docs`, or `release`
-as the category. Keep project names, actor identities, runtime names, spaces,
-and parenthetical expansions out of branch names. Cleanup tooling may
-recognize retired repository conventions for backward compatibility; do not
-use them for new delivery units.
+canonical form is `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`.
+
+Do not choose the category independently. Derive it from the work item's
+governed `Class` field, lowercased: `feature`, `fix`, `refactor`, `chore`, or
+`docs`. The classification is decided once, during shaping, and recorded on the
+work item before the branch exists; the branch name projects it. A branch
+category that contradicts the field is not constructible by following this
+contract.
+
+Three categories from the earlier eight-value vocabulary are retired for new
+work. `bugfix` duplicated `fix`. `hotfix` was `fix` plus urgency, which belongs
+on the work item's priority rather than in a ref name. `release` described a
+process step rather than the nature of a change. Cleanup and preflight tooling
+still recognizes all eight so existing branches remain inspectable and
+cleanable; do not use the retired three for new delivery units.
+
+Keep project names, actor identities, runtime names, spaces, and parenthetical
+expansions out of branch names.
+
+Create the branch through the governed preparation operation rather than a bare
+`git switch -c`. It fetches, verifies or safely fast-forwards `main`, syncs and
+reconciles the workbench where one is in use, then re-reads the baseline and
+cuts the branch from the exact commit it verified — so the state that was
+checked and the state the branch starts from cannot drift apart. It is
+read-only until `--execute`, and never commits, stashes, discards, rebases,
+force-updates, or resolves a conflict.
+
+```bash
+python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
+  <category>/<JIRA-ISSUE-KEY>-<outcome-slug>          # plan
+python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
+  <category>/<JIRA-ISSUE-KEY>-<outcome-slug> --execute
+```
 
 Keep commit subjects concise, imperative, and outcome-oriented. Leave Jira
 keys and model or runtime names out of commit subjects unless the user
