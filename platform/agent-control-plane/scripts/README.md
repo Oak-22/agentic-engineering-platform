@@ -175,6 +175,23 @@ A `missing` record is reported, never silently dropped: it is the only trace
 that the delivery existed, and which of the two happened is a question for a
 person.
 
+`refresh` merges current `main` into one delivery branch, inside that
+delivery's own worktree:
+
+```bash
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
+  refresh feature/PROJ-12-thing
+```
+
+It refuses when local `main` is not level with `origin/main`, because merging a
+stale `main` is worse than leaving a branch behind — it looks like an update
+while quietly pinning the delivery to an older integration point. It refuses on
+a dirty delivery worktree, and aborts a conflicting merge rather than resolving
+it. It merges rather than rebases: a delivery branch may already be published,
+and rewriting a published ref to tidy history is not this operation's call.
+`list` reports how far each active delivery trails `main`, so drift is visible
+before integration rather than at merge time.
+
 `overlap` reports files that two active deliveries both change. It is
 coordination risk, not a conflict, and never blocks — two deliveries may
 legitimately touch one file. It is surfaced before integration because a clean

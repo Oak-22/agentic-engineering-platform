@@ -140,8 +140,10 @@ python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py overlap
 ```
 
-Branches still come from the governed preparation operation, so a worktree
-never starts from an unverified `main`. Integration stays serialized and
+A delivery that falls behind takes `main` in through `refresh`, which merges
+inside that delivery's own worktree and refuses while local `main` is itself
+stale. Branches still come from the governed preparation operation, so a
+worktree never starts from an unverified `main`. Integration stays serialized and
 independently verified per delivery; only execution is parallel.
 
 ### Switching windows is not switching branches

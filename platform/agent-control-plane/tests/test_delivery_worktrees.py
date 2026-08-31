@@ -237,6 +237,111 @@ class OwnershipRecordTests(unittest.TestCase):
             )
 
 
+class RefreshDecisionTests(unittest.TestCase):
+    def test_a_current_branch_needs_no_merge(self):
+        action, detail = MODULE.refresh_decision(True, (), 0)
+
+        self.assertEqual(action, MODULE.REFRESH_CURRENT)
+        self.assertIn("every main commit", detail)
+
+    def test_a_trailing_branch_merges(self):
+        action, detail = MODULE.refresh_decision(True, (), 4)
+
+        self.assertEqual(action, MODULE.REFRESH_MERGE)
+        self.assertIn("4 commit(s) behind", detail)
+
+    def test_a_stale_baseline_blocks_before_anything_else(self):
+        """Merging a stale main pins the delivery to an older integration point."""
+        action, detail = MODULE.refresh_decision(False, (), 4)
+
+        self.assertEqual(action, MODULE.REFRESH_BLOCKED)
+        self.assertIn("stale integration point", detail)
+
+    def test_a_stale_baseline_outranks_a_clean_current_branch(self):
+        """Reporting 'current' against a stale main would be a false all-clear."""
+        action, _ = MODULE.refresh_decision(False, (), 0)
+
+        self.assertEqual(action, MODULE.REFRESH_BLOCKED)
+
+    def test_a_dirty_delivery_worktree_blocks_the_merge(self):
+        action, detail = MODULE.refresh_decision(True, (" M one.py",), 3)
+
+        self.assertEqual(action, MODULE.REFRESH_BLOCKED)
+        self.assertIn(" M one.py", detail)
+
+    def test_drift_is_reported_on_an_active_delivery(self):
+        text = MODULE.render_status(
+            (
+                MODULE.Reconciled(
+                    status=MODULE.REGISTERED_LIVE,
+                    branch="feature/PROJ-1-thing",
+                    worktree_path="/w/PROJ-1",
+                    ownership=ownership(),
+                    head_oid="abc",
+                    behind_main=3,
+                ),
+            )
+        )
+
+        self.assertIn("3 commit(s) behind main", text)
+        self.assertIn("run refresh before integration", text)
+
+    def test_a_current_delivery_reports_no_drift_line(self):
+        text = MODULE.render_status(
+            MODULE.reconcile((ownership(),), {"/w/PROJ-1": ("feature/PROJ-1-thing", "abc")})
+        )
+
+        self.assertNotIn("behind:", text)
+
+
+class ReleaseIsolationTests(unittest.TestCase):
+    """One delivery's cleanup must not disturb another's."""
+
+    def two_deliveries(self):
+        return (
+            ownership(),
+            ownership(
+                branch="feature/PROJ-2-other",
+                jira_key="PROJ-2",
+                worktree_path="/w/PROJ-2",
+                base_commit="def5678",
+                agent="agent-b",
+            ),
+        )
+
+    def test_releasing_one_record_leaves_the_other_intact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / MODULE.OWNERSHIP_FILENAME
+            MODULE.save_ownership(path, self.two_deliveries())
+
+            kept = [
+                item
+                for item in MODULE.load_ownership(path)
+                if item.branch != "feature/PROJ-1-thing"
+            ]
+            MODULE.save_ownership(path, kept)
+            remaining = MODULE.load_ownership(path)
+
+            self.assertEqual(len(remaining), 1)
+            self.assertEqual(remaining[0].branch, "feature/PROJ-2-other")
+            self.assertEqual(remaining[0].agent, "agent-b")
+            self.assertEqual(remaining[0].base_commit, "def5678")
+
+    def test_one_delivery_going_missing_does_not_disturb_the_other(self):
+        reconciled = MODULE.reconcile(
+            self.two_deliveries(), {"/w/PROJ-2": ("feature/PROJ-2-other", "def5678")}
+        )
+
+        by_branch = {item.branch: item for item in reconciled}
+        self.assertEqual(by_branch["feature/PROJ-1-thing"].status, MODULE.REGISTERED_MISSING)
+        self.assertEqual(by_branch["feature/PROJ-2-other"].status, MODULE.REGISTERED_LIVE)
+
+    def test_a_claim_on_one_delivery_never_blocks_an_unrelated_one(self):
+        self.assertIsNone(
+            MODULE.claim_conflict("feature/PROJ-3-new", "/w/PROJ-3", self.two_deliveries())
+        )
+
+
 class StatusReportingTests(unittest.TestCase):
     def test_an_empty_registry_says_so(self):
         self.assertIn("No delivery worktrees", MODULE.render_status(()))

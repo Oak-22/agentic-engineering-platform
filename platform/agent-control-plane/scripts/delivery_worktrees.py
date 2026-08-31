@@ -67,6 +67,7 @@ class Reconciled:
     worktree_path: str
     ownership: Ownership | None
     head_oid: str | None
+    behind_main: int = 0
 
     @property
     def needs_attention(self) -> bool:
@@ -169,6 +170,39 @@ def overlaps(
             if shared:
                 found.append((first, second, tuple(sorted(shared))))
     return tuple(found)
+
+
+REFRESH_CURRENT = "current"
+REFRESH_MERGE = "merge"
+REFRESH_BLOCKED = "blocked"
+
+
+def refresh_decision(
+    baseline_is_current: bool, dirty_entries: Sequence[str], behind: int
+) -> tuple[str, str]:
+    """Whether a delivery branch can take `main` in, and why not.
+
+    Order matters. Merging a stale `main` into a delivery branch is worse than
+    leaving it behind: it looks like the branch was updated while quietly
+    pinning it to an older integration point.
+    """
+    if not baseline_is_current:
+        return (
+            REFRESH_BLOCKED,
+            "local main is not level with origin/main, so merging it would pin "
+            "this delivery to a stale integration point. Prepare the baseline "
+            "first.",
+        )
+    if dirty_entries:
+        listed = "\n".join(f"    {entry}" for entry in dirty_entries)
+        return (
+            REFRESH_BLOCKED,
+            "the delivery worktree has uncommitted changes, so a merge would mix "
+            "them into the result:\n" + listed,
+        )
+    if behind == 0:
+        return (REFRESH_CURRENT, "already contains every main commit")
+    return (REFRESH_MERGE, f"{behind} commit(s) behind main")
 
 
 def default_worktree_path(root: Path, jira_key: str) -> Path:
@@ -286,6 +320,16 @@ def save_ownership(path: Path, records: Sequence[Ownership]) -> None:
     temporary.replace(path)
 
 
+def behind_main(root: Path, branch: str) -> int:
+    result = _git(root, "rev-list", "--count", f"{branch}..main", check=False)
+    if result.returncode != 0:
+        return 0
+    try:
+        return int(result.stdout.strip())
+    except ValueError:
+        return 0
+
+
 def changed_paths(root: Path, branch: str) -> frozenset[str]:
     result = _git(root, "diff", "--name-only", f"main...{branch}", check=False)
     if result.returncode != 0:
@@ -385,7 +429,71 @@ def release(root: Path, branch: str, *, remove: bool) -> Ownership:
 
 
 def status(root: Path) -> tuple[Reconciled, ...]:
-    return reconcile(load_ownership(ownership_path(root)), live_worktrees(root))
+    reconciled = reconcile(load_ownership(ownership_path(root)), live_worktrees(root))
+    return tuple(
+        item
+        if item.status != REGISTERED_LIVE or item.branch is None
+        else Reconciled(
+            status=item.status,
+            branch=item.branch,
+            worktree_path=item.worktree_path,
+            ownership=item.ownership,
+            head_oid=item.head_oid,
+            behind_main=behind_main(root, item.branch),
+        )
+        for item in reconciled
+    )
+
+
+def refresh(root: Path, branch: str) -> tuple[str, str]:
+    """Bring one delivery branch up to current `main`, inside its own worktree.
+
+    Merges rather than rebases: a delivery branch may already be published,
+    and rewriting a published ref to tidy its history is not this operation's
+    call to make.
+    """
+    matching = [
+        item for item in load_ownership(ownership_path(root)) if item.branch == branch
+    ]
+    if not matching:
+        raise WorktreeError(f"{branch} is not a recorded delivery worktree")
+    worktree = Path(matching[0].worktree_path)
+    if not worktree.exists():
+        raise WorktreeError(
+            f"{worktree} is recorded but not present, so there is nothing to update"
+        )
+
+    preflight = _sibling("governed_task_preflight")
+    prepare = _sibling("prepare_delivery_branch")
+    tracked, ahead, behind = preflight.main_divergence(root)
+    baseline_is_current = (
+        prepare.baseline_decision(tracked, ahead, behind).action == prepare.OK
+    )
+    dirty = tuple(
+        line
+        for line in _git(
+            worktree, "status", "--porcelain=v1", "--untracked-files=all"
+        ).stdout.splitlines()
+        if line
+    )
+
+    action, detail = refresh_decision(
+        baseline_is_current, dirty, behind_main(root, branch)
+    )
+    if action == REFRESH_BLOCKED:
+        raise WorktreeError(detail)
+    if action == REFRESH_CURRENT:
+        return action, detail
+
+    merged = _git(worktree, "merge", "--no-edit", "main", check=False)
+    if merged.returncode != 0:
+        _git(worktree, "merge", "--abort", check=False)
+        raise WorktreeError(
+            f"merging main into {branch} conflicts. The merge was aborted and "
+            "nothing was changed. Resolve it deliberately in "
+            f"{worktree}, then verify the delivery again."
+        )
+    return action, detail
 
 
 def overlap_report(root: Path) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
@@ -409,6 +517,12 @@ def render_status(reconciled: Sequence[Reconciled]) -> str:
                 f"    worktree: {item.worktree_path}\n"
                 f"    base:     {item.ownership.base_commit}\n"
                 f"    owner:    {item.ownership.agent} since {item.ownership.created_at}"
+                + (
+                    f"\n    behind:   {item.behind_main} commit(s) behind main; "
+                    "run refresh before integration"
+                    if item.behind_main
+                    else ""
+                )
             )
         elif item.status == REGISTERED_MISSING and item.ownership:
             lines.append(
@@ -455,7 +569,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     commands.add_parser("overlap", help="report file overlap between active deliveries")
 
-    for name in ("create", "list", "release", "overlap"):
+    refreshing = commands.add_parser(
+        "refresh", help="merge current main into one delivery branch"
+    )
+    refreshing.add_argument("branch")
+
+    for name in ("create", "list", "release", "overlap", "refresh"):
         commands.choices[name].add_argument(
             "--format", choices=("text", "json"), default="text"
         )
@@ -481,6 +600,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "release":
             record = release(root, args.branch, remove=args.remove)
             print(f"Released {record.branch} ({record.worktree_path})")
+        elif args.command == "refresh":
+            action, detail = refresh(root, args.branch)
+            print(
+                f"{args.branch}: {detail}"
+                if action == REFRESH_CURRENT
+                else f"Merged main into {args.branch} ({detail})."
+            )
         elif args.command == "overlap":
             found = overlap_report(root)
             print(
