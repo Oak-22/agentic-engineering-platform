@@ -56,14 +56,28 @@ python3 platform/agent-control-plane/scripts/governed_task_preflight.py
 
 The preflight blocks task isolation when:
 
+- local `main` is behind, ahead of, or divergent from `origin/main`, so a
+  branch cut from it would not start from the reviewed integration baseline;
+- `workbench/local` exists and is behind `main`, so its remaining changes
+  cannot be told apart from main content it has not seen yet;
 - the working tree has staged, unstaged, untracked, or conflicted changes;
 - an intent-categorized Jira-keyed pull request remains open;
 - a published feature branch has no pull request; or
 - the current merged delivery still has a remote feature branch requiring
   authorized cleanup.
 
+Each baseline blocker names its own recovery, and they differ: a `main` that is
+merely behind is fast-forwardable, while one carrying unique local commits is
+not something this tooling will resolve for you. The workbench check has no
+tolerance threshold — one missing commit is the same defect as fifty, because a
+commit count is not a substitute for judging what the workbench still holds.
+A repository with no `workbench/local` is on the direct-delivery path and is
+never held to the workbench invariant.
+
 The command reports the exact remaining work and exits nonzero. It is read-only:
 it never commits, stashes, discards, merges, or deletes anything automatically.
+The `main` comparison reads the remote-tracking ref as it stands rather than
+fetching, so it is only as current as the last fetch.
 
 The same script also runs as a `PreToolUse` hook (`--hook`, registered in
 [`hooks_registry.json`](../agent-assets/hooks/hooks_registry.json)) on both

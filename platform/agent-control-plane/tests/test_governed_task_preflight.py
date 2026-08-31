@@ -25,7 +25,11 @@ class GovernedTaskPreflightTests(unittest.TestCase):
             "current_pull_request_state": None,
             "current_remote_branch_exists": False,
             "stale_local_delivery_branches": (),
+            "workbench_exists": False,
             "workbench_commits_behind_main": 0,
+            "remote_main_tracked": True,
+            "main_ahead_of_remote": 0,
+            "main_behind_remote": 0,
         }
         values.update(overrides)
         return MODULE.RepositoryState(**values)
@@ -113,28 +117,81 @@ class GovernedTaskPreflightTests(unittest.TestCase):
         self.assertIn("agent/PROJ-27-old-delivery", warnings[0])
         self.assertIn("will not delete", warnings[0])
 
-    def test_workbench_behind_main_warns_without_blocking(self):
-        state = self.state(workbench_commits_behind_main=15)
+    def test_workbench_behind_main_blocks(self):
+        state = self.state(workbench_exists=True, workbench_commits_behind_main=15)
+
+        blockers = MODULE.blockers_for(state)
+        self.assertEqual(len(blockers), 1)
+        self.assertIn("workbench/local is 15 commit(s) behind main", blockers[0])
+        self.assertEqual(MODULE.warnings_for(state), [])
+
+    def test_workbench_behind_main_blocks_at_one_commit(self):
+        """No tolerance threshold: one missing commit is the same defect."""
+        state = self.state(workbench_exists=True, workbench_commits_behind_main=1)
+
+        self.assertEqual(len(MODULE.blockers_for(state)), 1)
+
+    def test_absent_workbench_does_not_block(self):
+        """A repository on the direct-delivery path never entered the workbench."""
+        state = self.state(workbench_exists=False, workbench_commits_behind_main=9)
+
+        self.assertEqual(MODULE.blockers_for(state), [])
+
+    def test_main_behind_remote_blocks_with_fast_forward_recovery(self):
+        blockers = MODULE.blockers_for(self.state(main_behind_remote=3))
+
+        self.assertEqual(len(blockers), 1)
+        self.assertIn("3 commit(s) behind origin/main", blockers[0])
+        self.assertIn("merge --ff-only", blockers[0])
+
+    def test_main_ahead_of_remote_blocks_without_offering_to_rewrite(self):
+        blockers = MODULE.blockers_for(self.state(main_ahead_of_remote=2))
+
+        self.assertEqual(len(blockers), 1)
+        self.assertIn("2 commit(s) ahead of origin/main", blockers[0])
+        self.assertNotIn("--ff-only", blockers[0])
+
+    def test_diverged_main_reports_both_sides(self):
+        blockers = MODULE.blockers_for(
+            self.state(main_ahead_of_remote=2, main_behind_remote=5)
+        )
+
+        self.assertEqual(len(blockers), 1)
+        self.assertIn("diverged", blockers[0])
+        self.assertIn("2 unique local commit(s)", blockers[0])
+        self.assertIn("5 unique remote commit(s)", blockers[0])
+
+    def test_untracked_remote_main_does_not_block(self):
+        """A repository with no origin/main cannot be judged against one."""
+        state = self.state(
+            remote_main_tracked=False, main_ahead_of_remote=4, main_behind_remote=4
+        )
+
+        self.assertEqual(MODULE.blockers_for(state), [])
+
+    def test_baseline_and_delivery_blockers_report_together(self):
+        blockers = MODULE.blockers_for(
+            self.state(
+                main_behind_remote=1,
+                workbench_exists=True,
+                workbench_commits_behind_main=1,
+                dirty_entries=(" M tracked.txt",),
+            )
+        )
+
+        self.assertEqual(len(blockers), 3)
+
+    def test_stale_local_deliveries_still_warn(self):
+        state = self.state(stale_local_delivery_branches=("agent/PROJ-27-old",))
 
         self.assertEqual(MODULE.blockers_for(state), [])
         warnings = MODULE.warnings_for(state)
         self.assertEqual(len(warnings), 1)
-        self.assertIn("workbench/local is 15 commit(s) behind main", warnings[0])
-
-    def test_up_to_date_workbench_produces_no_warning(self):
-        self.assertEqual(MODULE.warnings_for(self.state()), [])
-
-    def test_both_warnings_are_reported_independently(self):
-        state = self.state(
-            stale_local_delivery_branches=("agent/PROJ-27-old-delivery",),
-            workbench_commits_behind_main=3,
-        )
-
-        warnings = MODULE.warnings_for(state)
-
-        self.assertEqual(len(warnings), 2)
         self.assertIn("cleanup debt", warnings[0])
-        self.assertIn("workbench/local is 3 commit(s) behind main", warnings[1])
+        self.assertIn("agent/PROJ-27-old", warnings[0])
+
+    def test_clean_repository_produces_no_warning(self):
+        self.assertEqual(MODULE.warnings_for(self.state()), [])
 
     def test_branch_recognition_requires_intent_category_and_full_issue_key(self):
         self.assertTrue(MODULE.is_governed_delivery_branch("fix/PROJ-123-login-timeout"))
@@ -242,7 +299,11 @@ class HookResponseTests(unittest.TestCase):
             current_pull_request_state=None,
             current_remote_branch_exists=False,
             stale_local_delivery_branches=(),
+            workbench_exists=False,
             workbench_commits_behind_main=0,
+            remote_main_tracked=True,
+            main_ahead_of_remote=0,
+            main_behind_remote=0,
         )
         with mock.patch.object(MODULE, "inspect_repository", return_value=clean_state):
             result = MODULE.hook_response(
@@ -258,7 +319,11 @@ class HookResponseTests(unittest.TestCase):
             current_pull_request_state=None,
             current_remote_branch_exists=False,
             stale_local_delivery_branches=(),
+            workbench_exists=False,
             workbench_commits_behind_main=0,
+            remote_main_tracked=True,
+            main_ahead_of_remote=0,
+            main_behind_remote=0,
         )
         with mock.patch.object(MODULE, "inspect_repository", return_value=dirty_state):
             result = MODULE.hook_response(
@@ -316,7 +381,11 @@ class RunAsHookTests(unittest.TestCase):
             current_pull_request_state=None,
             current_remote_branch_exists=False,
             stale_local_delivery_branches=(),
+            workbench_exists=False,
             workbench_commits_behind_main=0,
+            remote_main_tracked=True,
+            main_ahead_of_remote=0,
+            main_behind_remote=0,
         )
         with mock.patch.object(MODULE, "repository_root", return_value=Path("/repo")):
             with mock.patch.object(MODULE, "inspect_repository", return_value=dirty_state):
