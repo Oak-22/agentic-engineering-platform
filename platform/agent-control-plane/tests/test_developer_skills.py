@@ -143,6 +143,14 @@ class WriteBoundaryTests(unittest.TestCase):
             with self.subTest(call=mutation):
                 self.assertNotIn(mutation, source)
 
+    def test_resolving_a_missing_root_does_not_create_it(self):
+        """Asking where the skills live must never be what brings them into being."""
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory) / "absent"
+            resolved = skills.skills_root(base=base)
+            self.assertEqual(resolved, base)
+            self.assertFalse(base.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
