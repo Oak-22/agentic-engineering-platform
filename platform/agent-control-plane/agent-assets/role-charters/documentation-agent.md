@@ -45,7 +45,8 @@ Updated documentation with source traceability.
 
 Enforced mechanically by
 [`documentation-agent.policy.json`](../execution-policies/permissions/documentation-agent.policy.json)
-via `scripts/agent_permission_gate.py`: denies `git:push`, `gh:pr:merge`, and
+via `scripts/agent_permission_gate.py`: denies `git:push`, all GitHub pull-request
+and Jira issue mutations (including `github:pull_request:merge`), and
 `git:branch:delete` outright, regardless of human approval.
 
 ## Durable record

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/jira-delivery-operation.schema.json",
+  "title": "Jira Delivery Operation",
+  "description": "Portable request for one governed Jira work-item operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "projectKey"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "operation": {
+      "enum": ["work-item-read", "work-item-create", "work-item-update", "work-item-transition", "work-item-link"]
+    },
+    "projectKey": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "issueKey": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"},
+    "statusName": {"type": ["string", "null"], "minLength": 1},
+    "fields": {"type": ["object", "null"]},
+    "linkedIssueKey": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"}
+  }
+}

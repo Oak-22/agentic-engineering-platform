@@ -47,7 +47,8 @@ Evaluation plans, results, evidence, failure analyses, and recommendations.
 
 Enforced mechanically by
 [`evaluation-agent.policy.json`](../execution-policies/permissions/evaluation-agent.policy.json)
-via `scripts/agent_permission_gate.py`: denies `git:push`, `gh:pr:merge`, and
+via `scripts/agent_permission_gate.py`: denies `git:push`, all GitHub pull-request
+and Jira issue mutations (including `github:pull_request:merge`), and
 `git:branch:delete` outright, regardless of human approval. Read-heavy and
 test-execution work is the expected profile for this role; its runtime
 translations should bias toward read-only tool access.

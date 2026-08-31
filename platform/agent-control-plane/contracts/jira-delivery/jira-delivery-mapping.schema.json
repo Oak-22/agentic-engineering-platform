@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/jira-delivery-mapping.schema.json",
+  "title": "Jira Delivery Provider Mapping",
+  "description": "Provider and operation mapping for the Jira destination adapter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "destination", "canonicalAdapter", "primaryProvider", "fallbackProvider", "providers", "operations"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "destination": {"const": "jira"},
+    "canonicalAdapter": {"const": "adapters/jira"},
+    "primaryProvider": {"const": "atlassian-rovo"},
+    "fallbackProvider": {"const": "jira-ui"},
+    "providers": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/provider"},
+      "minProperties": 3
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/operation"},
+      "minProperties": 1
+    }
+  },
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "transport", "enabled", "tools"],
+      "properties": {
+        "role": {"enum": ["primary", "optional", "human-fallback"]},
+        "transport": {"enum": ["streamable-http", "ui"]},
+        "enabled": {"type": "boolean"},
+        "tools": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "tool", "readOnly", "requiresHumanApproval"],
+      "properties": {
+        "provider": {"const": "atlassian-rovo"},
+        "tool": {"type": "string", "minLength": 1},
+        "readOnly": {"type": "boolean"},
+        "requiresHumanApproval": {"type": "boolean"}
+      }
+    }
+  }
+}

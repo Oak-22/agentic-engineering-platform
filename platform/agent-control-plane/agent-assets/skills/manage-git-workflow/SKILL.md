@@ -16,6 +16,12 @@ larger delivery unit, accept its resolved Jira key, outcome, scope, and current
 delivery phase as inputs. Preserve this skill's authority checks for every Git
 mutation.
 
+The cross-system ownership map is in
+[`destination-communication-boundaries.md`](../../../../../docs/architecture/destination-communication-boundaries.md).
+This skill owns local Git/git-over-SSH mechanics and GitHub platform delivery;
+Jira state belongs to `manage-jira-confluence`, and lifecycle sequencing belongs
+to `deliver-governed-change`.
+
 Read
 [the workbench-to-delivery branching contract](../../../docs/workbench-delivery-branching.md)
 when continuous capture or stewardship, workbench commits, selective transfer,

@@ -15,3 +15,6 @@ belong here.
   should carry.
 - [`engineering-knowledge-base.md`](engineering-knowledge-base.md) defines the
   planned portable contract for durable engineering knowledge.
+- [`destination-communication-boundaries.md`](destination-communication-boundaries.md)
+  defines the authority and communication split among AEP, local Git,
+  GitHub, and Jira.

@@ -86,6 +86,15 @@ class ScriptInvocationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("contract validation failed:", result.stderr)
 
+    def test_nested_contracts_are_discovered_with_relative_paths(self):
+        names = contracts.schema_names()
+        self.assertIn(
+            "github-delivery/github-delivery-operation.schema.json", names
+        )
+        self.assertIn(
+            "jira-delivery/jira-work-item-metadata.schema.json", names
+        )
+
 
 class LibraryUseTests(unittest.TestCase):
     """Adding an entry point must not disturb the importing consumers."""

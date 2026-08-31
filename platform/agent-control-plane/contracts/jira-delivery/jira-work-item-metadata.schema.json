@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/jira-work-item-metadata.schema.json",
+  "title": "Jira Work Item Operational Metadata",
+  "description": "Portable planning metadata projected onto a Jira work item. Runtime outcomes and telemetry-derived fields are intentionally excluded until a telemetry adapter can populate them from authoritative evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "workItemKey", "accountableHumanId", "executionMode", "initiationMode", "approvalPolicy", "class"],
+  "properties": {
+    "schemaVersion": {"const": 3},
+    "workItemKey": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"},
+    "accountableHumanId": {"type": "string", "minLength": 1},
+    "executionMode": {"enum": ["agent", "human", "hybrid"]},
+    "initiationMode": {"enum": ["human", "scheduled", "event-driven", "agent-delegated"]},
+    "approvalPolicy": {"enum": ["human-required", "human-on-exception", "automated"]},
+    "class": {"enum": ["feature", "fix", "refactor", "chore", "docs"]}
+  }
+}

@@ -45,7 +45,8 @@ Security findings, risk assessments, and remediation proposals.
 
 Enforced mechanically by
 [`security-agent.policy.json`](../execution-policies/permissions/security-agent.policy.json)
-via `scripts/agent_permission_gate.py`: denies `git:push`, `gh:pr:merge`, and
+via `scripts/agent_permission_gate.py`: denies `git:push`, all GitHub pull-request
+and Jira issue mutations (including `github:pull_request:merge`), and
 `git:branch:delete` outright, regardless of human approval. This is a
 read-heavy review role; its runtime translations should not grant
 git-mutating shell access by default.

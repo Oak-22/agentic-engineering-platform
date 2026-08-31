@@ -30,7 +30,7 @@ CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
 INSTRUCTION_EVIDENCE_RECORD = "instruction-evidence-record.schema.json"
 INSTRUCTION_EVIDENCE_STORE = "instruction-evidence-store.schema.json"
 AGENT_RUN_ATTEMPT = "agent-run-attempt.schema.json"
-JIRA_WORK_ITEM_METADATA = "jira-work-item-metadata.schema.json"
+JIRA_WORK_ITEM_METADATA = "jira-delivery/jira-work-item-metadata.schema.json"
 
 
 class ContractUnavailableError(RuntimeError):
@@ -62,7 +62,10 @@ def load_schema(name: str) -> dict[str, Any]:
 
 
 def schema_names() -> list[str]:
-    return sorted(path.name for path in CONTRACTS.glob("*.schema.json"))
+    return sorted(
+        path.relative_to(CONTRACTS).as_posix()
+        for path in CONTRACTS.rglob("*.schema.json")
+    )
 
 
 def validator_for(name: str):

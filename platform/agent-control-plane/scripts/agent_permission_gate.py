@@ -27,7 +27,8 @@ opinion on at all.
 The command matcher is a regex over raw command text, not parsed argv, and
 shares the false-positive/evasion limitation `governed_task_preflight.py`
 documents for the same reason: hardening it against deliberate evasion is a
-separate, later change.
+separate, later change. MCP tool names are matched against the explicit
+GitHub and Jira mutation maps below.
 """
 
 from __future__ import annotations
@@ -79,6 +80,19 @@ GIT_COMMIT_NO_VERIFY_PATTERN = re.compile(r"\bgit\s+commit\b[^|;&\n]*--no-verify
 GIT_BRANCH_DELETE_PATTERN = re.compile(r"\bgit\s+branch\s+(?:-d|-D|--delete)\b")
 GH_PR_CREATE_PATTERN = re.compile(r"\bgh\s+pr\s+create\b")
 GH_PR_MERGE_PATTERN = re.compile(r"\bgh\s+pr\s+merge\b")
+
+GITHUB_MCP_ACTIONS = {
+    "create_pull_request": "github:pull_request:create",
+    "update_pull_request": "github:pull_request:update",
+    "pull_request_review_write": "github:pull_request:review",
+    "merge_pull_request": "github:pull_request:merge",
+}
+JIRA_MCP_ACTIONS = {
+    "createjiraissue": "jira:issue:create",
+    "editjiraissue": "jira:issue:update",
+    "transitionjiraissue": "jira:issue:transition",
+    "createissuelink": "jira:issue:link",
+}
 
 MAIN_BRANCH_NAMES = frozenset({"main", "master"})
 
@@ -162,9 +176,66 @@ def recognize_action(command: str, root: Path) -> ActionMatch | None:
     if GIT_BRANCH_DELETE_PATTERN.search(command):
         return ActionMatch("git:branch:delete", f"git:{REPO_NAME}:branch/*")
     if GH_PR_MERGE_PATTERN.search(command):
-        return ActionMatch("gh:pr:merge", f"git:{REPO_NAME}:*")
+        return ActionMatch("github:pull_request:merge", f"github:{REPO_NAME}:*")
     if GH_PR_CREATE_PATTERN.search(command):
-        return ActionMatch("gh:pr:create", f"git:{REPO_NAME}:*")
+        return ActionMatch("github:pull_request:create", f"github:{REPO_NAME}:*")
+    return None
+
+
+def is_github_mcp_tool(tool_name: object) -> bool:
+    """Return whether a runtime tool name addresses the configured GitHub MCP."""
+    if not isinstance(tool_name, str):
+        return False
+    lowered = tool_name.lower()
+    return "github" in lowered and lowered.rsplit("__", 1)[-1] in GITHUB_MCP_ACTIONS
+
+
+def is_jira_mcp_tool(tool_name: object) -> bool:
+    """Return whether a runtime tool name addresses a Jira MCP surface."""
+    if not isinstance(tool_name, str):
+        return False
+    lowered = re.sub(r"[^a-z0-9]", "", tool_name.lower())
+    return ("jira" in lowered or "atlassian" in lowered) and any(
+        lowered.endswith(operation) for operation in JIRA_MCP_ACTIONS
+    )
+
+
+def is_governed_mcp_tool(tool_name: object) -> bool:
+    return is_github_mcp_tool(tool_name) or is_jira_mcp_tool(tool_name)
+
+
+def recognize_mcp_action(tool_name: object, tool_input: dict) -> ActionMatch | None:
+    """Map destination MCP mutations onto a semantic action namespace."""
+    if is_github_mcp_tool(tool_name):
+        operation = str(tool_name).lower().rsplit("__", 1)[-1]
+        action = GITHUB_MCP_ACTIONS[operation]
+        repository = tool_input.get("repository")
+        if isinstance(repository, dict):
+            owner = repository.get("owner")
+            name = repository.get("name") or repository.get("repo")
+            repository = f"{owner}/{name}" if owner and name else None
+        elif not isinstance(repository, str):
+            owner = tool_input.get("owner")
+            name = tool_input.get("repo") or tool_input.get("name")
+            repository = f"{owner}/{name}" if owner and name else None
+        resource = f"github:{repository}:*" if repository else f"github:{REPO_NAME}:*"
+        return ActionMatch(action, resource)
+
+    if is_jira_mcp_tool(tool_name):
+        normalized = re.sub(r"[^a-z0-9]", "", str(tool_name).lower())
+        operation = next(
+            operation for operation in JIRA_MCP_ACTIONS if normalized.endswith(operation)
+        )
+        action = JIRA_MCP_ACTIONS[operation]
+        issue_key = (
+            tool_input.get("issueIdOrKey")
+            or tool_input.get("issueKey")
+            or tool_input.get("issue_key")
+        )
+        project_key = tool_input.get("projectKey") or tool_input.get("project_key")
+        project = str(project_key or "*")
+        issue = str(issue_key or "*")
+        return ActionMatch(action, f"jira:{project}:issue/{issue}")
     return None
 
 
@@ -239,16 +310,31 @@ def ask_decision(reason: str, runtime: str = "claude") -> dict:
     return _decision(runtime, "ask", reason)
 
 
-def hook_response(tool_input: dict, event: dict, root: Path, runtime: str) -> dict | None:
-    command = str(tool_input.get("command", ""))
-    if not command:
+def hook_response(
+    tool_input: dict,
+    event: dict,
+    root: Path,
+    runtime: str,
+    tool_name: object = "Bash",
+) -> dict | None:
+    mcp_match = recognize_mcp_action(tool_name, tool_input)
+    if mcp_match is not None:
+        match = mcp_match
+        command = ""
+    elif tool_name not in (None, "Bash") and runtime != "copilot":
+        return None
+    else:
+        match = None
+        command = str(tool_input.get("command", ""))
+    if mcp_match is None and not command:
         return None
 
-    reason = global_deny_reason(command, root)
-    if reason is not None:
-        return deny_decision(reason, runtime)
+    if mcp_match is None:
+        reason = global_deny_reason(command, root)
+        if reason is not None:
+            return deny_decision(reason, runtime)
 
-    match = recognize_action(command, root)
+        match = recognize_action(command, root)
     if match is None:
         return None
 
@@ -283,29 +369,38 @@ def hook_response(tool_input: dict, event: dict, root: Path, runtime: str) -> di
 def run_as_hook(stdin_payload: str, cwd: Path, runtime: str) -> int:
     """Read one PreToolUse event from stdin and print a decision, if any.
 
-    Silent (prints nothing, exits 0) for malformed input, a non-Bash tool
+    Silent (prints nothing, exits 0) for malformed input, an unrelated tool
     call, a command outside a Git worktree, or any command this gate has no
-    opinion on. The JSON on stdout decides the outcome for a matched,
-    gated command; exit code carries no meaning in this mode.
+    opinion on. The JSON on stdout decides the outcome for a matched, gated
+    command or destination MCP mutation; exit code carries no meaning in this
+    mode.
     """
     try:
         event = json.loads(stdin_payload)
     except json.JSONDecodeError:
         return 0
 
-    # Claude Code and Codex both confirm "Bash" as the shell tool's name;
-    # Copilot's equivalent tool name is unverified as of AEPI-94 (its hook
-    # config's `matcher` was left unset for the same reason), so this filter
-    # is skipped there and command-presence below does the real gating.
+    # Claude Code and Codex both confirm "Bash" as the shell tool's name.
+    # GitHub MCP mutation tools are admitted explicitly so they can share the
+    # semantic GitHub permission namespace with the optional `gh` fallback.
+    # Copilot's equivalent tool name is unverified as of AEPI-94, so its filter
+    # remains permissive and command/tool presence below does the gating.
     tool_name = event.get("tool_name")
-    if runtime != "copilot" and tool_name is not None and tool_name != "Bash":
+    if (
+        runtime != "copilot"
+        and tool_name is not None
+        and tool_name != "Bash"
+        and not is_governed_mcp_tool(tool_name)
+    ):
         return 0
 
     root = repository_root(cwd)
     if root is None:
         return 0
 
-    decision = hook_response(event.get("tool_input") or {}, event, root, runtime)
+    decision = hook_response(
+        event.get("tool_input") or {}, event, root, runtime, tool_name
+    )
     if decision is not None:
         print(json.dumps(decision))
     return 0

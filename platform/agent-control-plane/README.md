@@ -45,6 +45,13 @@ It formalizes five core needs:
 Portable work-governance contracts live in [`contracts/`](contracts/).
 The Jira work-item contract keeps board-facing operational metadata separate
 from immutable agent-run attempt history and detailed telemetry.
+Destination communication contracts live in
+[`contracts/github-delivery/`](contracts/github-delivery/) and
+[`contracts/jira-delivery/`](contracts/jira-delivery/); their deployment
+surfaces are the flat [`adapters/github/`](adapters/github/) and
+[`adapters/jira/`](adapters/jira/) directories. The
+[`destination communication boundary`](../../docs/architecture/destination-communication-boundaries.md)
+defines how AEP, Git, GitHub, and Jira divide authority.
 
 ## Contract validation environment
 

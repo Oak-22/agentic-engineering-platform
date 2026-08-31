@@ -3,6 +3,35 @@
 This adapter projects the portable Jira work-item metadata contract into a
 specific Jira deployment.
 
+The adapter is the Jira destination boundary. The portable request, result,
+mapping, and work-item projection contracts live in
+[`../../contracts/jira-delivery/`](../../contracts/jira-delivery/); this
+directory owns deployment-specific field IDs and the AEPI mapping instance.
+
+## Schema versus deployment instance
+
+[`jira-field-mapping.schema.json`](jira-field-mapping.schema.json) is the
+general blueprint: it describes which portable properties must map to Jira
+fields and the shape of a deployment mapping. It is reusable across Jira
+projects and sites.
+
+[`aepi-field-mapping.json`](aepi-field-mapping.json) is the concrete AEPI
+instance of that blueprint. It contains this deployment's actual Jira custom
+field IDs. It is not an alternative schema and it is not orphaned. Keep the
+generic schema stable when adding another deployment; add a sibling instance
+only when that deployment has a different mapping.
+
+[`jira-delivery-mapping.json`](jira-delivery-mapping.json) separately records
+which Jira communication surface owns each operation. It does not duplicate
+Jira field IDs or work-item state.
+
+[`manage-jira-confluence`](../../agent-assets/skills/manage-jira-confluence/SKILL.md)
+owns Jira reads, writes, transitions, links, and verification. The delivery
+coordinator may delegate to it, but GitHub and local Git operations remain the
+responsibility of [`manage-git-workflow`](../../agent-assets/skills/manage-git-workflow/SKILL.md).
+The Atlassian Rovo connector and direct Atlassian MCP are separate runtime
+surfaces; the selected surface must be recorded in the operation evidence.
+
 ## AEPI accountability
 
 Map portable `accountableHumanId` to Jira's standard `assignee` field. Every

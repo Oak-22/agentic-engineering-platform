@@ -59,7 +59,7 @@
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|mcp__github__.*|mcp__.*atlassian.*|mcp__.*jira.*",
         "hooks": [
           {
             "type": "command",
