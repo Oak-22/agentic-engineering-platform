@@ -17,6 +17,7 @@ but they differ in trigger, scope, and whether the result is tracked here.
 | [Public-skills store](#public-skills-store) | Manual, deliberate — authored or installed by the developer | `$XDG_DATA_HOME/aep/skills/` | No |
 | [Experiment runs](#experiment-runs) | Manual, deliberate — an evaluation harness | `$XDG_DATA_HOME/aep/experiments/<repository-name>--<identity-hash>/` | No |
 | [Workbench dispositions](#workbench-dispositions) | Manual, deliberate — reconciling workbench evidence | `$XDG_DATA_HOME/aep/workbench-dispositions/<repository-name>--<identity-hash>/` | No |
+| [Delivery worktree ownership](#delivery-worktree-ownership) | Automatic — claiming a worktree for a delivery | `$XDG_DATA_HOME/aep/delivery-worktrees/<repository-name>--<identity-hash>/` | No |
 
 ## What `.local-mirrors/` is for
 
@@ -342,6 +343,32 @@ Only `parked` and `superseded` are recordable. `represented` and `in-delivery`
 are observed from the repository on each run and cannot be asserted by hand,
 and an observation always outranks a stale recording: work that has since been
 delivered reports as delivered even if someone once parked it.
+
+## Delivery worktree ownership
+
+Which agent owns which delivery worktree lives at
+`$XDG_DATA_HOME/aep/delivery-worktrees/<repository-name>--<identity-hash>/`
+(override via `AEP_DELIVERY_WORKTREE_DIR`), with a repo-local view at
+`.local-mirrors/delivery-worktrees`.
+
+Each record carries the Jira key, branch, worktree path, base commit, owning
+agent, and claim time. `delivery_worktrees.py` refuses a second claim on either
+the branch or the directory, so two agents cannot publish incompatible
+histories to one ref or overwrite each other's files.
+
+The record is machine-local because a worktree path is machine-local: an
+absolute directory on one developer's disk means nothing in another checkout,
+and committing it would publish a machine-specific path as though it were a
+repository fact. It is also why ownership cannot simply be inferred from
+`git worktree list` — Git knows a directory exists, not who claimed it or which
+work item it serves.
+
+Records are reconciled against live worktrees on every read rather than
+trusted. A record whose directory has gone reports as `missing` and is not
+deleted: it is the only remaining trace that a delivery existed, and whether it
+was abandoned or cleaned up outside this tooling is a question for a person. A
+worktree with no record reports as `unregistered`, because nobody can be held
+to it.
 
 ## Resolving these paths
 

@@ -126,6 +126,45 @@ when concurrent agents claim the same path, ownership is unclear, the target
 worktree is dirty with unrelated work, or the developer cannot establish which
 filesystem view is authoritative.
 
+### Parallel governed delivery
+
+Concurrent Jira deliveries are the one exception with tooling behind it. Claim
+each through `delivery_worktrees.py` rather than by hand, so the Jira key,
+branch, worktree path, base commit, and owning agent are recorded and a second
+claim on either the branch or the directory is refused:
+
+```bash
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
+  create <category>/<JIRA-ISSUE-KEY>-<slug> --agent <opaque-agent-id>
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py overlap
+```
+
+A delivery that falls behind takes `main` in through `refresh`, which merges
+inside that delivery's own worktree and refuses while local `main` is itself
+stale. Branches still come from the governed preparation operation, so a
+worktree never starts from an unverified `main`. Integration stays serialized and
+independently verified per delivery; only execution is parallel.
+
+### Switching windows is not switching branches
+
+The practical pattern is one stable editor window per worktree:
+
+- a primary window stays on `workbench/local` for capture and stewardship;
+- each concurrent delivery gets its own window on its own worktree and branch;
+- the operator moves attention between windows while agents keep working.
+
+The distinction matters because the two look similar and behave nothing alike.
+Switching a window changes which delivery you are looking at and changes
+nothing on disk. Switching a branch inside a worktree rewrites that worktree's
+files underneath whatever is running in it, which is exactly the interference
+separate worktrees exist to prevent. Make each window's Jira key, branch, and
+worktree distinguishable — through its title, workspace name, or color — so the
+two are never confused.
+
+An agent must not modify another agent's worktree or change its checked-out
+branch without explicit coordination.
+
 ## Primary-checkout transitions
 
 ### Main to direct delivery
