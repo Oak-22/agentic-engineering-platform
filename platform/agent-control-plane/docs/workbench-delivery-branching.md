@@ -81,10 +81,10 @@ branch derives from current `main` at its start.
 
 - Create each ordinary delivery branch from current `main`, not from the
   workbench or another feature branch.
-- Name it `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`, using `feature`, `fix`,
-  `bugfix`, `hotfix`, `refactor`, `chore`, `docs`, or `release` to communicate
-  intent. Use the full issue key and keep actor or runtime identity in
-  structured provenance rather than the branch name.
+- Name it `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`, deriving the category
+  from the work item's governed `Class` field: `feature`, `fix`, `refactor`,
+  `chore`, or `docs`. Use the full issue key and keep actor or runtime identity
+  in structured provenance rather than the branch name.
 - Switch the primary checkout to the delivery branch before implementation so
   the IDE immediately reflects the selected delivery unit.
 - Use `shape-repository-change` to partition workbench commits, files, or hunks

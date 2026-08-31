@@ -20,6 +20,12 @@ Platform Implementation (`AEPI`) project:
 | `executionMode` | Execution Mode | Agent, Human, Hybrid |
 | `initiationMode` | Initiation Mode | Human, Scheduled, Event-driven, Agent-delegated |
 | `approvalPolicy` | Approval Policy | Human required, Human on exception, Automated |
+| `class` | Class | Feature, Fix, Refactor, Chore, Docs |
+
+`Class` records the delivery unit's primary change nature, using the same
+vocabulary as `shape-repository-change`. It belongs on every non-subtask issue
+type, including outcomes with no Git artifacts. The delivery branch category is
+derived from it, so one classification decides both.
 
 Record the standard accountability field and Jira-generated `customfield_*`
 identifiers in `aepi-field-mapping.json` using

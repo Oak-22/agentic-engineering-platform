@@ -1,8 +1,9 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "workItemKey": "PROJ-10",
   "accountableHumanId": "human-operator-001",
   "executionMode": "agent",
   "initiationMode": "human",
-  "approvalPolicy": "human-required"
+  "approvalPolicy": "human-required",
+  "class": "refactor"
 }

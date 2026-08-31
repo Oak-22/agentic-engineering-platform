@@ -95,6 +95,12 @@ rules, read [references/aep-information-model.md](references/aep-information-mod
 - Preserve user-authored description content unless replacement was requested.
 - Apply labels and custom fields only when supported by the live project
   schema.
+- Populate the governed `Class` field on every non-subtask work item, using the
+  primary classification from `shape-repository-change`. Read its field
+  identifier from the project's mapping file rather than hardcoding it, and do
+  not invent identifiers. A repository delivery derives its branch category
+  from this value, and a non-repository outcome still records its change
+  nature here.
 - Use a valid workflow transition rather than attempting to edit `status`
   directly.
 

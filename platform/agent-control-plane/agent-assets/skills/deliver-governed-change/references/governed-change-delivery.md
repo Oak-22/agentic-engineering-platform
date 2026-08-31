@@ -83,8 +83,8 @@ traceability easy to inspect and does not serve as a numerical quality target.
   committing, stashing, discarding, merging, or deleting work.
 - Create a branch named
   `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>` when repository-tracked content
-  will change. Use `feature`, `fix`, `bugfix`, `hotfix`, `refactor`, `chore`,
-  `docs`, or `release` as the intent category. Use the full Jira issue key,
+  will change. Derive the category from the work item's governed `Class` field:
+  `feature`, `fix`, `refactor`, `chore`, or `docs`. Use the full Jira issue key,
   including its number; keep actor and runtime identity in structured
   provenance rather than the branch name.
 - Prefer sequencing dependencies through merged `main`. Record the dependency,

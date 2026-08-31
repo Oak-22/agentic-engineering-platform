@@ -113,12 +113,24 @@ branch name and use the category that describes the change's intent:
 ```
 
 Use the full Jira issue key, including its numeric issue identifier. The
-canonical form is `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`, with one of
-`feature`, `fix`, `bugfix`, `hotfix`, `refactor`, `chore`, `docs`, or `release`
-as the category. Keep project names, actor identities, runtime names, spaces,
-and parenthetical expansions out of branch names. Cleanup tooling may
-recognize retired repository conventions for backward compatibility; do not
-use them for new delivery units.
+canonical form is `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>`.
+
+Do not choose the category independently. Derive it from the work item's
+governed `Class` field, lowercased: `feature`, `fix`, `refactor`, `chore`, or
+`docs`. The classification is decided once, during shaping, and recorded on the
+work item before the branch exists; the branch name projects it. A branch
+category that contradicts the field is not constructible by following this
+contract.
+
+Three categories from the earlier eight-value vocabulary are retired for new
+work. `bugfix` duplicated `fix`. `hotfix` was `fix` plus urgency, which belongs
+on the work item's priority rather than in a ref name. `release` described a
+process step rather than the nature of a change. Cleanup and preflight tooling
+still recognizes all eight so existing branches remain inspectable and
+cleanable; do not use the retired three for new delivery units.
+
+Keep project names, actor identities, runtime names, spaces, and parenthetical
+expansions out of branch names.
 
 Keep commit subjects concise, imperative, and outcome-oriented. Leave Jira
 keys and model or runtime names out of commit subjects unless the user

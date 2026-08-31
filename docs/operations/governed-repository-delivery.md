@@ -193,8 +193,10 @@ Use the portable pattern:
 <category>/<JIRA-ISSUE-KEY>-<outcome-slug>
 ```
 
-Choose `feature`, `fix`, `bugfix`, `hotfix`, `refactor`, `chore`, `docs`, or
-`release` as the category. For example, this repository may use:
+Derive the category from the work item's governed `Class` field: `feature`,
+`fix`, `refactor`, `chore`, or `docs`. The classification is recorded on the
+work item during shaping, so the branch name projects a decision that already
+exists rather than making a second one. For example, this repository may use:
 
 ```text
 refactor/AEPI-127-telemetry-layout

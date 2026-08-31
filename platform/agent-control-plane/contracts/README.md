@@ -82,7 +82,12 @@ executionMode
 initiationMode
 approvalPolicy
 accountableHumanId
+class
 ```
+
+`class` is the delivery unit's primary change nature. It is orthogonal to
+issue type, which describes hierarchy and size rather than the nature of the
+change.
 
 `accountableHumanId` is required even when `executionMode` is `agent`.
 Execution describes who performs the work; accountability identifies the
