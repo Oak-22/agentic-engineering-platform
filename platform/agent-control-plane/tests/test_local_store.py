@@ -48,7 +48,24 @@ class StoreRootTests(unittest.TestCase):
     def test_machine_wide_store_has_no_project_segment(self):
         """public-skills travels across projects, so scoping it would defeat it."""
         root = store.store_root("public-skills", project_dir=Path("/repo/aep"), base=Path("/b"))
-        self.assertEqual(root, Path("/b") / "skills")
+        self.assertEqual(root, Path("/b"))
+
+    def test_the_developer_store_is_the_namespace_root_itself(self):
+        """It is not a subdirectory of anything this platform owns."""
+        self.assertIsNone(store.STORES["public-skills"].dirname)
+
+    def test_the_developer_store_sits_outside_this_platform_namespace(self):
+        spec = store.STORES["public-skills"]
+
+        self.assertNotEqual(spec.namespace, store.DEFAULT_NAMESPACE)
+        self.assertNotIn(store.DEFAULT_NAMESPACE, str(store.store_root("public-skills")))
+
+    def test_platform_stores_stay_in_the_platform_namespace(self):
+        for name, spec in store.STORES.items():
+            if spec.owner != store.PLATFORM_OWNED:
+                continue
+            with self.subTest(store=name):
+                self.assertEqual(spec.namespace, store.DEFAULT_NAMESPACE)
 
     def test_project_scoped_store_appends_readable_stable_partition(self):
         root = store.store_root("show-me-captures", project_dir=Path("/repo/myHealth"), base=Path("/b"))
@@ -128,7 +145,7 @@ class ProjectViewTests(unittest.TestCase):
 class EnsureStoreTests(unittest.TestCase):
     def test_returns_canonical_only_without_repo_root(self):
         canonical, view = store.ensure_store("public-skills", base=Path("/b"))
-        self.assertEqual(canonical, Path("/b") / "skills")
+        self.assertEqual(canonical, Path("/b"))
         self.assertIsNone(view)
 
     def test_create_makes_the_directory(self):
@@ -228,6 +245,110 @@ class RepositoryIdentityTests(unittest.TestCase):
         first = store.repository_identity(Path("/one/repo"))
         second = store.repository_identity(Path("/two/repo"))
         self.assertNotEqual(first.identity_hash, second.identity_hash)
+
+
+class StoreOwnershipTests(unittest.TestCase):
+    def test_every_registered_store_declares_an_owner(self):
+        for name, spec in store.STORES.items():
+            with self.subTest(store=name):
+                self.assertIn(spec.owner, store.STORE_OWNERS)
+
+    def test_a_store_cannot_be_registered_without_an_owner(self):
+        """Unstated ownership is what let developer content sit in this namespace."""
+        with self.assertRaises(TypeError):
+            store.StoreSpec(
+                dirname="x", env_var=None, project_scoped=True, summary="s"
+            )
+
+    def test_an_unrecognized_owner_is_refused(self):
+        with self.assertRaises(ValueError) as raised:
+            store.StoreSpec(
+                dirname="x",
+                env_var=None,
+                project_scoped=True,
+                summary="s",
+                owner="somebody-else",
+            )
+
+        self.assertIn("must be one of", str(raised.exception))
+
+    def test_public_skills_is_the_only_developer_owned_store(self):
+        """Every other store holds output this platform produced."""
+        developer_owned = {
+            name
+            for name, spec in store.STORES.items()
+            if spec.owner == store.DEVELOPER_OWNED
+        }
+
+        self.assertEqual(developer_owned, {"public-skills"})
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+#: Every place a runtime auto-loads skills, rules, or instructions from this
+#: checkout. The developer store must never be reachable through any of them.
+NATIVE_DISCOVERY_SURFACES = (
+    ".claude/skills",
+    ".claude/rules",
+    ".github/skills",
+    ".github/instructions",
+    ".github/prompts",
+    ".codex/skills",
+    ".codex/agents",
+)
+
+
+class NativeDiscoveryBoundaryTests(unittest.TestCase):
+    """The developer store stays off every runtime's discovery path."""
+
+    def test_local_mirrors_is_gitignored(self):
+        """The repo-local view is a convenience path, not a tracked, loadable one."""
+        ignored = (REPO_ROOT / ".gitignore").read_text().splitlines()
+        self.assertIn(store.MIRROR_DIRNAME + "/", ignored)
+
+    def test_no_discovery_surface_points_into_the_developer_store(self):
+        developer_root = store.store_root("public-skills").resolve(strict=False)
+        legacy_root = (store.storage_root() / "skills").resolve(strict=False)
+        forbidden_fragments = (
+            store.STORES["public-skills"].namespace,
+            store.MIRROR_DIRNAME,
+        )
+
+        leaks: list[str] = []
+        for surface in NATIVE_DISCOVERY_SURFACES:
+            directory = REPO_ROOT / surface
+            if not directory.is_dir():
+                continue
+            for entry in sorted(directory.iterdir()):
+                link_text = os.readlink(entry) if entry.is_symlink() else ""
+                resolved = entry.resolve(strict=False)
+                reaches_store = resolved == developer_root or resolved == legacy_root or any(
+                    parent in (developer_root, legacy_root) for parent in resolved.parents
+                )
+                names_store = any(fragment in link_text for fragment in forbidden_fragments)
+                if reaches_store or names_store:
+                    leaks.append(f"{surface}/{entry.name} -> {link_text or resolved}")
+
+        self.assertEqual(leaks, [])
+
+
+class DeveloperStoreWriteBoundaryTests(unittest.TestCase):
+    """Resolution is pure; only an explicit named action creates the store."""
+
+    def test_resolving_the_store_touches_no_filesystem(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "never-created"
+            store.store_root("public-skills", base=base)
+            store.ensure_store("public-skills", base=base)
+            self.assertFalse(base.exists())
+
+    def test_only_the_explicit_create_flag_makes_the_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "store"
+            store.ensure_store("public-skills", base=base)
+            self.assertFalse(base.exists())
+            store.ensure_store("public-skills", base=base, create=True)
+            self.assertTrue(base.is_dir())
 
 
 if __name__ == "__main__":

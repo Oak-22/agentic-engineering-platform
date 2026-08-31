@@ -35,7 +35,35 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+def _load_developer_skills():
+    """Import the standalone developer-skills resolver.
+
+    The dependency is one-directional on purpose. That module must keep
+    working in a checkout with none of this platform present, so it may never
+    import from here; this module is free to import it.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "developer_skills", Path(__file__).resolve().parent / "developer_skills.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_developer_skills = _load_developer_skills()
+
 DEFAULT_NAMESPACE = "aep"
+
+#: Who authored a store's content, which is not the same question as who
+#: reads it. The platform reads both; it may only claim the namespace of what
+#: it produced.
+PLATFORM_OWNED = "platform"
+DEVELOPER_OWNED = "developer"
+STORE_OWNERS = frozenset({PLATFORM_OWNED, DEVELOPER_OWNED})
+
 MIRROR_DIRNAME = ".local-mirrors"
 IDENTITY_HASH_LENGTH = 24
 REPOSITORY_METADATA = "repository.json"
@@ -46,27 +74,49 @@ REPOSITORY_METADATA_SCHEMA_VERSION = 1
 class StoreSpec:
     """How one machine-local store resolves.
 
-    dirname:        directory under the `aep` namespace.
+    dirname:        directory under the namespace, or None when the store is
+                    the namespace root itself.
+    namespace:      which XDG namespace holds it. Developer-owned content sits
+                    outside this platform's namespace, because a directory name
+                    is a claim about who owns what is in it.
     env_var:        override for the namespace base, honored before XDG.
     project_scoped: whether a per-project subdirectory is appended. Stores
                     holding per-project output are scoped; stores holding
                     content that travels across projects are not.
-    summary:        one line, for the mirror README and docs.
+    summary:        one line, quoted by hand into the mirror documentation.
+                    Nothing generates that documentation from this field.
+    owner:          who authored the content. Required and validated: a store
+                    whose ownership nobody stated is the condition that let
+                    developer-authored skills sit in this platform's namespace
+                    unnoticed, so there is no default to fall back to.
     """
 
-    dirname: str
+    dirname: str | None
     env_var: str | None
     project_scoped: bool
     summary: str
+    owner: str
     env_is_store_root: bool = False
+    namespace: str = DEFAULT_NAMESPACE
+
+    def __post_init__(self) -> None:
+        if self.owner not in STORE_OWNERS:
+            raise ValueError(
+                f"store owner must be one of {sorted(STORE_OWNERS)}, got "
+                f"{self.owner!r}. Ownership decides whether this platform may "
+                "claim the content's canonical location."
+            )
 
 
 STORES: dict[str, StoreSpec] = {
     "public-skills": StoreSpec(
-        dirname="skills",
-        env_var="AEP_SKILLS_DIR",
+        dirname=None,
+        env_var=_developer_skills.ENV_VAR,
         project_scoped=False,
-        summary="Skills that travel across projects, not owned by any one repository.",
+        summary="The developer's own cross-project skills. Mirrored here, owned elsewhere.",
+        owner=DEVELOPER_OWNED,
+        env_is_store_root=True,
+        namespace=_developer_skills.NAMESPACE,
     ),
     "instruction-evidence": StoreSpec(
         dirname="instruction-evidence",
@@ -74,42 +124,49 @@ STORES: dict[str, StoreSpec] = {
         project_scoped=True,
         summary="Per-prompt instruction-load evidence ledgers, keyed by runtime and session.",
         env_is_store_root=True,
+        owner=PLATFORM_OWNED,
     ),
     "show-me-captures": StoreSpec(
         dirname="show-me-captures",
         env_var="AEP_SHOW_ME_CAPTURE_DIR",
         project_scoped=True,
         summary="Rendered explanations and diagrams captured by the show-me skill.",
+        owner=PLATFORM_OWNED,
     ),
     "session-snapshots": StoreSpec(
         dirname="session-snapshots",
         env_var="AEP_SESSION_SNAPSHOT_DIR",
         project_scoped=True,
         summary="Reviewable text and tool-call transcripts of agent sessions.",
+        owner=PLATFORM_OWNED,
     ),
     "experiment-runs": StoreSpec(
         dirname="experiments",
         env_var="AEP_EXPERIMENT_RUNS_DIR",
         project_scoped=True,
         summary="Raw per-run output from platform evaluation experiments.",
+        owner=PLATFORM_OWNED,
     ),
     "workbench-dispositions": StoreSpec(
         dirname="workbench-dispositions",
         env_var="AEP_WORKBENCH_DISPOSITION_DIR",
         project_scoped=True,
         summary="Parked and superseded decisions about workbench-only evidence.",
+        owner=PLATFORM_OWNED,
     ),
     "delivery-worktrees": StoreSpec(
         dirname="delivery-worktrees",
         env_var="AEP_DELIVERY_WORKTREE_DIR",
         project_scoped=True,
         summary="Ownership of the Git worktree backing each active Jira delivery.",
+        owner=PLATFORM_OWNED,
     ),
     "artifact-archive": StoreSpec(
         dirname="artifact-archive",
         env_var="AEP_ARTIFACT_ARCHIVE_DIR",
         project_scoped=True,
         summary="Every file published through the Artifact tool, mirrored on publish.",
+        owner=PLATFORM_OWNED,
     ),
 }
 
@@ -122,8 +179,13 @@ class UnknownStore(KeyError):
         super().__init__(f"unknown store {name!r}; registered stores: {known}")
 
 
-def storage_root(*, base: Path | None = None, env_var: str | None = None) -> Path:
-    """Return the provider-neutral namespace root.
+def storage_root(
+    *,
+    base: Path | None = None,
+    env_var: str | None = None,
+    namespace: str = DEFAULT_NAMESPACE,
+) -> Path:
+    """Return a provider-neutral namespace root.
 
     Never nest this under a single runtime's own directory (`~/.claude/`,
     `~/.codex/`): these stores are written and read by whichever runtime is
@@ -139,7 +201,7 @@ def storage_root(*, base: Path | None = None, env_var: str | None = None) -> Pat
         if configured:
             return Path(configured).expanduser()
     xdg = os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
-    return Path(xdg).expanduser() / DEFAULT_NAMESPACE
+    return Path(xdg).expanduser() / namespace
 
 
 @dataclass(frozen=True)
@@ -328,7 +390,9 @@ def store_root(
     if base is None and configured and spec.env_is_store_root:
         root = Path(configured).expanduser()
     else:
-        root = storage_root(base=base, env_var=spec.env_var) / spec.dirname
+        root = storage_root(base=base, env_var=spec.env_var, namespace=spec.namespace)
+        if spec.dirname:
+            root = root / spec.dirname
     if spec.project_scoped:
         if project_dir is None:
             raise ValueError(f"project_dir is required for project-scoped store {name!r}")
