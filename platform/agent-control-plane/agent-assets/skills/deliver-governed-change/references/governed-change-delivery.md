@@ -83,10 +83,11 @@ traceability easy to inspect and does not serve as a numerical quality target.
   committing, stashing, discarding, merging, or deleting work.
 - Create a branch named
   `<category>/<JIRA-ISSUE-KEY>-<outcome-slug>` when repository-tracked content
-  will change. Derive the category from the work item's governed `Class` field:
-  `feature`, `fix`, `refactor`, `chore`, or `docs`. Use the full Jira issue key,
-  including its number; keep actor and runtime identity in structured
-  provenance rather than the branch name.
+  will change, through `prepare_delivery_branch.py` rather than a bare
+  `git switch -c`. Derive the category from the work item's governed `Class`
+  field: `feature`, `fix`, `refactor`, `chore`, or `docs`. Use the full Jira
+  issue key, including its number; keep actor and runtime identity in
+  structured provenance rather than the branch name.
 - Prefer sequencing dependencies through merged `main`. Record the dependency,
   temporary base, merge order, and required retargeting before deliberately
   stacking a branch; stop when the dependency direction is ambiguous.

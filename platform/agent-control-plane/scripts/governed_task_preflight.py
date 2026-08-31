@@ -374,6 +374,14 @@ def warnings_for(state: RepositoryState) -> list[str]:
     return warnings
 
 
+CANONICAL_PREPARATION = (
+    "Create the branch through the governed preparation operation instead, "
+    "which verifies the baseline and cuts the branch from the exact commit it "
+    "verified:\n"
+    "  python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py "
+    "<category>/<JIRA-ISSUE-KEY>-<slug>"
+)
+
 BRANCH_CREATION_COMMAND_PATTERN = re.compile(r"\bgit\s+(?:checkout\s+-b\b|switch\s+-c\b)")
 
 
@@ -417,7 +425,7 @@ def hook_response(tool_input: dict[str, Any], root: Path) -> dict[str, dict[str,
     blockers = blockers_for(state)
     if not blockers:
         return None
-    return deny_decision("\n\n".join(blockers))
+    return deny_decision("\n\n".join([*blockers, CANONICAL_PREPARATION]))
 
 
 def run_as_hook(stdin_payload: str, cwd: Path) -> int:

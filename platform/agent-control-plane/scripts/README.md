@@ -87,6 +87,51 @@ command. This makes the check an enforced gate rather than a step someone has
 to remember to run. The match is literal: a wrapped, aliased, or subshelled
 branch-creation command is not recognized.
 
+## Governed delivery-branch preparation
+
+Create a Jira-keyed branch as one verified operation rather than a check
+followed by a separate shell command:
+
+```bash
+python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
+  refactor/PROJ-12-telemetry-layout            # plan; changes nothing
+python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
+  refactor/PROJ-12-telemetry-layout --execute
+```
+
+Stages, in order:
+
+1. fetch `origin`, so the comparison is not made against a stale ref;
+2. require a clean working tree, since branches cannot be switched safely otherwise;
+3. verify local `main` against `origin/main`, fast-forwarding when that is safe
+   and blocking when `main` is ahead or divergent;
+4. merge `main` into `workbench/local` when one exists and trails;
+5. require every workbench-only outcome to have a disposition;
+6. re-read the `main` commit and cut the branch from that exact commit.
+
+Step 6 is the point of the whole thing. Previously the state a check verified
+and the state a branch was cut from were separated by a shell command, so they
+could differ. Re-reading the baseline immediately before use closes that
+window; if it moved during preparation, the run stops rather than silently
+branching from something else.
+
+The branch name is validated before anything else runs. The category must be
+one of the five change classes derived from the work item's `Class` field —
+`bugfix`, `hotfix`, and `release` are rejected with the reason they were
+retired, so a contradiction between the field and the ref is not constructible
+by following the contract.
+
+Read-only until `--execute`. The only two mutations it will ever make are the
+fast-forward and the workbench merge, both named in the plan before they
+happen. It never commits, stashes, discards, rebases, force-updates, or
+resolves a conflict; a conflicting workbench merge is aborted and reported. On
+any failure the original checkout is restored, so a stopped preparation does
+not leave the repository parked mid-operation.
+
+The `PreToolUse` hook denies a bare `git switch -c` / `git checkout -b` for a Jira-keyed
+branch when blockers apply, and its denial names this operation as the recovery
+path.
+
 ## Workbench evidence reconciliation
 
 Classify what `workbench/local` still carries that `main` does not:

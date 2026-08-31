@@ -291,6 +291,31 @@ class HookResponseTests(unittest.TestCase):
         inspect.assert_not_called()
         self.assertIsNone(result)
 
+    def test_denial_names_the_canonical_preparation_operation(self):
+        """A denial that only says no leaves the agent to improvise."""
+        payload = json.dumps(
+            {"tool_name": "Bash", "tool_input": {"command": "git checkout -b fix/PROJ-1-x"}}
+        )
+        dirty_state = MODULE.RepositoryState(
+            dirty_entries=(" M tracked.txt",),
+            open_governed_pull_requests=(),
+            current_branch="main",
+            current_pull_request_state=None,
+            current_remote_branch_exists=False,
+            stale_local_delivery_branches=(),
+            workbench_exists=False,
+            workbench_commits_behind_main=0,
+            remote_main_tracked=True,
+            main_ahead_of_remote=0,
+            main_behind_remote=0,
+        )
+        with mock.patch.object(MODULE, "inspect_repository", return_value=dirty_state):
+            decision = MODULE.hook_response(json.loads(payload)["tool_input"], Path("."))
+
+        reason = decision["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("prepare_delivery_branch.py", reason)
+        self.assertIn("uncommitted changes", reason)
+
     def test_none_when_no_blockers_apply(self):
         clean_state = MODULE.RepositoryState(
             dirty_entries=(),

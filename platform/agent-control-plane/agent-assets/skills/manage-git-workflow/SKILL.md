@@ -132,6 +132,21 @@ cleanable; do not use the retired three for new delivery units.
 Keep project names, actor identities, runtime names, spaces, and parenthetical
 expansions out of branch names.
 
+Create the branch through the governed preparation operation rather than a bare
+`git switch -c`. It fetches, verifies or safely fast-forwards `main`, syncs and
+reconciles the workbench where one is in use, then re-reads the baseline and
+cuts the branch from the exact commit it verified — so the state that was
+checked and the state the branch starts from cannot drift apart. It is
+read-only until `--execute`, and never commits, stashes, discards, rebases,
+force-updates, or resolves a conflict.
+
+```bash
+python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
+  <category>/<JIRA-ISSUE-KEY>-<outcome-slug>          # plan
+python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
+  <category>/<JIRA-ISSUE-KEY>-<outcome-slug> --execute
+```
+
 Keep commit subjects concise, imperative, and outcome-oriented. Leave Jira
 keys and model or runtime names out of commit subjects unless the user
 explicitly requests them.
