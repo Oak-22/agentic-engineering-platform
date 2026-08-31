@@ -19,6 +19,26 @@ but they differ in trigger, scope, and whether the result is tracked here.
 | [Workbench dispositions](#workbench-dispositions) | Manual, deliberate — reconciling workbench evidence | `$XDG_DATA_HOME/aep/workbench-dispositions/<repository-name>--<identity-hash>/` | No |
 | [Delivery worktree ownership](#delivery-worktree-ownership) | Automatic — claiming a worktree for a delivery | `$XDG_DATA_HOME/aep/delivery-worktrees/<repository-name>--<identity-hash>/` | No |
 
+## Who owns each store's content
+
+Every registered store declares an owner, and the value is required rather than
+defaulted. Ownership answers who *authored* the content, which is a different
+question from who reads it — the platform reads both.
+
+| Owner | Meaning |
+| --- | --- |
+| `platform` | Artifacts this platform produced: ledgers, captures, snapshots, archives, ownership records |
+| `developer` | Content the developer authored, which this platform mirrors but does not own |
+
+The distinction decides whether `$XDG_DATA_HOME/aep/` may legitimately claim a
+location. It can, for everything it produced. It cannot for content that
+happens to be useful to it.
+
+Unstated ownership is the condition that let developer-authored skills sit
+inside this platform's namespace without anyone noticing, so `StoreSpec` takes
+no default: registering a store without an owner fails at construction, and an
+unrecognized owner is refused by name.
+
 ## What `.local-mirrors/` is for
 
 One decision governs the whole directory:

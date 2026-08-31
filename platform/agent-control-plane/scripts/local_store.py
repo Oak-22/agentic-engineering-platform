@@ -36,6 +36,14 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_NAMESPACE = "aep"
+
+#: Who authored a store's content, which is not the same question as who
+#: reads it. The platform reads both; it may only claim the namespace of what
+#: it produced.
+PLATFORM_OWNED = "platform"
+DEVELOPER_OWNED = "developer"
+STORE_OWNERS = frozenset({PLATFORM_OWNED, DEVELOPER_OWNED})
+
 MIRROR_DIRNAME = ".local-mirrors"
 IDENTITY_HASH_LENGTH = 24
 REPOSITORY_METADATA = "repository.json"
@@ -51,14 +59,28 @@ class StoreSpec:
     project_scoped: whether a per-project subdirectory is appended. Stores
                     holding per-project output are scoped; stores holding
                     content that travels across projects are not.
-    summary:        one line, for the mirror README and docs.
+    summary:        one line, quoted by hand into the mirror documentation.
+                    Nothing generates that documentation from this field.
+    owner:          who authored the content. Required and validated: a store
+                    whose ownership nobody stated is the condition that let
+                    developer-authored skills sit in this platform's namespace
+                    unnoticed, so there is no default to fall back to.
     """
 
     dirname: str
     env_var: str | None
     project_scoped: bool
     summary: str
+    owner: str
     env_is_store_root: bool = False
+
+    def __post_init__(self) -> None:
+        if self.owner not in STORE_OWNERS:
+            raise ValueError(
+                f"store owner must be one of {sorted(STORE_OWNERS)}, got "
+                f"{self.owner!r}. Ownership decides whether this platform may "
+                "claim the content's canonical location."
+            )
 
 
 STORES: dict[str, StoreSpec] = {
@@ -67,6 +89,7 @@ STORES: dict[str, StoreSpec] = {
         env_var="AEP_SKILLS_DIR",
         project_scoped=False,
         summary="Skills that travel across projects, not owned by any one repository.",
+        owner=DEVELOPER_OWNED,
     ),
     "instruction-evidence": StoreSpec(
         dirname="instruction-evidence",
@@ -74,42 +97,49 @@ STORES: dict[str, StoreSpec] = {
         project_scoped=True,
         summary="Per-prompt instruction-load evidence ledgers, keyed by runtime and session.",
         env_is_store_root=True,
+        owner=PLATFORM_OWNED,
     ),
     "show-me-captures": StoreSpec(
         dirname="show-me-captures",
         env_var="AEP_SHOW_ME_CAPTURE_DIR",
         project_scoped=True,
         summary="Rendered explanations and diagrams captured by the show-me skill.",
+        owner=PLATFORM_OWNED,
     ),
     "session-snapshots": StoreSpec(
         dirname="session-snapshots",
         env_var="AEP_SESSION_SNAPSHOT_DIR",
         project_scoped=True,
         summary="Reviewable text and tool-call transcripts of agent sessions.",
+        owner=PLATFORM_OWNED,
     ),
     "experiment-runs": StoreSpec(
         dirname="experiments",
         env_var="AEP_EXPERIMENT_RUNS_DIR",
         project_scoped=True,
         summary="Raw per-run output from platform evaluation experiments.",
+        owner=PLATFORM_OWNED,
     ),
     "workbench-dispositions": StoreSpec(
         dirname="workbench-dispositions",
         env_var="AEP_WORKBENCH_DISPOSITION_DIR",
         project_scoped=True,
         summary="Parked and superseded decisions about workbench-only evidence.",
+        owner=PLATFORM_OWNED,
     ),
     "delivery-worktrees": StoreSpec(
         dirname="delivery-worktrees",
         env_var="AEP_DELIVERY_WORKTREE_DIR",
         project_scoped=True,
         summary="Ownership of the Git worktree backing each active Jira delivery.",
+        owner=PLATFORM_OWNED,
     ),
     "artifact-archive": StoreSpec(
         dirname="artifact-archive",
         env_var="AEP_ARTIFACT_ARCHIVE_DIR",
         project_scoped=True,
         summary="Every file published through the Artifact tool, mirrored on publish.",
+        owner=PLATFORM_OWNED,
     ),
 }
 

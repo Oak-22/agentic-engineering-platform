@@ -230,5 +230,41 @@ class RepositoryIdentityTests(unittest.TestCase):
         self.assertNotEqual(first.identity_hash, second.identity_hash)
 
 
+class StoreOwnershipTests(unittest.TestCase):
+    def test_every_registered_store_declares_an_owner(self):
+        for name, spec in store.STORES.items():
+            with self.subTest(store=name):
+                self.assertIn(spec.owner, store.STORE_OWNERS)
+
+    def test_a_store_cannot_be_registered_without_an_owner(self):
+        """Unstated ownership is what let developer content sit in this namespace."""
+        with self.assertRaises(TypeError):
+            store.StoreSpec(
+                dirname="x", env_var=None, project_scoped=True, summary="s"
+            )
+
+    def test_an_unrecognized_owner_is_refused(self):
+        with self.assertRaises(ValueError) as raised:
+            store.StoreSpec(
+                dirname="x",
+                env_var=None,
+                project_scoped=True,
+                summary="s",
+                owner="somebody-else",
+            )
+
+        self.assertIn("must be one of", str(raised.exception))
+
+    def test_public_skills_is_the_only_developer_owned_store(self):
+        """Every other store holds output this platform produced."""
+        developer_owned = {
+            name
+            for name, spec in store.STORES.items()
+            if spec.owner == store.DEVELOPER_OWNED
+        }
+
+        self.assertEqual(developer_owned, {"public-skills"})
+
+
 if __name__ == "__main__":
     unittest.main()
