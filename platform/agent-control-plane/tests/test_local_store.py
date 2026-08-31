@@ -48,7 +48,24 @@ class StoreRootTests(unittest.TestCase):
     def test_machine_wide_store_has_no_project_segment(self):
         """public-skills travels across projects, so scoping it would defeat it."""
         root = store.store_root("public-skills", project_dir=Path("/repo/aep"), base=Path("/b"))
-        self.assertEqual(root, Path("/b") / "skills")
+        self.assertEqual(root, Path("/b"))
+
+    def test_the_developer_store_is_the_namespace_root_itself(self):
+        """It is not a subdirectory of anything this platform owns."""
+        self.assertIsNone(store.STORES["public-skills"].dirname)
+
+    def test_the_developer_store_sits_outside_this_platform_namespace(self):
+        spec = store.STORES["public-skills"]
+
+        self.assertNotEqual(spec.namespace, store.DEFAULT_NAMESPACE)
+        self.assertNotIn(store.DEFAULT_NAMESPACE, str(store.store_root("public-skills")))
+
+    def test_platform_stores_stay_in_the_platform_namespace(self):
+        for name, spec in store.STORES.items():
+            if spec.owner != store.PLATFORM_OWNED:
+                continue
+            with self.subTest(store=name):
+                self.assertEqual(spec.namespace, store.DEFAULT_NAMESPACE)
 
     def test_project_scoped_store_appends_readable_stable_partition(self):
         root = store.store_root("show-me-captures", project_dir=Path("/repo/myHealth"), base=Path("/b"))
@@ -128,7 +145,7 @@ class ProjectViewTests(unittest.TestCase):
 class EnsureStoreTests(unittest.TestCase):
     def test_returns_canonical_only_without_repo_root(self):
         canonical, view = store.ensure_store("public-skills", base=Path("/b"))
-        self.assertEqual(canonical, Path("/b") / "skills")
+        self.assertEqual(canonical, Path("/b"))
         self.assertIsNone(view)
 
     def test_create_makes_the_directory(self):

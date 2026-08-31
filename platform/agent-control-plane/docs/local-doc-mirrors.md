@@ -39,6 +39,32 @@ inside this platform's namespace without anyone noticing, so `StoreSpec` takes
 no default: registering a store without an owner fails at construction, and an
 unrecognized owner is refused by name.
 
+## The developer's own skills resolve without this platform
+
+`public-skills` is the one `developer` entry, and it no longer lives under
+`$XDG_DATA_HOME/aep/`. It resolves at
+`$XDG_DATA_HOME/agent-skills/` (override via `AGENT_SKILLS_DIR`), through
+`scripts/developer_skills.py` — a module that imports nothing but the standard
+library and never imports from the rest of the control plane.
+
+That independence is the point. The content is declared repository-independent
+and machine-global, but while only `local_store.py` could name it, it was
+reachable solely from inside a checkout of this platform. In a checkout without
+it, the skills sat on disk and nothing could resolve them.
+
+The rule is small enough to reimplement in a shell, which is the practical test
+of whether it depends on anything:
+
+```bash
+echo "${AGENT_SKILLS_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/agent-skills}"
+```
+
+This platform is a client of that resolver, not its owner: the registry entry
+points at the namespace rather than defining it. Resolution and lifecycle stay
+split — nothing in the resolver writes, so no agent obtains a write path merely
+by asking where the skills are. Creating or editing a skill remains an explicit
+act by the person who owns the content.
+
 ## What `.local-mirrors/` is for
 
 One decision governs the whole directory:

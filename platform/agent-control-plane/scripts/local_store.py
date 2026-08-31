@@ -35,6 +35,26 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+def _load_developer_skills():
+    """Import the standalone developer-skills resolver.
+
+    The dependency is one-directional on purpose. That module must keep
+    working in a checkout with none of this platform present, so it may never
+    import from here; this module is free to import it.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "developer_skills", Path(__file__).resolve().parent / "developer_skills.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_developer_skills = _load_developer_skills()
+
 DEFAULT_NAMESPACE = "aep"
 
 #: Who authored a store's content, which is not the same question as who
@@ -54,7 +74,11 @@ REPOSITORY_METADATA_SCHEMA_VERSION = 1
 class StoreSpec:
     """How one machine-local store resolves.
 
-    dirname:        directory under the `aep` namespace.
+    dirname:        directory under the namespace, or None when the store is
+                    the namespace root itself.
+    namespace:      which XDG namespace holds it. Developer-owned content sits
+                    outside this platform's namespace, because a directory name
+                    is a claim about who owns what is in it.
     env_var:        override for the namespace base, honored before XDG.
     project_scoped: whether a per-project subdirectory is appended. Stores
                     holding per-project output are scoped; stores holding
@@ -67,12 +91,13 @@ class StoreSpec:
                     unnoticed, so there is no default to fall back to.
     """
 
-    dirname: str
+    dirname: str | None
     env_var: str | None
     project_scoped: bool
     summary: str
     owner: str
     env_is_store_root: bool = False
+    namespace: str = DEFAULT_NAMESPACE
 
     def __post_init__(self) -> None:
         if self.owner not in STORE_OWNERS:
@@ -85,11 +110,13 @@ class StoreSpec:
 
 STORES: dict[str, StoreSpec] = {
     "public-skills": StoreSpec(
-        dirname="skills",
-        env_var="AEP_SKILLS_DIR",
+        dirname=None,
+        env_var=_developer_skills.ENV_VAR,
         project_scoped=False,
-        summary="Skills that travel across projects, not owned by any one repository.",
+        summary="The developer's own cross-project skills. Mirrored here, owned elsewhere.",
         owner=DEVELOPER_OWNED,
+        env_is_store_root=True,
+        namespace=_developer_skills.NAMESPACE,
     ),
     "instruction-evidence": StoreSpec(
         dirname="instruction-evidence",
@@ -152,8 +179,13 @@ class UnknownStore(KeyError):
         super().__init__(f"unknown store {name!r}; registered stores: {known}")
 
 
-def storage_root(*, base: Path | None = None, env_var: str | None = None) -> Path:
-    """Return the provider-neutral namespace root.
+def storage_root(
+    *,
+    base: Path | None = None,
+    env_var: str | None = None,
+    namespace: str = DEFAULT_NAMESPACE,
+) -> Path:
+    """Return a provider-neutral namespace root.
 
     Never nest this under a single runtime's own directory (`~/.claude/`,
     `~/.codex/`): these stores are written and read by whichever runtime is
@@ -169,7 +201,7 @@ def storage_root(*, base: Path | None = None, env_var: str | None = None) -> Pat
         if configured:
             return Path(configured).expanduser()
     xdg = os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
-    return Path(xdg).expanduser() / DEFAULT_NAMESPACE
+    return Path(xdg).expanduser() / namespace
 
 
 @dataclass(frozen=True)
@@ -358,7 +390,9 @@ def store_root(
     if base is None and configured and spec.env_is_store_root:
         root = Path(configured).expanduser()
     else:
-        root = storage_root(base=base, env_var=spec.env_var) / spec.dirname
+        root = storage_root(base=base, env_var=spec.env_var, namespace=spec.namespace)
+        if spec.dirname:
+            root = root / spec.dirname
     if spec.project_scoped:
         if project_dir is None:
             raise ValueError(f"project_dir is required for project-scoped store {name!r}")
