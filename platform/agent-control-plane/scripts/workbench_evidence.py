@@ -403,6 +403,33 @@ def save_dispositions(path: Path, dispositions: Mapping[str, Disposition]) -> No
     temporary.replace(path)
 
 
+class UnknownEvidence(EvidenceError):
+    """An evidence identity that matches no current workbench outcome."""
+
+
+def resolve_evidence_id(candidate: str, known: Sequence[str]) -> str:
+    """Expand an unambiguous prefix to a full evidence identity.
+
+    Reports are readable because they abbreviate, so an abbreviation is what
+    a person copies. Accepting only the full identity would record a
+    disposition that silently matches nothing, which looks like success and
+    behaves like a no-op.
+    """
+    if candidate in known:
+        return candidate
+    matches = [identity for identity in known if identity.startswith(candidate)]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise UnknownEvidence(
+            f"{candidate!r} matches no workbench-only outcome. Run this command "
+            "with no arguments to list the current evidence identities."
+        )
+    raise UnknownEvidence(
+        f"{candidate!r} is ambiguous between: " + ", ".join(sorted(matches))
+    )
+
+
 def record_disposition(
     path: Path, evidence_id: str, state: str, reason: str, *, now: str | None = None
 ) -> Disposition:
@@ -472,6 +499,7 @@ def as_text(classified: Sequence[ClassifiedCommit]) -> str:
         lines.append("\nUnreconciled workbench evidence:")
         for item in blocking:
             lines.append(f"  {item.commit.sha[:7]} {item.commit.subject}")
+            lines.append(f"  Evidence: {item.commit.evidence_id}")
             lines.append(f"  Paths: {', '.join(item.commit.paths)}")
             lines.append("  Status: absent from main and open delivery branches")
             lines.append("  Required disposition: deliver, park, or supersede\n")
@@ -507,8 +535,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("--park and --supersede require --reason", file=sys.stderr)
             return 2
         state = PARKED if args.park else SUPERSEDED
-        evidence_id = args.park or args.supersede
+        preflight = _sibling_module("governed_task_preflight")
         try:
+            known = [
+                item.commit.evidence_id
+                for item in audit(root, preflight.is_governed_delivery_branch)
+            ]
+            evidence_id = resolve_evidence_id(args.park or args.supersede, known)
             record_disposition(disposition_path(root), evidence_id, state, args.reason)
         except (EvidenceError, ValueError) as error:
             print(str(error), file=sys.stderr)

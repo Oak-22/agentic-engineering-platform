@@ -208,6 +208,41 @@ class DispositionTests(unittest.TestCase):
             self.assertEqual(loaded["p1"].reason, "second")
 
 
+class EvidenceIdentityResolutionTests(unittest.TestCase):
+    KNOWN = ("b13d920dbaec62d01f0959325768b45ac75ac810", "ffff1111aaaa2222")
+
+    def test_a_full_identity_resolves_to_itself(self):
+        self.assertEqual(
+            MODULE.resolve_evidence_id(self.KNOWN[0], self.KNOWN), self.KNOWN[0]
+        )
+
+    def test_the_abbreviation_reports_show_is_accepted(self):
+        """Reports abbreviate, so an abbreviation is what a person copies."""
+        self.assertEqual(
+            MODULE.resolve_evidence_id("b13d920dbaec", self.KNOWN), self.KNOWN[0]
+        )
+
+    def test_an_unmatched_identity_fails_rather_than_recording_a_no_op(self):
+        with self.assertRaises(MODULE.UnknownEvidence) as raised:
+            MODULE.resolve_evidence_id("deadbeef", self.KNOWN)
+
+        self.assertIn("matches no workbench-only outcome", str(raised.exception))
+
+    def test_an_ambiguous_prefix_lists_the_candidates(self):
+        known = ("abc111", "abc222")
+
+        with self.assertRaises(MODULE.UnknownEvidence) as raised:
+            MODULE.resolve_evidence_id("abc", known)
+
+        self.assertIn("ambiguous", str(raised.exception))
+        self.assertIn("abc111", str(raised.exception))
+        self.assertIn("abc222", str(raised.exception))
+
+    def test_resolution_against_no_evidence_fails(self):
+        with self.assertRaises(MODULE.UnknownEvidence):
+            MODULE.resolve_evidence_id("abc", ())
+
+
 class ReportingTests(unittest.TestCase):
     def classified(self, state, **overrides):
         return MODULE.ClassifiedCommit(commit(**overrides), state, "because")
@@ -242,6 +277,12 @@ class ReportingTests(unittest.TestCase):
 
         self.assertIn("Unreconciled workbench evidence", text)
         self.assertIn("deliver, park, or supersede", text)
+
+    def test_text_report_shows_the_identity_a_disposition_needs(self):
+        """Naming the required action without the identity leaves it unusable."""
+        text = MODULE.as_text((self.classified(MODULE.UNRESOLVED),))
+
+        self.assertIn("Evidence: p1", text)
 
     def test_text_report_summarizes_a_fully_reconciled_workbench(self):
         text = MODULE.as_text(

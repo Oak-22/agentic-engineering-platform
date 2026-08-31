@@ -268,7 +268,7 @@ def plan(root: Path, *, fetch: bool) -> tuple[Decision, ...]:
                 len(outstanding),
                 "\n".join(
                     f"    {item.commit.sha[:7]} {item.commit.subject} "
-                    f"[{item.commit.evidence_id[:12]}]"
+                    f"[{item.commit.evidence_id}]"
                     for item in outstanding
                 ),
             )
