@@ -21,11 +21,13 @@ implementation of baseline verification: a worktree cut from an unverified
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import re
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -278,6 +280,26 @@ def ownership_path(root: Path) -> Path:
     return canonical / OWNERSHIP_FILENAME
 
 
+@contextmanager
+def exclusive(path: Path):
+    """Hold an exclusive lock for one read-modify-write of the record.
+
+    Claiming is load, decide, save. Without a lock, two agents racing to
+    claim both read an empty registry, both find no conflict, and the second
+    save erases the first — losing a claim in exactly the tool whose purpose
+    is to prevent that. Parallel execution is the normal case here, so the
+    race is the expected path rather than a rare one.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock = path.with_name(path.name + ".lock")
+    with open(lock, "w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
 def load_ownership(path: Path) -> tuple[Ownership, ...]:
     if not path.exists():
         return ()
@@ -342,33 +364,64 @@ def changed_paths(root: Path, branch: str) -> frozenset[str]:
 # --------------------------------------------------------------------------
 
 
-def create(
-    root: Path, branch: str, agent: str, requested_path: Path | None, *, now: str | None = None
-) -> Ownership:
-    key = jira_key_of(branch)
-    target = (requested_path or default_worktree_path(root, key)).resolve()
-
-    record_path = ownership_path(root)
-    existing = load_ownership(record_path)
-    conflict = claim_conflict(branch, str(target), existing)
-    if conflict:
-        raise WorktreeError(conflict)
-
-    if target.exists() and any(target.iterdir()):
+def usable_worktree_target(target: Path) -> None:
+    """Refuse a target that is not an empty directory this operation can own."""
+    if not target.exists():
+        return
+    if not target.is_dir():
+        raise WorktreeError(
+            f"{target} exists and is not a directory, so it cannot hold a worktree."
+        )
+    if any(target.iterdir()):
         raise WorktreeError(
             f"{target} already exists and is not empty. A delivery worktree must "
             "start from a directory this operation created."
         )
 
+
+def worktree_add_arguments(branch: str, target: Path, source: str) -> tuple[str, ...]:
+    """How to attach a worktree, given where the branch already lives.
+
+    A branch published on the remote must be checked out from it. Creating a
+    fresh local branch of the same name from `main` instead would diverge from
+    the published ref and turn the next push into a non-fast-forward.
+    """
+    if source == "local":
+        return ("worktree", "add", str(target), branch)
+    if source == "remote":
+        return ("worktree", "add", "--track", "-b", branch, str(target), f"origin/{branch}")
+    return ("worktree", "add", "-b", branch, str(target), "main")
+
+
+def branch_source(root: Path, branch: str) -> str:
     preflight = _sibling("governed_task_preflight")
-    branch_is_local = preflight.local_branch_exists(root, branch)
-    if not branch_is_local:
-        prepare = _sibling("prepare_delivery_branch")
-        error = prepare.validate_branch_name(branch)
-        if error:
-            raise WorktreeError(error)
-        decisions = prepare.plan(root, fetch=True)
-        blocked = prepare.blocking(decisions)
+    if preflight.local_branch_exists(root, branch):
+        return "local"
+    published = _git(
+        root, "ls-remote", "--exit-code", "--heads", "origin", f"refs/heads/{branch}",
+        check=False,
+    )
+    return "remote" if published.returncode == 0 else "new"
+
+
+def create(
+    root: Path, branch: str, agent: str, requested_path: Path | None, *, now: str | None = None
+) -> Ownership:
+    key = jira_key_of(branch)
+
+    # Validated for every claim, not only for branches this creates. An
+    # existing ref is not evidence it was ever allowed by the contract.
+    prepare = _sibling("prepare_delivery_branch")
+    error = prepare.validate_branch_name(branch)
+    if error:
+        raise WorktreeError(error)
+
+    target = (requested_path or default_worktree_path(root, key)).resolve()
+    usable_worktree_target(target)
+
+    source = branch_source(root, branch)
+    if source == "new":
+        blocked = prepare.blocking(prepare.plan(root, fetch=True))
         if blocked:
             raise WorktreeError(
                 "the integration baseline is not ready, so a worktree would start "
@@ -376,36 +429,41 @@ def create(
                 + "\n".join(f"  {item.stage}: {item.detail}" for item in blocked)
             )
 
-    target.parent.mkdir(parents=True, exist_ok=True)
-    added = _git(
-        root,
-        "worktree",
-        "add",
-        *(() if branch_is_local else ("-b", branch)),
-        str(target),
-        *((branch,) if branch_is_local else ("main",)),
-        check=False,
-    )
-    if added.returncode != 0:
-        raise WorktreeError(
-            f"could not create the worktree: {added.stderr.strip() or 'unknown failure'}"
-        )
+    record_path = ownership_path(root)
+    with exclusive(record_path):
+        existing = load_ownership(record_path)
+        conflict = claim_conflict(branch, str(target), existing)
+        if conflict:
+            raise WorktreeError(conflict)
 
-    base = _git(target, "rev-parse", "HEAD").stdout.strip()
-    record = Ownership(
-        branch=branch,
-        jira_key=key,
-        worktree_path=str(target),
-        base_commit=base,
-        agent=agent,
-        created_at=now or datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    )
-    save_ownership(record_path, [*existing, record])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        added = _git(root, *worktree_add_arguments(branch, target, source), check=False)
+        if added.returncode != 0:
+            raise WorktreeError(
+                f"could not create the worktree: {added.stderr.strip() or 'unknown failure'}"
+            )
+
+        record = Ownership(
+            branch=branch,
+            jira_key=key,
+            worktree_path=str(target),
+            base_commit=_git(target, "rev-parse", "HEAD").stdout.strip(),
+            agent=agent,
+            created_at=now or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        )
+        save_ownership(record_path, [*existing, record])
     return record
 
 
 def release(root: Path, branch: str, *, remove: bool) -> Ownership:
     record_path = ownership_path(root)
+    with exclusive(record_path):
+        return _release_locked(root, record_path, branch, remove=remove)
+
+
+def _release_locked(
+    root: Path, record_path: Path, branch: str, *, remove: bool
+) -> Ownership:
     existing = load_ownership(record_path)
     matching = [item for item in existing if item.branch == branch]
     if not matching:
@@ -540,6 +598,26 @@ def render_status(reconciled: Sequence[Reconciled]) -> str:
     return "\n".join(lines)
 
 
+def as_json(payload: object) -> str:
+    """Every command's JSON goes through here, in one key convention.
+
+    Mixing conventions across subcommands makes the output unusable without
+    knowing which command produced it, which defeats having it at all.
+    """
+    return json.dumps(payload, indent=2)
+
+
+def ownership_json(record: Ownership) -> dict[str, str]:
+    return {
+        "branch": record.branch,
+        "jiraKey": record.jira_key,
+        "worktreePath": record.worktree_path,
+        "baseCommit": record.base_commit,
+        "agent": record.agent,
+        "createdAt": record.created_at,
+    }
+
+
 def render_overlap(found: Sequence[tuple[str, str, tuple[str, ...]]]) -> str:
     if not found:
         return "No file overlap between active deliveries."
@@ -591,7 +669,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "create":
             record = create(root, args.branch, args.agent, args.path)
             print(
-                json.dumps(record.__dict__, indent=2)
+                as_json(ownership_json(record))
                 if args.format == "json"
                 else f"Claimed {record.branch} for {record.agent}\n"
                 f"  worktree: {record.worktree_path}\n"
@@ -599,23 +677,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         elif args.command == "release":
             record = release(root, args.branch, remove=args.remove)
-            print(f"Released {record.branch} ({record.worktree_path})")
+            print(
+                as_json({**ownership_json(record), "removed": args.remove})
+                if args.format == "json"
+                else f"Released {record.branch} ({record.worktree_path})"
+            )
         elif args.command == "refresh":
             action, detail = refresh(root, args.branch)
             print(
-                f"{args.branch}: {detail}"
-                if action == REFRESH_CURRENT
-                else f"Merged main into {args.branch} ({detail})."
+                as_json({"branch": args.branch, "action": action, "detail": detail})
+                if args.format == "json"
+                else (
+                    f"{args.branch}: {detail}"
+                    if action == REFRESH_CURRENT
+                    else f"Merged main into {args.branch} ({detail})."
+                )
             )
         elif args.command == "overlap":
             found = overlap_report(root)
             print(
-                json.dumps(
+                as_json(
                     [
-                        {"branches": [a, b], "paths": list(paths)}
-                        for a, b, paths in found
-                    ],
-                    indent=2,
+                        {"branches": [first, second], "paths": list(paths)}
+                        for first, second, paths in found
+                    ]
                 )
                 if args.format == "json"
                 else render_overlap(found)
@@ -623,7 +708,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             reconciled = status(root)
             print(
-                json.dumps(
+                as_json(
                     [
                         {
                             "status": item.status,
@@ -631,10 +716,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                             "worktreePath": item.worktree_path,
                             "baseCommit": item.ownership.base_commit if item.ownership else None,
                             "agent": item.ownership.agent if item.ownership else None,
+                            "behindMain": item.behind_main,
                         }
                         for item in reconciled
-                    ],
-                    indent=2,
+                    ]
                 )
                 if args.format == "json"
                 else render_status(reconciled)

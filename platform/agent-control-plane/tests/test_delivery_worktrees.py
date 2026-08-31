@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import unittest
 
 
@@ -340,6 +341,134 @@ class ReleaseIsolationTests(unittest.TestCase):
         self.assertIsNone(
             MODULE.claim_conflict("feature/PROJ-3-new", "/w/PROJ-3", self.two_deliveries())
         )
+
+
+class WorktreeTargetTests(unittest.TestCase):
+    def test_a_path_that_does_not_exist_is_usable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            MODULE.usable_worktree_target(Path(directory) / "new")
+
+    def test_an_empty_directory_is_usable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            MODULE.usable_worktree_target(Path(directory))
+
+    def test_a_file_is_a_controlled_error_not_a_traceback(self):
+        """iterdir() on a file raises NotADirectoryError, which escapes handling."""
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "a-file"
+            target.write_text("")
+
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.usable_worktree_target(target)
+
+            self.assertIn("not a directory", str(raised.exception))
+
+    def test_a_non_empty_directory_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "occupied").write_text("")
+
+            with self.assertRaises(MODULE.WorktreeError):
+                MODULE.usable_worktree_target(Path(directory))
+
+
+class WorktreeAttachmentTests(unittest.TestCase):
+    def test_an_existing_local_branch_is_checked_out_as_is(self):
+        args = MODULE.worktree_add_arguments(
+            "feature/PROJ-1-x", Path("/w/PROJ-1"), "local"
+        )
+
+        self.assertEqual(args, ("worktree", "add", "/w/PROJ-1", "feature/PROJ-1-x"))
+        self.assertNotIn("-b", args)
+
+    def test_a_published_branch_is_tracked_from_the_remote(self):
+        """Recreating it from main would diverge from the published ref."""
+        args = MODULE.worktree_add_arguments(
+            "feature/PROJ-1-x", Path("/w/PROJ-1"), "remote"
+        )
+
+        self.assertIn("--track", args)
+        self.assertIn("origin/feature/PROJ-1-x", args)
+        self.assertNotIn("main", args)
+
+    def test_an_unknown_branch_is_created_from_main(self):
+        args = MODULE.worktree_add_arguments(
+            "feature/PROJ-1-x", Path("/w/PROJ-1"), "new"
+        )
+
+        self.assertIn("-b", args)
+        self.assertEqual(args[-1], "main")
+
+
+class ConcurrentClaimTests(unittest.TestCase):
+    """The tool exists for parallel agents, so the race is the normal path."""
+
+    def claim(self, path, branch, errors):
+        try:
+            with MODULE.exclusive(path):
+                existing = MODULE.load_ownership(path)
+                if MODULE.claim_conflict(branch, f"/w/{branch}", existing):
+                    return
+                MODULE.save_ownership(
+                    path,
+                    [
+                        *existing,
+                        ownership(branch=branch, worktree_path=f"/w/{branch}"),
+                    ],
+                )
+        except Exception as error:  # pragma: no cover - surfaced by the assertion
+            errors.append(error)
+
+    def test_concurrent_claims_do_not_overwrite_each_other(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / MODULE.OWNERSHIP_FILENAME
+            branches = [f"feature/PROJ-{index}-thing" for index in range(1, 25)]
+            errors: list[Exception] = []
+
+            threads = [
+                threading.Thread(target=self.claim, args=(path, branch, errors))
+                for branch in branches
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            self.assertEqual(errors, [])
+            recorded = {item.branch for item in MODULE.load_ownership(path)}
+            self.assertEqual(recorded, set(branches))
+
+    def test_concurrent_claims_on_one_branch_yield_a_single_owner(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / MODULE.OWNERSHIP_FILENAME
+            errors: list[Exception] = []
+
+            threads = [
+                threading.Thread(
+                    target=self.claim, args=(path, "feature/PROJ-1-thing", errors)
+                )
+                for _ in range(12)
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            self.assertEqual(errors, [])
+            self.assertEqual(len(MODULE.load_ownership(path)), 1)
+
+
+class JsonOutputTests(unittest.TestCase):
+    def test_ownership_json_uses_the_shared_key_convention(self):
+        payload = MODULE.ownership_json(ownership())
+
+        self.assertEqual(
+            set(payload),
+            {"branch", "jiraKey", "worktreePath", "baseCommit", "agent", "createdAt"},
+        )
+
+    def test_no_snake_case_key_leaks_into_the_output(self):
+        """Mixed conventions make the output unusable without knowing its source."""
+        self.assertFalse([key for key in MODULE.ownership_json(ownership()) if "_" in key])
 
 
 class StatusReportingTests(unittest.TestCase):

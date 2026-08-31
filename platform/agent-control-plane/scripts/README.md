@@ -162,6 +162,12 @@ rather than inside it. A nested worktree appears in the primary checkout's
 status as untracked content, which is the dirty-tree condition that blocks the
 next delivery.
 
+Claiming is a locked read-modify-write. Without it two agents racing to claim
+both read the registry, both find no conflict, and the second write erases the
+first — losing a claim in the tool whose purpose is to prevent exactly that.
+Measured on this repository, 24 concurrent unlocked claims left 5 records and a
+corrupted file; locked, all 24 survive. The lock is `flock`, so this is POSIX-only.
+
 `list` reconciles the record against `git worktree list` rather than trusting
 it, and exits 1 when anything needs attention:
 
