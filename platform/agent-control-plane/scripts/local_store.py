@@ -93,6 +93,12 @@ STORES: dict[str, StoreSpec] = {
         project_scoped=True,
         summary="Raw per-run output from platform evaluation experiments.",
     ),
+    "workbench-dispositions": StoreSpec(
+        dirname="workbench-dispositions",
+        env_var="AEP_WORKBENCH_DISPOSITION_DIR",
+        project_scoped=True,
+        summary="Parked and superseded decisions about workbench-only evidence.",
+    ),
     "artifact-archive": StoreSpec(
         dirname="artifact-archive",
         env_var="AEP_ARTIFACT_ARCHIVE_DIR",

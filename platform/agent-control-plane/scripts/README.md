@@ -87,6 +87,50 @@ command. This makes the check an enforced gate rather than a step someone has
 to remember to run. The match is literal: a wrapped, aliased, or subshelled
 branch-creation command is not recognized.
 
+## Workbench evidence reconciliation
+
+Classify what `workbench/local` still carries that `main` does not:
+
+```bash
+python3 platform/agent-control-plane/scripts/workbench_evidence.py
+python3 platform/agent-control-plane/scripts/workbench_evidence.py --format json
+```
+
+Each non-merge workbench-only commit lands in one of five states:
+
+| State | Meaning | Blocks? |
+| --- | --- | --- |
+| `represented` | Every path it touched is now identical between `main` and the workbench | No |
+| `in-delivery` | An identical patch, or full path coverage, exists on a live Jira-keyed branch | No |
+| `parked` | Recorded as intentionally retained capture work | No |
+| `superseded` | Recorded as replaced by later work | No |
+| `unresolved` | Absent from integration and delivery, with no recorded disposition | Yes |
+
+The audit compares content, not commit identity. Cherry-picking, squashing,
+hunk-level reshaping, and rewriting during review all change a SHA without
+changing whether the outcome arrived, so asking whether a SHA is on `main`
+reports delivered work as missing. Asking whether its paths still differ does
+not. On this repository that distinction takes the raw count from dozens of
+commits down to the handful that genuinely need a decision.
+
+Path coverage is deliberately weaker than patch identity: a delivery branch
+touching the same files is not proof it carries the same change, so coverage
+only ever routes an outcome to review on that branch and never marks it
+delivered.
+
+Record a judgment on what remains:
+
+```bash
+python3 platform/agent-control-plane/scripts/workbench_evidence.py \
+  --park <evidence-id> --reason "still exploring the approach"
+python3 platform/agent-control-plane/scripts/workbench_evidence.py \
+  --supersede <evidence-id> --reason "replaced by PROJ-9"
+```
+
+A reason is required, and dispositions are stored machine-locally — see
+[workbench dispositions](../docs/local-doc-mirrors.md#workbench-dispositions)
+for why. Exits 1 while any evidence is unresolved, 0 otherwise.
+
 ## Instruction adapter generation
 
 Instruction frontmatter for `.claude/rules/<id>.md` and
