@@ -27,10 +27,14 @@
     "provider": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "transport", "enabled", "tools"],
+      "required": ["role", "transport", "runtimeScope", "enabled", "tools"],
       "properties": {
         "role": {"enum": ["primary", "optional", "human-fallback"]},
         "transport": {"enum": ["streamable-http", "ui"]},
+        "runtimeScope": {
+          "enum": ["codex-default", "claude-optional", "any-human-fallback"],
+          "description": "Which runtime reaches Jira through this surface. codex-default is the hosted Rovo connector; claude-optional is the direct Atlassian MCP endpoint, disabled by default for Codex; any-human-fallback is the Jira UI."
+        },
         "enabled": {"type": "boolean"},
         "tools": {"type": "array", "items": {"type": "string", "minLength": 1}}
       }

@@ -4,6 +4,7 @@
   "canonicalAdapter": "adapters/github",
   "primaryProvider": "github-mcp",
   "fallbackProvider": "gh",
+  "fallbackOrder": ["github-mcp", "codex-apps-github", "gh"],
   "providers": {
     "github-mcp": {
       "role": "primary",
@@ -25,6 +26,12 @@
         "pull_request_review_write",
         "merge_pull_request"
       ]
+    },
+    "codex-apps-github": {
+      "role": "optional-fallback",
+      "transport": "codex-app",
+      "enabled": false,
+      "tools": ["pull request read/write tools"]
     },
     "gh": {
       "role": "optional-fallback",

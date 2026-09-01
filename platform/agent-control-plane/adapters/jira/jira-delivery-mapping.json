@@ -8,6 +8,7 @@
     "atlassian-rovo": {
       "role": "primary",
       "transport": "streamable-http",
+      "runtimeScope": "codex-default",
       "enabled": true,
       "tools": [
         "searchJiraIssuesUsingJql",
@@ -21,12 +22,14 @@
     "atlassian-mcp": {
       "role": "optional",
       "transport": "streamable-http",
+      "runtimeScope": "claude-optional",
       "enabled": false,
       "tools": ["Jira issue read/write tools"]
     },
     "jira-ui": {
       "role": "human-fallback",
       "transport": "ui",
+      "runtimeScope": "any-human-fallback",
       "enabled": true,
       "tools": []
     }

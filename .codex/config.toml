@@ -16,6 +16,9 @@ args = [
 env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN"]
 default_tools_approval_mode = "writes"
 
-# Jira remains on the configured hosted Atlassian Rovo connector for Codex.
-# The direct Atlassian MCP endpoint is a separate optional surface and is not
-# enabled here without an independently verified OAuth path.
+# Jira stays on the hosted Codex Apps Atlassian Rovo connector for Codex, which
+# needs no entry in this file. Do not add an `[mcp_servers.atlassian]` table: a
+# direct Atlassian MCP server under Codex holds an invalid OAuth refresh token
+# and fails on every startup while Rovo keeps working. See
+# docs/operations/incidents/atlassian-mcp-oauth-refresh-token-invalid-2026-07-24.md.
+# The direct Atlassian endpoint is a Claude-only optional surface in .mcp.json.

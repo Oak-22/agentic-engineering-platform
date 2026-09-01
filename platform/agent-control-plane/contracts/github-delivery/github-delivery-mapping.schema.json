@@ -5,13 +5,19 @@
   "description": "Provider and operation mapping for the GitHub destination adapter.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "destination", "canonicalAdapter", "primaryProvider", "fallbackProvider", "providers", "operations"],
+  "required": ["schemaVersion", "destination", "canonicalAdapter", "primaryProvider", "fallbackProvider", "fallbackOrder", "providers", "operations"],
   "properties": {
     "schemaVersion": {"const": 1},
     "destination": {"const": "github"},
     "canonicalAdapter": {"const": "adapters/github"},
     "primaryProvider": {"const": "github-mcp"},
     "fallbackProvider": {"const": "gh"},
+    "fallbackOrder": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"type": "string", "minLength": 1},
+      "description": "Provider keys in the order a caller tries them when an earlier surface is unavailable. The first entry is the primary provider and the last is the terminal fallback."
+    },
     "providers": {
       "type": "object",
       "additionalProperties": {"$ref": "#/$defs/provider"},
@@ -30,7 +36,7 @@
       "required": ["role", "transport", "enabled", "tools"],
       "properties": {
         "role": {"enum": ["primary", "optional-fallback"]},
-        "transport": {"enum": ["stdio", "shell"]},
+        "transport": {"enum": ["stdio", "shell", "codex-app"]},
         "enabled": {"type": "boolean"},
         "tools": {"type": "array", "items": {"type": "string", "minLength": 1}}
       }
