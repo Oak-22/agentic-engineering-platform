@@ -56,3 +56,9 @@ example `jira-confluence/`, `github/`), not for the runtime that will consume
 it. A server used by more than one runtime still gets exactly one definition
 here; per-runtime rendering is an adapter's job, not a reason to fork the
 canonical directory.
+
+Two runtimes may also reach one upstream service over different transports —
+Codex reaches Atlassian through the hosted Rovo connector, Claude through the
+direct MCP endpoint. That divergence is expected: the canonical definition
+records both surfaces and which runtime each serves, rather than pretending
+there is one uniform transport.

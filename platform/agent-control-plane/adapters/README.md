@@ -19,3 +19,10 @@ different grouping.
 
 Portable intent remains in `contracts/` and `agent-assets/`. Adapters may
 translate that intent but must not become an alternate canonical source.
+
+A destination adapter standardizes the contract, the semantic actions, the
+permission-gate namespace, the evidence shape, and the authority boundary. It
+does not require that every runtime reach the destination over an identical
+transport or authentication method — Codex and Claude reach Jira through
+different surfaces by design (see
+[`destination-communication-boundaries.md`](../../../docs/architecture/destination-communication-boundaries.md)).

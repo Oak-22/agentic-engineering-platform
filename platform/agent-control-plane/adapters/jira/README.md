@@ -29,8 +29,25 @@ Jira field IDs or work-item state.
 owns Jira reads, writes, transitions, links, and verification. The delivery
 coordinator may delegate to it, but GitHub and local Git operations remain the
 responsibility of [`manage-git-workflow`](../../agent-assets/skills/manage-git-workflow/SKILL.md).
-The Atlassian Rovo connector and direct Atlassian MCP are separate runtime
-surfaces; the selected surface must be recorded in the operation evidence.
+
+## Runtime surfaces
+
+The Atlassian Rovo connector and the direct Atlassian MCP endpoint are
+separate runtime surfaces with separate authentication, availability, and
+permissions. They are not fallbacks for each other, and the selected surface
+must be recorded in the operation evidence.
+
+- **Codex** uses the hosted Codex Apps Atlassian Rovo connector. It is the
+  default and needs no server entry here or in `.codex/config.toml`.
+- **Claude** uses the direct Atlassian MCP endpoint declared in `.mcp.json`.
+- The direct endpoint is **disabled by default for Codex**. Enabling it there
+  reproduces the invalid-OAuth-refresh-token incident
+  (`docs/operations/incidents/atlassian-mcp-oauth-refresh-token-invalid-2026-07-24.md`);
+  the response to that startup warning is to keep the direct server disabled,
+  not to re-run its OAuth login.
+
+`jira-delivery-mapping.json` records each provider's `runtimeScope` and
+`enabled` state so this split is machine-checkable.
 
 ## AEPI accountability
 

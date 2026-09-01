@@ -7,6 +7,20 @@
 - **Purpose**: gives an agent read/write access to Jira work items and
   Confluence pages for governed delivery tracking and knowledge capture.
 
+## Runtime surfaces
+
+This definition covers two distinct ways a runtime reaches the same Atlassian
+Cloud site. They are not interchangeable and neither is a fallback for the
+other:
+
+| Surface | Runtime | Repository config | Default |
+| --- | --- | --- | --- |
+| Codex Apps Atlassian Rovo connector | Codex | none — the connector is hosted and enabled outside this repo | enabled |
+| Direct Atlassian MCP endpoint | Claude | `.mcp.json` `mcpServers.atlassian` | enabled for Claude, absent from `.codex/config.toml` |
+
+Codex must not add an `atlassian` MCP server entry. Enabling a direct
+`atlassian` server under Codex reproduces the incident referenced below.
+
 ## Transport
 
 - **Authoritative**: streamable HTTP, at
@@ -23,10 +37,14 @@
 - **Scope**: whatever Atlassian Cloud permissions the authorizing user's
   account already holds on the connected site — the server does not grant
   scopes beyond the user's own access.
-- **Known operational risk**: rotating OAuth refresh tokens have failed to
-  persist across sessions in this environment; see
+- **Known operational risk**: a redundant *direct* `atlassian` MCP server
+  under Codex has repeatedly held an invalid rotating OAuth refresh token and
+  failed on startup while the Rovo connector kept working; see
   `docs/operations/incidents/atlassian-mcp-oauth-refresh-token-invalid-2026-07-24.md`.
-  Re-authorization (logout/login) is the documented recovery.
+  The documented recovery is to keep that direct server disabled under Codex
+  and use the Rovo connector — not to re-run its OAuth login on each failure.
+  Re-authorization (logout/login) applies only when the direct endpoint is
+  deliberately enabled for Claude and its own health check fails.
 
 ## Dependent skills
 
