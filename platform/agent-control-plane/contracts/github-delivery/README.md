@@ -11,10 +11,11 @@ metadata.
   the ordered `fallbackOrder` a caller tries when a surface is unavailable,
   and the `gh` fallback tool for each operation.
 
-The canonical provider is the pinned official GitHub MCP server, reached over
-Docker `stdio`. When it is unavailable, callers follow `fallbackOrder`
-(local MCP, then a Codex Apps GitHub surface, then `gh`) and record which tier
-ran; every tier keeps the same semantic action and permission gate. Local Git
-and git-over-SSH remain responsible for object/tree transport and worktree and
-branch mechanics. Native GitHub pull-request IDs, URLs, and commit SHAs are
-returned as evidence, not copied into a competing AEP state store.
+The canonical provider is GitHub's hosted official MCP server, reached over
+HTTP with per-user OAuth (ADR-0004). When it is unavailable, callers follow
+`fallbackOrder` (hosted server, then the dated local Docker server, then `gh`)
+and record which tier ran; every tier keeps the same semantic action and
+permission gate. Local Git and git-over-SSH remain responsible for object/tree
+transport and worktree and branch mechanics. Native GitHub pull-request IDs,
+URLs, and commit SHAs are returned as evidence, not copied into a competing
+AEP state store.

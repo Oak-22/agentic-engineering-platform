@@ -7,7 +7,7 @@ replace the systems that own the records being coordinated.
 | --- | --- | --- |
 | AEP control plane | portable intent, authorization, execution evidence, and role/policy routing | validates, gates, and links the work |
 | Local Git / git-over-SSH | objects, trees, worktrees, branches, commits, fetches, and pushes | uses governed local mechanics and records commit evidence |
-| GitHub | repositories' pull requests, reviews, checks, merge state, and native URLs | communicates through the shared official GitHub MCP; falls back in a fixed order to a Codex Apps GitHub surface, then an evidenced `gh` |
+| GitHub | repositories' pull requests, reviews, checks, merge state, and native URLs | communicates through GitHub's hosted MCP server over OAuth; falls back in a fixed order to the dated local Docker server, then an evidenced `gh` |
 | Jira | issue identity, workflow status, assignee, and human-visible planning fields | treats Jira as execution system of record and projects portable metadata through the Jira adapter |
 | Atlassian Rovo MCP | Codex's default Jira/Confluence agent communication surface | provides the primary configured Jira tool path; needs no repository-checked-in server entry |
 | Direct Atlassian MCP | a separate optional runtime surface, checked in for Claude only and disabled by default for Codex | may be used only after its own authentication and permission path is verified; it is not silently interchangeable with Rovo |
@@ -22,15 +22,18 @@ method across every runtime.
 - **Shared:** the delivery operation and result contracts, the
   `github:*` / `jira:*` permission actions the gate enforces, the native
   identifiers recorded as evidence, and which system stays authoritative.
-- **Runtime-specific and expected to differ:** the concrete MCP server entry,
+- **Runtime-specific and allowed to differ:** the concrete MCP server entry,
   its transport, and its credential flow. Codex reaches Jira through the
   hosted Codex Apps Atlassian Rovo connector; Claude reaches it through the
   direct Atlassian MCP endpoint in `.mcp.json`. Both satisfy the same
-  contract; neither is a fallback for the other.
+  contract; neither is a fallback for the other. GitHub, by contrast, is one
+  hosted OAuth endpoint for both runtimes (ADR-0004) — uniform where it can
+  be, divergent where a runtime's capability or incident history requires it.
 
-A change that makes two runtimes' transports identical is not required by this
-document, and must not be made at the cost of reintroducing a surface a
-runtime's incident history has already ruled out.
+Making two runtimes' transports identical is fine when it is the better design
+— GitHub's hosted endpoint is shared deliberately — but it is not *required*
+by this document, and must never be bought at the cost of reintroducing a
+surface a runtime's incident history has already ruled out.
 
 ## Role routing
 
@@ -47,38 +50,36 @@ this document is the cross-system map they implement.
 
 ## GitHub communication
 
-Codex and Claude use the same pinned official GitHub MCP server over local
-stdio and the same explicit tool allowlist. The MCP layer owns GitHub platform
-operations: pull-request reads, creation, updates, review writes, merges, and
-workflow inspection. Git-over-SSH remains the transport for Git objects and
-tree mechanics.
+Codex and Claude reach GitHub through GitHub's hosted MCP server at
+`https://api.githubcopilot.com/mcp/` over HTTP with per-user OAuth
+([ADR-0004](adr/0004-move-github-mcp-to-a-remote-transport.md)). The MCP layer
+owns GitHub platform operations: pull-request reads, creation, updates, review
+writes, merges, and workflow inspection. Git-over-SSH remains the transport for
+Git objects and tree mechanics.
 
-### Local GitHub MCP prerequisites
+### Readiness
 
-The shared server runs as a Docker `stdio` process, so it is unavailable
-until all three of these hold. A caller checks them before treating an absent
-GitHub tool surface as an outage:
+The hosted server is ready when a user has authorized it (`codex mcp login
+github` on Codex; first tool use on Claude Code) and `get_me` returns that
+user. Only authorization state is checked — no token value is read into logs,
+evidence, or this repository. GitHub does not support OAuth dynamic client
+registration, so a first authorization needs a client-registration strategy;
+[`mcp-servers/github/server.md`](../../platform/agent-control-plane/agent-assets/mcp-servers/github/server.md)
+carries the procedure.
 
-- the Docker daemon is running and can start a container;
-- the pinned image digest in
-  [`agent-assets/mcp-servers/github/server.md`](../../platform/agent-control-plane/agent-assets/mcp-servers/github/server.md)
-  is present locally or pullable;
-- `GITHUB_PERSONAL_ACCESS_TOKEN` is set in the runtime environment. Only its
-  presence is checked; its value is never read into logs, evidence, or this
-  repository.
-
-A startup failure names the server that failed. An Atlassian OAuth failure and
-a Docker-unavailable GitHub failure are independent conditions with independent
-recovery; neither implies the other, and a message about one is not evidence
-about the other.
+A failure names the server that failed. An Atlassian OAuth failure and a
+GitHub authorization failure are independent conditions with independent
+recovery against different endpoints; neither implies the other, and a message
+about one is not evidence about the other.
 
 ### GitHub fallback order
 
-When the local GitHub MCP is unavailable, callers fall back in this fixed
-order, stopping at the first surface that can perform the operation:
+When the hosted server is unavailable, callers fall back in this fixed order,
+stopping at the first surface that can perform the operation:
 
-1. the shared local GitHub MCP server (primary);
-2. a Codex Apps GitHub surface, where the runtime provides one;
+1. the hosted GitHub MCP server over OAuth (primary);
+2. the dated local Docker server (`github-mcp-local`, disabled by default —
+   a dev-loop bootstrap and offline fallback, not a default);
 3. the `gh` CLI, as an explicit, evidenced fallback only.
 
 Every tier performs the same semantic operation and the same

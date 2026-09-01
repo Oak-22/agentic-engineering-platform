@@ -33,10 +33,24 @@
     "provider": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "transport", "enabled", "tools"],
+      "required": ["role", "transport", "auth", "enabled", "tools"],
       "properties": {
         "role": {"enum": ["primary", "optional-fallback"]},
-        "transport": {"enum": ["stdio", "shell", "codex-app"]},
+        "transport": {"enum": ["http", "stdio", "shell"]},
+        "auth": {
+          "enum": ["oauth", "pat"],
+          "description": "oauth = per-user browser authorization against a hosted server; pat = a GitHub personal access token held on the endpoint."
+        },
+        "endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "Hosted server URL. Present for http transport."
+        },
+        "supersededAsPrimary": {
+          "type": "string",
+          "format": "date",
+          "description": "Date this provider stopped being the primary transport. Marks a dated fallback."
+        },
         "enabled": {"type": "boolean"},
         "tools": {"type": "array", "items": {"type": "string", "minLength": 1}}
       }

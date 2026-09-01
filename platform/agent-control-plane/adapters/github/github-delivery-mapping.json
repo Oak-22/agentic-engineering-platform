@@ -4,11 +4,13 @@
   "canonicalAdapter": "adapters/github",
   "primaryProvider": "github-mcp",
   "fallbackProvider": "gh",
-  "fallbackOrder": ["github-mcp", "codex-apps-github", "gh"],
+  "fallbackOrder": ["github-mcp", "github-mcp-local", "gh"],
   "providers": {
     "github-mcp": {
       "role": "primary",
-      "transport": "stdio",
+      "transport": "http",
+      "endpoint": "https://api.githubcopilot.com/mcp/",
+      "auth": "oauth",
       "enabled": true,
       "tools": [
         "get_me",
@@ -27,15 +29,33 @@
         "merge_pull_request"
       ]
     },
-    "codex-apps-github": {
+    "github-mcp-local": {
       "role": "optional-fallback",
-      "transport": "codex-app",
+      "transport": "stdio",
+      "auth": "pat",
       "enabled": false,
-      "tools": ["pull request read/write tools"]
+      "supersededAsPrimary": "2026-08-31",
+      "tools": [
+        "get_me",
+        "get_file_contents",
+        "get_commit",
+        "list_commits",
+        "list_pull_requests",
+        "search_pull_requests",
+        "pull_request_read",
+        "actions_get",
+        "actions_list",
+        "get_job_logs",
+        "create_pull_request",
+        "update_pull_request",
+        "pull_request_review_write",
+        "merge_pull_request"
+      ]
     },
     "gh": {
       "role": "optional-fallback",
       "transport": "shell",
+      "auth": "pat",
       "enabled": true,
       "tools": ["gh pr view", "gh pr create", "gh pr edit", "gh pr review", "gh pr merge"]
     }
