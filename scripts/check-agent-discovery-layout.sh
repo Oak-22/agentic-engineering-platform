@@ -139,6 +139,7 @@ done | while IFS= read -r native_path; do
   case "$native_path" in
     .agents/skills/README.md \
       |.codex/README.md \
+      |.codex/config.toml \
       |.codex/hooks.json \
       |.codex/hooks/README.md \
       |.claude/README.md \
