@@ -4,8 +4,8 @@ status: resolved
 severity: minor
 component: codex-atlassian-mcp-integration
 first_observed: 2026-07-24
-last_observed: 2026-08-16
-occurrence_count: 3
+last_observed: 2026-08-31
+occurrence_count: 4
 promotion_candidate: true
 ---
 
@@ -106,8 +106,13 @@ plugin-backed Atlassian Rovo connector continued to provide Jira access.
 
 The controlled settings toggle establishes which configured server emitted
 the warning. It does not establish why that direct server's refresh token was
-invalid, but that question is no longer operationally relevant while the
-unused server remains disabled.
+invalid, but that question is no longer operationally relevant once the unused
+server is removed.
+
+A fourth occurrence on 2026-08-31 showed that `enabled = false` is not
+sufficient: Codex still attempted an OAuth refresh for the declared but
+disabled `[mcp_servers.atlassian]` entry in `~/.codex/config.toml` on startup.
+The entry must be removed, not just disabled.
 
 ## Investigation timeline
 
@@ -127,10 +132,13 @@ changed the server-side token state.
 
 ## Decision
 
-Close the incident as resolved. Keep the redundant direct `atlassian` MCP
-server disabled and use the plugin-backed Atlassian Rovo connector. Reopen the
-investigation only if the Rovo connector itself fails or there is a deliberate
-need to use the direct server.
+Close the incident as resolved. Remove the redundant direct `atlassian` MCP
+server entirely — `codex mcp logout atlassian` then `codex mcp remove
+atlassian`, leaving no `[mcp_servers.atlassian]` entry — and use the
+plugin-backed Atlassian Rovo connector. Setting `enabled = false` is not
+enough; the fourth occurrence started from a disabled-but-declared entry.
+Reopen the investigation only if the Rovo connector itself fails or there is a
+deliberate need to use the direct server.
 
 ## Evidence to capture if reopened
 
@@ -144,8 +152,13 @@ need to use the direct server.
 ## Resolution evidence
 
 - Enabling the direct `atlassian` MCP server reproduces the startup warning.
-- Disabling that server removes the warning.
-- With the direct server disabled, the plugin-backed Atlassian Rovo connector
+- Disabling that server removes the warning in the same session, but a
+  disabled-but-declared entry still triggered an OAuth refresh attempt on a
+  later startup (occurrence 4, 2026-08-31).
+- Removing the entry with `codex mcp logout atlassian` and `codex mcp remove
+  atlassian` — verified absent from `codex mcp list` and `~/.codex/config.toml`
+  — leaves nothing for Codex to refresh.
+- With the direct server removed, the plugin-backed Atlassian Rovo connector
   exposes read/write Jira operations; a read-only AEPI query provided
   non-mutating verification.
 
