@@ -13,6 +13,12 @@ GitHub Copilot), supported transports and versions, and renderers belong in
 validate these portable definitions belong in
 [`../../contracts/`](../../contracts/).
 
+For destination-specific delivery boundaries and provider mappings, see
+[`../../adapters/github/`](../../adapters/github/) and
+[`../../adapters/jira/`](../../adapters/jira/). Runtime configuration is
+checked in only when it contains no secret values and can be verified against
+the canonical definition.
+
 Add a server definition only when a concrete integration exists or is
 actively being wired up.
 

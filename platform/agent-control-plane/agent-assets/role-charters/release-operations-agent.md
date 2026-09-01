@@ -46,7 +46,8 @@ Release notes, deployment evidence, and operational risk summaries.
 
 Enforced mechanically by
 [`release-operations-agent.policy.json`](../execution-policies/permissions/release-operations-agent.policy.json)
-via `scripts/agent_permission_gate.py`: denies `git:push`, `gh:pr:merge`, and
+via `scripts/agent_permission_gate.py`: denies `git:push`, all GitHub pull-request
+and Jira issue mutations (including `github:pull_request:merge`), and
 `git:branch:delete` outright, regardless of human approval. Deployment
 approval itself is a separate, environment-level control (IAM, protected
 environment) not modeled by this policy document; this policy governs only

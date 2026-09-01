@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/github-delivery-result.schema.json",
+  "title": "GitHub Delivery Result",
+  "description": "Traceable result of a governed GitHub platform operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "outcome", "repository", "nativeUrl"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "operation": {
+      "enum": [
+        "pull-request-read",
+        "pull-request-create",
+        "pull-request-update",
+        "pull-request-review",
+        "pull-request-merge",
+        "workflow-read"
+      ]
+    },
+    "outcome": {"enum": ["succeeded", "failed", "blocked"]},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "name"],
+      "properties": {
+        "owner": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+        "name": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"}
+      }
+    },
+    "nativeUrl": {"type": ["string", "null"], "format": "uri"},
+    "pullRequestNumber": {"type": ["integer", "null"], "minimum": 1},
+    "sourceBranch": {"type": ["string", "null"], "minLength": 1},
+    "targetBranch": {"type": ["string", "null"], "minLength": 1},
+    "commitShas": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[0-9a-fA-F]{7,64}$"}
+    },
+    "errorCode": {"type": ["string", "null"], "minLength": 1}
+  }
+}

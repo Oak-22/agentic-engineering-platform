@@ -5,6 +5,11 @@ policy defines the resource boundary, approval and escalation strategy, bypass
 rules, and intended enforcement tier without embedding provider configuration
 syntax.
 
+GitHub pull-request permissions use the semantic `github:pull_request:*`
+actions. The permission gate applies them to both the official GitHub MCP
+tools and the optional `gh` shell fallback, so changing transport does not
+change the authorization boundary.
+
 JSON Schemas that validate these portable policies belong in
 [`../../contracts/`](../../contracts/). Provider capability mappings,
 supported versions, and renderers belong in

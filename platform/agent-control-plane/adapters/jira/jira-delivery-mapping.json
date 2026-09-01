@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "destination": "jira",
+  "canonicalAdapter": "adapters/jira",
+  "primaryProvider": "atlassian-rovo",
+  "fallbackProvider": "jira-ui",
+  "providers": {
+    "atlassian-rovo": {
+      "role": "primary",
+      "transport": "streamable-http",
+      "enabled": true,
+      "tools": [
+        "searchJiraIssuesUsingJql",
+        "getJiraIssue",
+        "createJiraIssue",
+        "editJiraIssue",
+        "transitionJiraIssue",
+        "createIssueLink"
+      ]
+    },
+    "atlassian-mcp": {
+      "role": "optional",
+      "transport": "streamable-http",
+      "enabled": false,
+      "tools": ["Jira issue read/write tools"]
+    },
+    "jira-ui": {
+      "role": "human-fallback",
+      "transport": "ui",
+      "enabled": true,
+      "tools": []
+    }
+  },
+  "operations": {
+    "work-item-read": {
+      "provider": "atlassian-rovo",
+      "tool": "getJiraIssue",
+      "readOnly": true,
+      "requiresHumanApproval": false
+    },
+    "work-item-create": {
+      "provider": "atlassian-rovo",
+      "tool": "createJiraIssue",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    },
+    "work-item-update": {
+      "provider": "atlassian-rovo",
+      "tool": "editJiraIssue",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    },
+    "work-item-transition": {
+      "provider": "atlassian-rovo",
+      "tool": "transitionJiraIssue",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    },
+    "work-item-link": {
+      "provider": "atlassian-rovo",
+      "tool": "createIssueLink",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    }
+  }
+}

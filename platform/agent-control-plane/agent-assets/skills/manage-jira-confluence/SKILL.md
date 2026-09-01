@@ -16,6 +16,12 @@ the larger delivery unit, accept its resolved outcome, repository evidence,
 and current delivery phase as inputs. Preserve this skill's live-schema,
 permission, mutation, and verification requirements.
 
+The cross-system ownership map is in
+[`destination-communication-boundaries.md`](../../../../../docs/architecture/destination-communication-boundaries.md).
+This skill owns Jira/Rovo and Jira UI operations; GitHub and local Git belong to
+`manage-git-workflow`, while lifecycle sequencing belongs to
+`deliver-governed-change`.
+
 ## Core workflow
 
 1. Resolve the Atlassian site, project or space, artifact keys, issue types,

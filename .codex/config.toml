@@ -1,0 +1,21 @@
+# Repository-scoped MCP configuration. Secrets are resolved from the parent
+# environment; no token value belongs in this file.
+
+[mcp_servers.github]
+command = "docker"
+args = [
+  "run",
+  "--rm",
+  "-i",
+  "-e",
+  "GITHUB_PERSONAL_ACCESS_TOKEN",
+  "ghcr.io/github/github-mcp-server@sha256:fbec75de11c255213fa08d80fb166abe73d851fff631c51c0079872967720699",
+  "stdio",
+  "--tools=get_me,get_file_contents,get_commit,list_commits,list_pull_requests,search_pull_requests,pull_request_read,actions_get,actions_list,get_job_logs,create_pull_request,update_pull_request,pull_request_review_write,merge_pull_request"
+]
+env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+default_tools_approval_mode = "writes"
+
+# Jira remains on the configured hosted Atlassian Rovo connector for Codex.
+# The direct Atlassian MCP endpoint is a separate optional surface and is not
+# enabled here without an independently verified OAuth path.

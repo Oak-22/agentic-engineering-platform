@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "policyId": "pol_implementation-agent",
   "principal": {
     "agentType": "implementation-agent",
@@ -17,10 +17,17 @@
       ]
     },
     {
-      "sid": "DenyPrMerge",
+      "sid": "DenyGithubAndJiraMutation",
       "effect": "Deny",
       "action": [
-        "gh:pr:merge"
+                "github:pull_request:merge",
+                "github:pull_request:create",
+                "github:pull_request:update",
+                "github:pull_request:review",
+                "jira:issue:create",
+                "jira:issue:update",
+                "jira:issue:transition",
+                "jira:issue:link"
       ],
       "resource": [
         "*"

@@ -45,7 +45,8 @@ Scoped code changes, tests, documentation, and implementation evidence.
 
 Enforced mechanically by
 [`implementation-agent.policy.json`](../execution-policies/permissions/implementation-agent.policy.json)
-via `scripts/agent_permission_gate.py`: denies `git:push`, `gh:pr:merge`, and
+via `scripts/agent_permission_gate.py`: denies `git:push`, all GitHub pull-request
+and Jira issue mutations (including `github:pull_request:merge`), and
 `git:branch:delete` outright, regardless of human approval. Local commits and
 working-tree edits within approved scope remain unrestricted by this policy;
 the global immutable denies (direct commit on `main`, `--force` push,

@@ -5,10 +5,15 @@ tool adapters may project these contracts into Jira, telemetry stores, or
 other systems, but vendor-specific identifiers do not belong in the portable
 schemas.
 
-## Jira work-item and attempt model
+## Destination delivery contracts
 
-- [`jira-work-item-metadata.schema.json`](jira-work-item-metadata.schema.json)
-  defines governed planning metadata shown on a Jira work item.
+- [`github-delivery/`](github-delivery/) defines the portable request, result,
+  and provider-mapping shapes for GitHub delivery operations.
+- [`jira-delivery/`](jira-delivery/) defines the portable request, result,
+  provider-mapping, and Jira work-item state-projection shapes.
+- The Jira work-item metadata schema is a projection contract, not the
+  canonical Jira adapter mapping. Jira-generated field IDs remain in
+  [`adapters/jira/`](../adapters/jira/).
 - [`agent-run-attempt.schema.json`](agent-run-attempt.schema.json) defines the
   immutable record for one execution attempt.
 - [`instruction-evidence-record.schema.json`](instruction-evidence-record.schema.json)
@@ -107,7 +112,10 @@ Jira until the telemetry subsystem can supply them from trustworthy evidence.
 Jira remains authoritative for work state and human-visible planning metadata.
 
 Jira-generated `customfield_*` identifiers belong in a deployment-specific
-adapter mapping, not in these schemas.
+adapter mapping, not in these portable contracts. GitHub and Jira native IDs,
+URLs, branches, commits, and pull-request/issue keys may appear in operation
+results as traceability evidence, but they do not become a second AEP-owned
+source of truth.
 
 See [`examples/attempt-partitioning/`](examples/attempt-partitioning/) for a
 concrete run with two observable attempts and its derived Jira projection.

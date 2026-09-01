@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/jira-delivery-result.schema.json",
+  "title": "Jira Delivery Result",
+  "description": "Traceable result of a governed Jira work-item operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "outcome", "projectKey", "issueKey", "nativeUrl"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "operation": {
+      "enum": ["work-item-read", "work-item-create", "work-item-update", "work-item-transition", "work-item-link"]
+    },
+    "outcome": {"enum": ["succeeded", "failed", "blocked"]},
+    "projectKey": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "issueKey": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"},
+    "nativeUrl": {"type": ["string", "null"], "format": "uri"},
+    "statusName": {"type": ["string", "null"], "minLength": 1},
+    "errorCode": {"type": ["string", "null"], "minLength": 1}
+  }
+}

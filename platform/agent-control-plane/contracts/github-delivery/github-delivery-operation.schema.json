@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/github-delivery-operation.schema.json",
+  "title": "GitHub Delivery Operation",
+  "description": "Portable request for one governed GitHub platform operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "repository"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "operation": {
+      "enum": [
+        "pull-request-read",
+        "pull-request-create",
+        "pull-request-update",
+        "pull-request-review",
+        "pull-request-merge",
+        "workflow-read"
+      ]
+    },
+    "repository": {"$ref": "#/$defs/repository"},
+    "pullRequestNumber": {"type": ["integer", "null"], "minimum": 1},
+    "sourceBranch": {"type": ["string", "null"], "minLength": 1},
+    "targetBranch": {"type": ["string", "null"], "minLength": 1},
+    "title": {"type": ["string", "null"], "minLength": 1},
+    "body": {"type": ["string", "null"]},
+    "reviewDecision": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "name"],
+      "properties": {
+        "owner": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+        "name": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"}
+      }
+    }
+  }
+}

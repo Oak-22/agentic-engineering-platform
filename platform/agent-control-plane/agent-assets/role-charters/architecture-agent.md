@@ -45,7 +45,8 @@ Architecture options, diagrams, interface proposals, risks, and draft ADRs.
 
 Enforced mechanically by
 [`architecture-agent.policy.json`](../execution-policies/permissions/architecture-agent.policy.json)
-via `scripts/agent_permission_gate.py`: denies `git:push`, `gh:pr:merge`, and
+via `scripts/agent_permission_gate.py`: denies `git:push`, all GitHub pull-request
+and Jira issue mutations (including `github:pull_request:merge`), and
 `git:branch:delete` outright, regardless of human approval. This charter's
 own "non-responsibilities" restate that boundary for a human reader; the
 policy document is the enforced source of truth.

@@ -83,9 +83,13 @@ The same script also runs as a `PreToolUse` hook (`--hook`, registered in
 [`hooks_registry.json`](../agent-assets/hooks/hooks_registry.json)) on both
 Claude Code and Codex. It denies a matched `git checkout -b` / `git switch -c`
 Bash call when the blockers above apply, and stays silent for every other
-command. This makes the check an enforced gate rather than a step someone has
-to remember to run. The match is literal: a wrapped, aliased, or subshelled
-branch-creation command is not recognized.
+command. The permission gate registered alongside it also matches GitHub and
+Jira MCP mutation tools, applying the same semantic `github:pull_request:*`
+and `jira:issue:*` actions to each configured provider surface. GitHub's
+optional `gh` fallback uses the same GitHub action namespace. This makes the
+check an enforced gate rather than a step someone has to remember to run. The
+match is literal: a wrapped, aliased, or subshelled branch-creation command is
+not recognized.
 
 ## Governed delivery-branch preparation
 

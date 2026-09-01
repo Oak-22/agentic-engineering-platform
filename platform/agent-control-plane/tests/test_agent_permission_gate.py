@@ -29,8 +29,25 @@ GENERALIST_POLICY = {
         {
             "sid": "AllowPrMerge",
             "effect": "Allow",
-            "action": ["gh:pr:merge"],
-            "resource": ["*"],
+            "action": [
+                "github:pull_request:merge",
+                "github:pull_request:create",
+                "github:pull_request:update",
+                "github:pull_request:review",
+            ],
+            "resource": ["github:*"] ,
+            "condition": {"requiresHumanApproval": True},
+        },
+        {
+            "sid": "AllowJiraMutation",
+            "effect": "Allow",
+            "action": [
+                "jira:issue:create",
+                "jira:issue:update",
+                "jira:issue:transition",
+                "jira:issue:link",
+            ],
+            "resource": ["jira:*"] ,
             "condition": {"requiresHumanApproval": True},
         },
     ],
@@ -40,7 +57,17 @@ SPECIALIST_POLICY = {
     "policyId": "pol_architecture-agent",
     "statements": [
         {"sid": "DenyPush", "effect": "Deny", "action": ["git:push"], "resource": ["*"]},
-        {"sid": "DenyMerge", "effect": "Deny", "action": ["gh:pr:merge"], "resource": ["*"]},
+        {
+            "sid": "DenyMerge",
+            "effect": "Deny",
+            "action": [
+                "github:pull_request:merge",
+                "github:pull_request:create",
+                "github:pull_request:update",
+                "github:pull_request:review",
+            ],
+            "resource": ["*"],
+        },
     ],
 }
 
@@ -61,11 +88,31 @@ class RecognizeActionTests(unittest.TestCase):
 
     def test_gh_pr_merge_recognized(self):
         match = MODULE.recognize_action("gh pr merge 46 --squash", Path("/repo"))
-        self.assertEqual(match.action, "gh:pr:merge")
+        self.assertEqual(match.action, "github:pull_request:merge")
+        self.assertEqual(match.resource, "github:agentic-engineering-platform:*")
 
     def test_gh_pr_create_recognized(self):
         match = MODULE.recognize_action("gh pr create --draft", Path("/repo"))
-        self.assertEqual(match.action, "gh:pr:create")
+        self.assertEqual(match.action, "github:pull_request:create")
+
+    def test_github_mcp_create_uses_the_same_semantic_action(self):
+        match = MODULE.recognize_mcp_action(
+            "mcp__github__create_pull_request",
+            {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+        )
+        self.assertEqual(match.action, "github:pull_request:create")
+        self.assertEqual(match.resource, "github:Oak-22/agentic-engineering-platform:*")
+
+    def test_non_destination_mcp_tool_is_not_recognized(self):
+        self.assertIsNone(MODULE.recognize_mcp_action("mcp__other__write", {}))
+
+    def test_jira_mcp_transition_uses_a_jira_resource(self):
+        match = MODULE.recognize_mcp_action(
+            "mcp__codex_apps__atlassian_rovo_transitionjiraissue",
+            {"issueIdOrKey": "AEPI-119"},
+        )
+        self.assertEqual(match.action, "jira:issue:transition")
+        self.assertEqual(match.resource, "jira:*:issue/AEPI-119")
 
     def test_branch_delete_recognized_from_git_branch(self):
         match = MODULE.recognize_action("git branch -D fix/PROJ-3-z", Path("/repo"))
@@ -178,6 +225,12 @@ class EvaluatePolicyTests(unittest.TestCase):
         match = MODULE.ActionMatch("git:push", "git:agentic-engineering-platform:branch/feature/x")
         self.assertEqual(MODULE.evaluate_policy(SPECIALIST_POLICY, match), "Deny")
 
+    def test_specialist_denies_github_mcp_write(self):
+        match = MODULE.ActionMatch(
+            "github:pull_request:create", "github:Oak-22/agentic-engineering-platform:*"
+        )
+        self.assertEqual(MODULE.evaluate_policy(SPECIALIST_POLICY, match), "Deny")
+
 
 class HookResponseTests(unittest.TestCase):
     def setUp(self):
@@ -240,6 +293,39 @@ class HookResponseTests(unittest.TestCase):
                 {"command": "git push origin feature/x"}, {}, Path("/repo"), "claude"
             )
         self.assertIsNone(result)
+
+    def test_github_mcp_write_uses_human_approval_for_generalist(self):
+        with mock.patch.object(MODULE, "load_policy", return_value=GENERALIST_POLICY):
+            result = MODULE.hook_response(
+                {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+                {},
+                Path("/repo"),
+                "claude",
+                "mcp__github__create_pull_request",
+            )
+        self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "ask")
+
+    def test_github_mcp_write_is_denied_for_specialist(self):
+        with mock.patch.object(MODULE, "load_policy", return_value=SPECIALIST_POLICY):
+            result = MODULE.hook_response(
+                {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+                {"agent_type": "architecture-agent"},
+                Path("/repo"),
+                "claude",
+                "mcp__github__create_pull_request",
+            )
+        self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_jira_mcp_write_uses_human_approval_for_generalist(self):
+        with mock.patch.object(MODULE, "load_policy", return_value=GENERALIST_POLICY):
+            result = MODULE.hook_response(
+                {"projectKey": "AEPI"},
+                {},
+                Path("/repo"),
+                "claude",
+                "mcp__codex_apps__atlassian_rovo_createjiraissue",
+            )
+        self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "ask")
 
 
 class HostilePathMatrixTests(unittest.TestCase):
@@ -333,6 +419,21 @@ class CopilotOutputShapeTests(unittest.TestCase):
         with mock.patch("builtins.print") as printed:
             MODULE.run_as_hook(payload, Path("/repo"), "claude")
         printed.assert_not_called()
+
+    def test_run_as_hook_gates_a_github_mcp_tool(self):
+        payload = json.dumps(
+            {
+                "tool_name": "mcp__github__create_pull_request",
+                "tool_input": {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+            }
+        )
+        with mock.patch.object(MODULE, "repository_root", return_value=Path("/repo")):
+            with mock.patch.object(MODULE, "load_policy", return_value=GENERALIST_POLICY):
+                with mock.patch("builtins.print") as printed:
+                    MODULE.run_as_hook(payload, Path("/repo"), "claude")
+        printed.assert_called_once()
+        emitted = json.loads(printed.call_args[0][0])
+        self.assertEqual(emitted["hookSpecificOutput"]["permissionDecision"], "ask")
 
 
 class RunAsHookTests(unittest.TestCase):

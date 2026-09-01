@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "policyId": "pol_generalist-engineering-agent",
   "principal": {
     "agentType": "generalist-engineering-agent",
@@ -28,13 +28,15 @@
       }
     },
     {
-      "sid": "AllowPrCreate",
+      "sid": "AllowPrWrite",
       "effect": "Allow",
       "action": [
-        "gh:pr:create"
+        "github:pull_request:create",
+        "github:pull_request:update",
+        "github:pull_request:review"
       ],
       "resource": [
-        "*"
+        "github:*"
       ],
       "condition": {
         "requiresHumanApproval": true,
@@ -45,14 +47,31 @@
       "sid": "AllowPrMerge",
       "effect": "Allow",
       "action": [
-        "gh:pr:merge"
+        "github:pull_request:merge"
       ],
       "resource": [
-        "*"
+        "github:*"
       ],
       "condition": {
         "requiresHumanApproval": true,
         "tier": 3
+      }
+    },
+    {
+      "sid": "AllowJiraMutation",
+      "effect": "Allow",
+      "action": [
+        "jira:issue:create",
+        "jira:issue:update",
+        "jira:issue:transition",
+        "jira:issue:link"
+      ],
+      "resource": [
+        "jira:*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 2
       }
     },
     {

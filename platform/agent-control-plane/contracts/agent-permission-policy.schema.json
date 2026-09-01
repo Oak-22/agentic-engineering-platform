@@ -13,7 +13,7 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "policyId": {
       "type": "string",
@@ -77,7 +77,7 @@
           "items": {
             "type": "string",
             "minLength": 1,
-            "description": "Namespaced verb, e.g. 'git:push', 'git:commit', 'gh:pr:merge', 'gh:pr:create', 'git:branch:delete', 'jira:transition'."
+            "description": "Namespaced verb, e.g. 'git:push', 'git:commit', 'github:pull_request:merge', 'github:pull_request:create', 'git:branch:delete', 'jira:issue:transition'. Destination actions are semantic and apply equally to MCP and CLI/UI fallback invocations."
           }
         },
         "resource": {

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "destination": "github",
+  "canonicalAdapter": "adapters/github",
+  "primaryProvider": "github-mcp",
+  "fallbackProvider": "gh",
+  "providers": {
+    "github-mcp": {
+      "role": "primary",
+      "transport": "stdio",
+      "enabled": true,
+      "tools": [
+        "get_me",
+        "get_file_contents",
+        "get_commit",
+        "list_commits",
+        "list_pull_requests",
+        "search_pull_requests",
+        "pull_request_read",
+        "actions_get",
+        "actions_list",
+        "get_job_logs",
+        "create_pull_request",
+        "update_pull_request",
+        "pull_request_review_write",
+        "merge_pull_request"
+      ]
+    },
+    "gh": {
+      "role": "optional-fallback",
+      "transport": "shell",
+      "enabled": true,
+      "tools": ["gh pr view", "gh pr create", "gh pr edit", "gh pr review", "gh pr merge"]
+    }
+  },
+  "operations": {
+    "pull-request-read": {
+      "provider": "github-mcp",
+      "tool": "pull_request_read",
+      "fallbackTool": "gh pr view",
+      "readOnly": true,
+      "requiresHumanApproval": false
+    },
+    "pull-request-create": {
+      "provider": "github-mcp",
+      "tool": "create_pull_request",
+      "fallbackTool": "gh pr create",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    },
+    "pull-request-update": {
+      "provider": "github-mcp",
+      "tool": "update_pull_request",
+      "fallbackTool": "gh pr edit",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    },
+    "pull-request-review": {
+      "provider": "github-mcp",
+      "tool": "pull_request_review_write",
+      "fallbackTool": "gh pr review",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    },
+    "pull-request-merge": {
+      "provider": "github-mcp",
+      "tool": "merge_pull_request",
+      "fallbackTool": "gh pr merge",
+      "readOnly": false,
+      "requiresHumanApproval": true
+    },
+    "workflow-read": {
+      "provider": "github-mcp",
+      "tool": "actions_list",
+      "fallbackTool": "gh run list",
+      "readOnly": true,
+      "requiresHumanApproval": false
+    }
+  }
+}
