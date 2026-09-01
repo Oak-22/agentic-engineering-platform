@@ -2,12 +2,12 @@
 title: Move the GitHub MCP surface to a remote transport
 summary: Replace the local digest-pinned Docker GitHub MCP server with a remote OAuth transport — the GitHub-hosted server near-term, a self-hosted remote deployment behind a GitHub App at enterprise scale.
 adr: ADR-0004
-status: proposed
+status: accepted
 date: 2026-08-31
 scope: integration
 affected_components:
   - platform/agent-control-plane
-related_jira: [AEPI-119, AEPI-120, AEPI-121]
+related_jira: [AEPI-119, AEPI-120, AEPI-121, AEPI-123]
 related_confluence: []
 supersedes: []
 ---
