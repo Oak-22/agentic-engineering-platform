@@ -345,6 +345,23 @@ class ReleaseIsolationTests(unittest.TestCase):
 
 
 class WorktreeTargetTests(unittest.TestCase):
+    def test_a_target_inside_the_primary_worktree_is_refused(self):
+        root = Path("/projects/aep")
+        target = root / "nested" / "PROJ-1"
+
+        with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.reject_nested_worktree_target(root, target)
+
+        self.assertIn("inside the primary worktree", str(raised.exception))
+
+    def test_a_target_beside_the_primary_worktree_is_allowed(self):
+        root = Path("/projects/aep")
+        target = Path("/projects/aep.worktrees/PROJ-1")
+
+        with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+            MODULE.reject_nested_worktree_target(root, target)
+
     def test_a_path_that_does_not_exist_is_usable(self):
         with tempfile.TemporaryDirectory() as directory:
             MODULE.usable_worktree_target(Path(directory) / "new")
@@ -477,6 +494,9 @@ class ExistingWorktreeClaimTests(unittest.TestCase):
 
             with (
                 mock.patch.object(MODULE, "live_worktrees", return_value=live),
+                mock.patch.object(
+                    MODULE, "primary_worktree_path", return_value=Path(directory) / "primary"
+                ),
                 mock.patch.object(MODULE, "verified_main", return_value=self.baseline),
                 mock.patch.object(MODULE, "dirty_entries", return_value=()),
                 mock.patch.object(MODULE, "ownership_path", return_value=record_path),
@@ -511,6 +531,9 @@ class ExistingWorktreeClaimTests(unittest.TestCase):
                     MODULE,
                     "live_worktrees",
                     return_value={str(target): (self.branch, self.baseline)},
+                ),
+                mock.patch.object(
+                    MODULE, "primary_worktree_path", return_value=Path(directory) / "primary"
                 ),
                 mock.patch.object(MODULE, "verified_main", return_value=self.baseline),
                 mock.patch.object(MODULE, "dirty_entries", return_value=()),
@@ -580,10 +603,14 @@ class ProvisioningBoundaryTests(unittest.TestCase):
 
     def test_provision_refuses_to_take_over_an_existing_branch(self):
         with tempfile.TemporaryDirectory() as directory:
-            with mock.patch.object(MODULE, "branch_exists", return_value=True):
+            root = Path(directory).resolve()
+            with (
+                mock.patch.object(MODULE, "primary_worktree_path", return_value=root),
+                mock.patch.object(MODULE, "branch_exists", return_value=True),
+            ):
                 with self.assertRaises(MODULE.WorktreeError) as raised:
                     MODULE.provision(
-                        Path(directory), self.branch, "agent-a", Path(directory) / "wt"
+                        root, self.branch, "agent-a", root.parent / "wt"
                     )
 
         self.assertIn("then claim it", str(raised.exception))
@@ -591,12 +618,13 @@ class ProvisioningBoundaryTests(unittest.TestCase):
     def test_optional_provision_uses_the_exact_verified_baseline(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            target = root / "wt"
+            target = root.parent / "wt"
             record_path = root / MODULE.OWNERSHIP_FILENAME
             completed = mock.Mock(returncode=0, stderr="")
 
             with (
                 mock.patch.object(MODULE, "branch_exists", return_value=False),
+                mock.patch.object(MODULE, "primary_worktree_path", return_value=root),
                 mock.patch.object(MODULE, "verified_main", return_value=self.baseline),
                 mock.patch.object(MODULE, "ownership_path", return_value=record_path),
                 mock.patch.object(MODULE, "_git", return_value=completed) as git,
@@ -620,6 +648,28 @@ class ProvisioningBoundaryTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(record.base_commit, self.baseline)
+
+    def test_provision_refuses_a_target_nested_under_the_primary_worktree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            target = root / "nested"
+
+            with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+                with self.assertRaises(MODULE.WorktreeError) as raised:
+                    MODULE.provision(root, self.branch, "agent-a", target)
+
+            self.assertIn("inside the primary worktree", str(raised.exception))
+
+    def test_claim_refuses_a_target_nested_under_the_primary_worktree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            target = root / "nested"
+
+            with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+                with self.assertRaises(MODULE.WorktreeError) as raised:
+                    MODULE.claim(root, self.branch, "agent-a", target)
+
+            self.assertIn("inside the primary worktree", str(raised.exception))
 
 
 class ConcurrentClaimTests(unittest.TestCase):

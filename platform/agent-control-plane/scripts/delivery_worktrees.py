@@ -281,6 +281,25 @@ def live_worktrees(root: Path) -> dict[str, tuple[str | None, str]]:
     return found
 
 
+def primary_worktree_path(root: Path) -> Path:
+    """Return Git's primary checkout path for nested-target validation."""
+    cleanup = _cleanup_module()
+    worktrees = cleanup.inspect_worktrees(root)
+    if not worktrees:
+        raise WorktreeError("Git reported no worktrees for the repository")
+    return worktrees[0].path
+
+
+def reject_nested_worktree_target(root: Path, target: Path) -> None:
+    """Refuse linked worktrees placed below the primary checkout."""
+    primary = primary_worktree_path(root)
+    if primary in target.parents:
+        raise WorktreeError(
+            f"{target} is inside the primary worktree {primary}. Delivery worktrees "
+            "must be beside the repository so they do not dirty the primary checkout."
+        )
+
+
 def ownership_path(root: Path) -> Path:
     store = _sibling("local_store")
     canonical, _ = store.ensure_store(
@@ -504,6 +523,7 @@ def claim(
         raise WorktreeError(error)
 
     target = requested_path.resolve()
+    reject_nested_worktree_target(root, target)
     worktrees = live_worktrees(root)
     if str(target) not in worktrees:
         raise WorktreeError(
@@ -551,6 +571,7 @@ def provision(
         raise WorktreeError(error)
 
     target = (requested_path or default_worktree_path(root, key)).resolve()
+    reject_nested_worktree_target(root, target)
     usable_worktree_target(target)
 
     if branch_exists(root, branch):
