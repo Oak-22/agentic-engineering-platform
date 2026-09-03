@@ -9,6 +9,7 @@ affected_components:
   - platform/agent-control-plane
 related_jira: [AEPI-119, AEPI-120, AEPI-121, AEPI-123]
 related_confluence: []
+amended: 2026-09-01
 supersedes: []
 ---
 
@@ -61,7 +62,10 @@ implicitly accepted a hosted-remote GitHub surface as a backup path.
 Move the GitHub MCP surface off the local pinned Docker transport to a remote
 transport reached over HTTP with OAuth.
 
-- **Near-term:** adopt GitHub's hosted remote MCP server with per-user OAuth.
+- **Near-term:** adopt GitHub's hosted remote MCP server with
+  runtime-specific authentication: per-user OAuth for Claude Code and a
+  dedicated fine-grained PAT for Codex until Codex supports the required
+  confidential-client exchange.
   Both runtimes point at the same HTTPS endpoint — more uniform than the
   Docker path, not less. Accept that GitHub rolls the server version, with the
   existing tool-surface contract test as the drift guard.
@@ -107,3 +111,100 @@ after that.
   only because it front-loads the GitHub App and gateway build; the hosted
   server delivers most of the credential and daemon benefit sooner. It
   remains the target state.
+
+## Amendment — 2026-09-01
+
+Clarifies, does not reverse, the near-term decision. Connectivity to GitHub's
+hosted server was verified from Claude Code on this date (the original record
+noted it was not). Codex verification remains pending on MCP-client support for
+supplying the pre-registered client secret during token exchange and a
+successful `get_me` health check.
+
+### "Hosted OAuth" means a pre-registered OAuth App
+
+GitHub's authorization server (`https://github.com/login/oauth`, discovered via
+the endpoint's RFC 9728 protected-resource metadata) supports the
+authorization-code grant with PKCE and refresh tokens, but exposes **no
+Dynamic Client Registration endpoint and no Client ID Metadata Document
+(CIMD)**. A client cannot self-register. Every runtime that reaches the hosted
+server must therefore carry a **pre-registered OAuth client** — a GitHub OAuth
+App (or GitHub App) whose `client_id`, secret, and one registered loopback
+redirect URI are provisioned out of band. There is no zero-configuration path.
+
+### Near-term client model: per-developer, local
+
+Until org-wide rollout, each contributor uses a user-owned OAuth App for each
+runtime capable of completing the flow. Claude Code and Codex do not share a
+client registration; the Codex registration remains inactive during its PAT
+interim:
+
+- each redirect URI exactly matches that runtime's loopback callback;
+- the runtime adapter may identify the registration mechanism, but a
+  developer-specific `client_id` belongs in machine-local config rather than
+  committed shared config;
+- Codex must not carry an incomplete active registration until its MCP client
+  can supply the pre-registered client secret; released CLIs 0.151.0 and
+  0.152.0 do not expose that input;
+- no client secret is committed;
+- the issued user token is scoped to that developer's own GitHub permissions
+  and is centrally revocable by revoking the App authorization.
+
+This is a deliberately local, single-developer credential. It is not shared
+infrastructure.
+
+### Trigger for re-registration
+
+Org-wide adoption — more than one person relying on the surface, or use from
+unsupervised / cloud agents — requires replacing the per-developer App with an
+**org-owned OAuth App or GitHub App** that has a hosted (non-loopback) redirect
+URI and a managed secret. That step is the on-ramp to the self-hosted target
+state already described under *Decision*; it does not change the target.
+
+### Local Docker tier removed
+
+The original decision retained the digest-pinned Docker `github-mcp-server`
+"while the near-term migration is in progress." The hosted transport is
+verified on Claude Code and selected as the Codex target; the local tier is
+removed rather than left disabled. Codex readiness is not claimed until its
+MCP client supports the required client secret and the separate OAuth
+registration passes `get_me`.
+
+- `fallbackOrder` in `github-delivery-mapping.json` is now `["github-mcp",
+  "gh"]`; the `github-mcp-local` provider and the commented Docker block in
+  `.codex/config.toml` are deleted.
+- The operational ladder is **hosted MCP → `gh`**. This is deliberate for an
+  AI-first workflow: the MCP surface is the working path, and `gh` is the
+  single evidenced fallback for a true outage — not a co-equal tier.
+- The pinned Docker invocation is recoverable from Git history if the
+  self-hosted target state under *Decision* is built. That target is unchanged;
+  it would be a fresh deployment concern, not a restoration of the dev-loop
+  bootstrap.
+
+### Consequence for the drift guard
+
+The tool-surface contract test remains the drift guard for the hosted server's
+version. The new standing operational task is tracking OAuth App registrations:
+one per developer today, consolidating to one org-owned registration at
+rollout.
+
+### Codex interim authentication path
+
+The hosted endpoint and HTTP transport remain the selected near-term path, but
+authentication cannot yet be uniform. GitHub's Codex installation guide
+documents the hosted remote server with PAT authentication; it does not claim
+that Codex can use hosted OAuth without a PAT. The live 0.151.0 exchange and
+the released 0.152.0 configuration contract confirm that Codex cannot supply
+the client secret GitHub requires for a pre-registered OAuth client.
+
+Until that runtime capability lands:
+
+- Claude Code continues using per-user OAuth against the hosted endpoint.
+- Codex uses a dedicated fine-grained, least-privilege PAT against the same
+  hosted endpoint, resolved from `GITHUB_MCP_PAT`; only the variable name is
+  committed.
+- The separately registered Codex OAuth App is retained but inactive.
+- `get_me` is the readiness gate before the Codex MCP surface is considered
+  operational.
+- The PAT is an explicit interim exception to the no-PAT goal, not a reversal
+  of the self-hosted GitHub App target state. Remove it once Codex can complete
+  the confidential-client exchange.

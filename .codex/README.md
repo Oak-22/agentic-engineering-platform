@@ -10,15 +10,17 @@ under `platform/agent-control-plane/adapters/runtimes/codex/`.
 baseline and stores a prompt snapshot outside the worktree.
 
 The repository-scoped `config.toml` declares the shared official GitHub MCP
-server. It forwards `GITHUB_PERSONAL_ACCESS_TOKEN` by name only, pins the
-server image by digest, and uses the same explicit tool allowlist as Claude's
-`.mcp.json` adapter.
+server as GitHub's hosted remote endpoint (`https://api.githubcopilot.com/mcp/`)
+over HTTP (ADR-0004). Codex's current hosted-OAuth client cannot supply the
+client secret required by GitHub's token endpoint, so the Codex adapter follows
+GitHub's documented interim PAT path. The config stores only
+`bearer_token_env_var = "GITHUB_MCP_PAT"`; the token value remains outside the
+repository. Claude Code continues to use OAuth against the same endpoint.
 
-That GitHub server runs as a Docker `stdio` process. When Docker is
-unavailable it fails on startup, independently of any Atlassian condition —
-the failure names the `github` server, and an Atlassian OAuth warning is not
-evidence about it. Prerequisites, readiness checks, and the
-local-MCP → Codex Apps GitHub → `gh` fallback order are documented in
+A GitHub authorization failure names the `github` server and is independent of
+any Atlassian condition — an Atlassian OAuth warning is not evidence about it.
+The per-runtime authorization procedure, health check, and the single `gh`
+fallback are documented in
 `platform/agent-control-plane/agent-assets/mcp-servers/github/server.md`.
 
 Jira stays on the hosted Codex Apps Atlassian Rovo connector, which needs no

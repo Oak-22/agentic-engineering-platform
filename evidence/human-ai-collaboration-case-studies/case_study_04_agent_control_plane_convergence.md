@@ -1,10 +1,10 @@
-# Case Study 03: Agent-Control Plane Convergence Through In-Repo Emergence
+# Case Study 04: Agent-Control Plane Convergence Through In-Repo Emergence
 
 ## Summary
 
 This case study captures a practical pattern discovered while actively
-building in `myHealth`: the repository's agent-control structure evolved
-from a legacy instruction tree into a modern artifact-typed control
+building in a downstream product repository: its agent-control structure
+evolved from a legacy instruction tree into a modern artifact-typed control
 plane.
 
 The key insight was emergent rather than pre-planned. Real AI-human

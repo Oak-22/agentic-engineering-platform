@@ -24,9 +24,9 @@ class ResolveArchiveRootTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("AEP_ARTIFACT_ARCHIVE_DIR", None)
             os.environ.pop("XDG_DATA_HOME", None)
-            root = archiver.resolve_archive_root(project_dir=Path("/repo/myHealth"))
+            root = archiver.resolve_archive_root(project_dir=Path("/repo/ExampleConsumer"))
         self.assertEqual(root.parent, Path.home() / ".local" / "share" / "aep" / "artifact-archive")
-        self.assertTrue(root.name.startswith("myhealth--"))
+        self.assertTrue(root.name.startswith("exampleconsumer--"))
 
 
 class ArchiveArtifactPublishTests(unittest.TestCase):

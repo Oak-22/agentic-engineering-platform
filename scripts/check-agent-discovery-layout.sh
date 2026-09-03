@@ -47,6 +47,30 @@ for required_path in $required_paths; do
   fi
 done
 
+# The platform stays repository-neutral. Retired downstream product names are
+# assembled from fragments so this guard does not exempt itself from the rule.
+legacy_health_product='my''Health'
+legacy_asset_product='digital-asset-processing-''pipeline'
+legacy_finance_product='ai-infrastructure-financial-''warehouse'
+forbidden_downstream_identifiers="
+$legacy_health_product
+$legacy_asset_product
+$legacy_finance_product
+"
+
+for identifier in $forbidden_downstream_identifiers; do
+  if matches=$(git grep -n -i -F "$identifier" -- .); then
+    echo "tracked platform content names a retired downstream product:" >&2
+    echo "$matches" >&2
+    exit 1
+  else
+    grep_status=$?
+    if [ "$grep_status" -ne 1 ]; then
+      exit "$grep_status"
+    fi
+  fi
+done
+
 python3 -m json.tool .codex/hooks.json >/dev/null
 python3 -m json.tool .claude/settings.json >/dev/null
 validation_python=platform/agent-control-plane/.venv/bin/python
