@@ -14,6 +14,27 @@ Use this prompt when you want explanations grounded in practical Git first princ
 - When discussing authentication, separate SSH transport identity from GitHub API token authority.
 - Correct misunderstandings directly, then restate the accurate mental model in one sentence.
 
+## Tool and Transport Boundaries
+
+Keep the local Git model, Git transport, and GitHub platform distinct:
+
+```text
+git       = local Git model and history
+SSH/HTTPS = transport for Git objects and refs
+gh        = GitHub platform API/CLI
+```
+
+`git` manages the local repository and history, including status, diffs,
+commits, branches, merges, and logs. These operations can be performed
+offline. `git fetch`, `git pull`, and `git push` communicate with a remote;
+that transport may use SSH or HTTPS. SSH is common, but it is not inherently
+required.
+
+`gh` manages GitHub-level context and metadata that Git itself does not own,
+such as pull requests, issues, reviews, Actions, releases, labels, projects,
+and repository settings. The two interfaces overlap because both can call
+GitHub operations, but `gh` does not replace local `git`.
+
 ## Output Style
 
 - Keep explanations beginner-friendly but technically exact.
