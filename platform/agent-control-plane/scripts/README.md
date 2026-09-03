@@ -23,6 +23,10 @@ maintainer interpreter `platform/agent-control-plane/.venv/bin/python`:
 | Contract schemas | `$P platform/agent-control-plane/scripts/validate_contracts.py` |
 | Instruction adapter freshness | `$P platform/agent-control-plane/scripts/generate_instruction_adapters.py --check` |
 
+The agent discovery layout guard also rejects retired downstream product
+identifiers in tracked content so application-specific identity cannot drift
+back into the platform repository.
+
 Use the maintainer virtualenv described in the
 [component README](../README.md) to run these locally. The workflow's job
 summary pairs each guard's outcome with the command that reproduces it.
