@@ -80,19 +80,53 @@ GIT_COMMIT_NO_VERIFY_PATTERN = re.compile(r"\bgit\s+commit\b[^|;&\n]*--no-verify
 GIT_BRANCH_DELETE_PATTERN = re.compile(r"\bgit\s+branch\s+(?:-d|-D|--delete)\b")
 GH_PR_CREATE_PATTERN = re.compile(r"\bgh\s+pr\s+create\b")
 GH_PR_MERGE_PATTERN = re.compile(r"\bgh\s+pr\s+merge\b")
+GH_PR_EDIT_PATTERN = re.compile(r"\bgh\s+pr\s+edit\b")
+GH_PR_READY_PATTERN = re.compile(r"\bgh\s+pr\s+ready\b")
+GH_PR_CLOSE_PATTERN = re.compile(r"\bgh\s+pr\s+close\b")
+GH_PR_UPDATE_BRANCH_PATTERN = re.compile(r"\bgh\s+pr\s+update-branch\b")
+GH_PR_REVIEW_PATTERN = re.compile(r"\bgh\s+pr\s+review\b")
+DELIVERY_PUBLISH_PATTERN = re.compile(
+    r"^\s*(?:(?:\S*/)?python3\s+)?(?:\./)?"
+    r"platform/agent-control-plane/scripts/publish_delivery_branch\.py\b"
+    r"(?=[^|;&\n]*--execute\b)[^|;&\n]*$"
+)
+DELIVERY_CLEANUP_PATTERN = re.compile(
+    r"^\s*(?:(?:\S*/)?python3\s+)?(?:\./)?(?:"
+    r"platform/agent-control-plane/agent-assets/skills/manage-git-workflow/scripts/"
+    r"|\.agents/skills/manage-git-workflow/scripts/)delivery_cleanup\.py\s+pr\b"
+    r"(?=[^|;&\n]*--execute\b)[^|;&\n]*$"
+)
 
 GITHUB_MCP_ACTIONS = {
     "create_pull_request": "github:pull_request:create",
     "update_pull_request": "github:pull_request:update",
-    "pull_request_review_write": "github:pull_request:review",
+    "update_pull_request_branch": "github:pull_request:sync",
+    "request_copilot_review": "github:pull_request:copilot-review:request",
+    "add_reply_to_pull_request_comment": "github:pull_request:review-thread:reply",
+    "pull_request_review_write": "github:pull_request:review:comment",
     "merge_pull_request": "github:pull_request:merge",
 }
+GITHUB_MCP_READ_TOOLS = frozenset(
+    {
+        "get_me",
+        "get_file_contents",
+        "get_commit",
+        "list_commits",
+        "list_pull_requests",
+        "search_pull_requests",
+        "pull_request_read",
+        "actions_get",
+        "actions_list",
+        "get_job_logs",
+    }
+)
 JIRA_MCP_ACTIONS = {
     "createjiraissue": "jira:issue:create",
     "editjiraissue": "jira:issue:update",
     "transitionjiraissue": "jira:issue:transition",
     "createissuelink": "jira:issue:link",
 }
+JIRA_MCP_READ_TOOLS = frozenset({"searchjiraissuesusingjql", "getjiraissue"})
 
 MAIN_BRANCH_NAMES = frozenset({"main", "master"})
 
@@ -168,6 +202,15 @@ def global_deny_reason(command: str, root: Path) -> str | None:
 
 def recognize_action(command: str, root: Path) -> ActionMatch | None:
     """Classify a command into a namespaced action + resource, or None (no opinion)."""
+    if DELIVERY_PUBLISH_PATTERN.search(command):
+        branch = current_branch(root) or "*"
+        return ActionMatch(
+            "git:delivery:publish", f"git:{REPO_NAME}:branch/{branch}"
+        )
+    if DELIVERY_CLEANUP_PATTERN.search(command):
+        return ActionMatch(
+            "git:delivery:cleanup", f"git:{REPO_NAME}:delivery/merged-pr"
+        )
     if GIT_PUSH_DELETE_PATTERN.search(command):
         return ActionMatch("git:branch:delete", f"git:{REPO_NAME}:branch/*")
     if GIT_PUSH_PATTERN.search(command):
@@ -177,8 +220,34 @@ def recognize_action(command: str, root: Path) -> ActionMatch | None:
         return ActionMatch("git:branch:delete", f"git:{REPO_NAME}:branch/*")
     if GH_PR_MERGE_PATTERN.search(command):
         return ActionMatch("github:pull_request:merge", f"github:{REPO_NAME}:*")
+    if GH_PR_CLOSE_PATTERN.search(command):
+        return ActionMatch("github:pull_request:close", f"github:{REPO_NAME}:*")
+    if GH_PR_READY_PATTERN.search(command):
+        return ActionMatch("github:pull_request:ready", f"github:{REPO_NAME}:*")
+    if GH_PR_UPDATE_BRANCH_PATTERN.search(command):
+        return ActionMatch("github:pull_request:sync", f"github:{REPO_NAME}:*")
+    if GH_PR_EDIT_PATTERN.search(command):
+        action = (
+            "github:pull_request:retarget"
+            if re.search(r"(?:^|\s)--base(?:\s|=)", command)
+            else "github:pull_request:update"
+        )
+        return ActionMatch(action, f"github:{REPO_NAME}:*")
+    if GH_PR_REVIEW_PATTERN.search(command):
+        if re.search(r"(?:^|\s)--approve(?:\s|$)", command):
+            action = "github:pull_request:approve"
+        elif re.search(r"(?:^|\s)--request-changes(?:\s|$)", command):
+            action = "github:pull_request:request-changes"
+        else:
+            action = "github:pull_request:review:comment"
+        return ActionMatch(action, f"github:{REPO_NAME}:*")
     if GH_PR_CREATE_PATTERN.search(command):
-        return ActionMatch("github:pull_request:create", f"github:{REPO_NAME}:*")
+        action = (
+            "github:pull_request:create"
+            if re.search(r"(?:^|\s)--draft(?:\s|$)", command)
+            else "github:pull_request:create-ready"
+        )
+        return ActionMatch(action, f"github:{REPO_NAME}:*")
     return None
 
 
@@ -187,7 +256,7 @@ def is_github_mcp_tool(tool_name: object) -> bool:
     if not isinstance(tool_name, str):
         return False
     lowered = tool_name.lower()
-    return "github" in lowered and lowered.rsplit("__", 1)[-1] in GITHUB_MCP_ACTIONS
+    return "github" in lowered
 
 
 def is_jira_mcp_tool(tool_name: object) -> bool:
@@ -195,9 +264,8 @@ def is_jira_mcp_tool(tool_name: object) -> bool:
     if not isinstance(tool_name, str):
         return False
     lowered = re.sub(r"[^a-z0-9]", "", tool_name.lower())
-    return ("jira" in lowered or "atlassian" in lowered) and any(
-        lowered.endswith(operation) for operation in JIRA_MCP_ACTIONS
-    )
+    known_suffixes = (*JIRA_MCP_ACTIONS, *JIRA_MCP_READ_TOOLS)
+    return "jira" in lowered or any(lowered.endswith(item) for item in known_suffixes)
 
 
 def is_governed_mcp_tool(tool_name: object) -> bool:
@@ -208,7 +276,37 @@ def recognize_mcp_action(tool_name: object, tool_input: dict) -> ActionMatch | N
     """Map destination MCP mutations onto a semantic action namespace."""
     if is_github_mcp_tool(tool_name):
         operation = str(tool_name).lower().rsplit("__", 1)[-1]
-        action = GITHUB_MCP_ACTIONS[operation]
+        if operation in GITHUB_MCP_READ_TOOLS:
+            return None
+        action = GITHUB_MCP_ACTIONS.get(operation)
+        if action is None:
+            return ActionMatch(
+                "github:tool:unclassified", f"github:{REPO_NAME}:*"
+            )
+        if operation == "create_pull_request" and tool_input.get("draft") is not True:
+            action = "github:pull_request:create-ready"
+        elif operation == "update_pull_request":
+            if tool_input.get("base") is not None:
+                action = "github:pull_request:retarget"
+            elif str(tool_input.get("state", "")).lower() == "closed":
+                action = "github:pull_request:close"
+            elif str(tool_input.get("state", "")).lower() == "open":
+                action = "github:pull_request:reopen"
+            elif tool_input.get("reviewers") is not None:
+                action = "github:pull_request:reviewer:update"
+            elif tool_input.get("draft") is False:
+                action = "github:pull_request:ready"
+        elif operation == "pull_request_review_write":
+            method = str(tool_input.get("method", "")).lower()
+            event = str(tool_input.get("event", "")).upper()
+            if method == "resolve_thread":
+                action = "github:pull_request:review-thread:resolve"
+            elif method == "unresolve_thread":
+                action = "github:pull_request:review-thread:unresolve"
+            elif event == "APPROVE":
+                action = "github:pull_request:approve"
+            elif event == "REQUEST_CHANGES":
+                action = "github:pull_request:request-changes"
         repository = tool_input.get("repository")
         if isinstance(repository, dict):
             owner = repository.get("owner")
@@ -223,6 +321,10 @@ def recognize_mcp_action(tool_name: object, tool_input: dict) -> ActionMatch | N
 
     if is_jira_mcp_tool(tool_name):
         normalized = re.sub(r"[^a-z0-9]", "", str(tool_name).lower())
+        if any(normalized.endswith(operation) for operation in JIRA_MCP_READ_TOOLS):
+            return None
+        if not any(normalized.endswith(operation) for operation in JIRA_MCP_ACTIONS):
+            return ActionMatch("jira:tool:unclassified", "jira:*")
         operation = next(
             operation for operation in JIRA_MCP_ACTIONS if normalized.endswith(operation)
         )

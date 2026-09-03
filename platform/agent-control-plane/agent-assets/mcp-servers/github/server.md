@@ -85,20 +85,32 @@ deployment is ever built (the ADR-0004 target state).
 
 ## Tool boundary
 
-The semantic surface is fourteen tools:
+The provider capability map is seventeen tools:
 
 `get_me`, `get_file_contents`, `get_commit`, `list_commits`,
 `list_pull_requests`, `search_pull_requests`, `pull_request_read`,
 `actions_get`, `actions_list`, `get_job_logs`, `create_pull_request`,
-`update_pull_request`, `pull_request_review_write`, `merge_pull_request`.
+`update_pull_request`, `update_pull_request_branch`, `request_copilot_review`,
+`add_reply_to_pull_request_comment`, `pull_request_review_write`,
+`merge_pull_request`.
 
 The hosted server is scoped to this set by toolset (URL path segment or
-`X-MCP-Toolsets` header). AEP does not rely on the transport-level filter for
-safety — the AEP permission policy gates every mutation
-(`create_pull_request`, `update_pull_request`, `pull_request_review_write`,
-`merge_pull_request`) regardless of which tools the transport exposes. Read
-tools need no delivery approval; mutation tools remain subject to the runtime
-approval and AEP permission policy.
+`X-MCP-Toolsets` header). AEP does not rely on that transport-level filter for
+safety: the AEP permission policy classifies every mutation by its semantic
+action regardless of which tools the transport exposes.
+
+Codex exposes the read and governed-delivery subset explicitly and omits
+`merge_pull_request`. Its approved delivery tools avoid redundant runtime
+prompts only after the AEP hook classifies their arguments. Claude may see the
+provider's wider surface, so the permission gate permits known reads, maps
+known mutations, and denies unclassified GitHub tools. Transport exposure is
+never acceptance authority.
+
+Agent-autonomous operations cover draft creation, maintenance, current-base
+sync, Copilot review requests, replies, fixed-thread resolution, and readiness.
+Approve, request-changes, create-ready, close, reopen, retarget, unresolve, and
+merge remain human-only. The mapping and gate apply the same semantic actions
+to the evidenced `gh` fallback.
 
 GitHub rolls the hosted server's version. The tool-surface contract test
 (`configured_tools == mapping_tools`) is the drift guard against an

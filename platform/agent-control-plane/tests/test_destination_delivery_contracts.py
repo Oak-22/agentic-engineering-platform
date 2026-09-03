@@ -91,7 +91,7 @@ class DestinationContractTests(unittest.TestCase):
         self.assert_valid(
             "github-delivery/github-delivery-operation.schema.json",
             {
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "operation": "pull-request-read",
                 "repository": {"owner": "Oak-22", "name": "agentic-engineering-platform"},
                 "pullRequestNumber": 69,
@@ -100,7 +100,7 @@ class DestinationContractTests(unittest.TestCase):
         self.assert_valid(
             "github-delivery/github-delivery-result.schema.json",
             {
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "operation": "pull-request-read",
                 "outcome": "succeeded",
                 "repository": {"owner": "Oak-22", "name": "agentic-engineering-platform"},
@@ -212,6 +212,22 @@ class RuntimeConfigurationParityTests(unittest.TestCase):
             match = MACHINE_PATH_PATTERN.search(read_text(relative))
             self.assertIsNone(match, f"{relative} contains a machine-specific path: {match}")
 
+    def test_codex_exposes_only_governed_delivery_tools_without_write_prompts(self):
+        with (ROOT / ".codex" / "config.toml").open("rb") as handle:
+            github = tomllib.load(handle)["mcp_servers"]["github"]
+        self.assertEqual(github["default_tools_approval_mode"], "writes")
+        self.assertNotIn("merge_pull_request", github["enabled_tools"])
+        for tool in (
+            "create_pull_request",
+            "update_pull_request",
+            "update_pull_request_branch",
+            "request_copilot_review",
+            "add_reply_to_pull_request_comment",
+            "pull_request_review_write",
+        ):
+            self.assertIn(tool, github["enabled_tools"])
+            self.assertEqual(github["tools"][tool]["approval_mode"], "approve")
+
 
 class GithubFallbackRoutingTests(unittest.TestCase):
     def setUp(self):
@@ -230,7 +246,7 @@ class GithubFallbackRoutingTests(unittest.TestCase):
 
     def test_every_mutating_github_operation_keeps_one_semantic_action(self):
         for name, operation in self.mapping["operations"].items():
-            if not operation["requiresHumanApproval"]:
+            if operation["readOnly"]:
                 continue
             tool = operation["tool"]
             self.assertIn(
@@ -239,10 +255,43 @@ class GithubFallbackRoutingTests(unittest.TestCase):
                 f"operation {name} tool {tool} has no semantic permission action",
             )
             self.assertTrue(permission_gate.GITHUB_MCP_ACTIONS[tool].startswith("github:"))
-            self.assertTrue(
-                operation.get("fallbackTool", "").startswith("gh "),
-                f"operation {name} lacks a `gh` fallback tool",
+            if "fallbackTool" in operation:
+                self.assertTrue(operation["fallbackTool"].startswith("gh "))
+
+    def test_authorization_classes_match_approval_behavior(self):
+        classes = set()
+        for operation in self.mapping["operations"].values():
+            authorization = operation["authorizationClass"]
+            classes.add(authorization)
+            self.assertEqual(
+                operation["requiresHumanApproval"],
+                authorization != "agent-autonomous",
             )
+        self.assertEqual(
+            classes, {"agent-autonomous", "human-authorized-agent", "human-only"}
+        )
+
+    def test_specialists_remain_denied_from_every_delivery_mutation(self):
+        policy_dir = CONTROL_PLANE / "agent-assets" / "execution-policies" / "permissions"
+        actions = (
+            ("git:delivery:publish", "git:agentic-engineering-platform:branch/feature/AEPI-1-x"),
+            ("github:pull_request:create", "github:Oak-22/agentic-engineering-platform:*"),
+            ("github:pull_request:review-thread:resolve", "github:Oak-22/agentic-engineering-platform:*"),
+            ("github:pull_request:merge", "github:Oak-22/agentic-engineering-platform:*"),
+            ("jira:issue:update", "jira:*:issue/AEPI-1"),
+        )
+        for path in sorted(policy_dir.glob("*.policy.json")):
+            if path.name == "generalist-engineering-agent.policy.json":
+                continue
+            policy = json.loads(path.read_text())
+            for action, resource in actions:
+                with self.subTest(policy=path.name, action=action):
+                    self.assertEqual(
+                        permission_gate.evaluate_policy(
+                            policy, permission_gate.ActionMatch(action, resource)
+                        ),
+                        "Deny",
+                    )
 
 
 class JiraRuntimeScopeTests(unittest.TestCase):
@@ -260,13 +309,18 @@ class JiraRuntimeScopeTests(unittest.TestCase):
 
     def test_every_mutating_jira_operation_keeps_one_semantic_action(self):
         for name, operation in self.mapping["operations"].items():
-            if not operation["requiresHumanApproval"]:
+            if operation["readOnly"]:
                 continue
             normalized = re.sub(r"[^a-z0-9]", "", operation["tool"].lower())
             self.assertTrue(
                 any(normalized.endswith(key) for key in permission_gate.JIRA_MCP_ACTIONS),
                 f"operation {name} tool {operation['tool']} has no semantic permission action",
             )
+
+    def test_delivery_jira_operations_are_agent_autonomous(self):
+        for operation in self.mapping["operations"].values():
+            self.assertEqual(operation["authorizationClass"], "agent-autonomous")
+            self.assertFalse(operation["requiresHumanApproval"])
 
 
 class IncidentTraceabilityTests(unittest.TestCase):

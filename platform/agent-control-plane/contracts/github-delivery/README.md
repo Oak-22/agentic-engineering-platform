@@ -9,7 +9,8 @@ metadata.
 - `github-delivery-result.schema.json` describes the traceable result.
 - `github-delivery-mapping.schema.json` describes the selected MCP provider,
   the ordered `fallbackOrder` a caller tries when a surface is unavailable,
-  and the `gh` fallback tool for each operation.
+  the `gh` fallback tool where one exists, and the operation's
+  `agent-autonomous`, `human-authorized-agent`, or `human-only` class.
 
 The canonical provider is GitHub's hosted official MCP server, reached over
 HTTP (ADR-0004). Authentication is runtime-specific: Claude Code uses OAuth,
@@ -20,3 +21,8 @@ tiers keep the same semantic action and permission gate. Local Git and git-over-
 transport and worktree and branch mechanics. Native GitHub pull-request IDs,
 URLs, and commit SHAs are returned as evidence, not copied into a competing
 AEP state store.
+
+Schema version 2 splits the earlier broad pull-request update and review
+operations into readiness, Copilot-review, review-thread, and human-acceptance
+actions. This lets adapters permit fixed-thread resolution without also
+granting approve, request-changes, unresolve, retarget, close, or merge.

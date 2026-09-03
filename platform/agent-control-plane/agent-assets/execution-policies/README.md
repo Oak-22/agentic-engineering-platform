@@ -10,6 +10,11 @@ actions. The permission gate applies them to both the official GitHub MCP
 tools and the optional `gh` shell fallback, so changing transport does not
 change the authorization boundary.
 
+The known GitHub and Jira read surfaces pass without a mutation decision.
+Destination MCP tools outside the explicit read and mutation maps fail closed
+as `github:tool:unclassified` or `jira:tool:unclassified`; provider tool-surface
+growth cannot silently create new write authority.
+
 JSON Schemas that validate these portable policies belong in
 [`../../contracts/`](../../contracts/). Provider capability mappings,
 supported versions, and renderers belong in

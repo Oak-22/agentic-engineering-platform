@@ -47,12 +47,17 @@ edit.
    already authorized that specific class of action (see
    `manage-git-workflow`'s and `manage-jira-confluence`'s authority
    sections for the per-system detail); do not infer it from an adjacent
-   authorization.
+   authorization. An explicit `deliver-governed-change` invocation authorizes
+   the bounded generalist-coordinator actions through a pull request ready for
+   human review; an ordinary implementation request does not.
 3. **Hard-to-reverse.** Costly or partially impossible to undo, or changes
    what other people are relying on: merging a pull request, transitioning
    Jira status to a terminal state, moving or archiving a Confluence page,
    modifying GitHub repository settings. Requires explicit authorization
-   naming the action and its target, given in the current session.
+   naming the action and its target, given in the current session. Pull-request
+   approval and merge are human-only even when requested through an agent. A
+   Jira delivery transition to Done is the narrow exception after the agent
+   has independently verified GitHub's human merge event.
 4. **Destructive or irreversible.** History rewrites, force pushes, ref or
    branch deletion, direct commits to the default branch, deleting or
    permanently overwriting Jira or Confluence content. Requires explicit

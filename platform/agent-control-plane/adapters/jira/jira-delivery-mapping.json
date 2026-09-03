@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "destination": "jira",
   "canonicalAdapter": "adapters/jira",
   "primaryProvider": "atlassian-rovo",
@@ -39,31 +39,36 @@
       "provider": "atlassian-rovo",
       "tool": "getJiraIssue",
       "readOnly": true,
-      "requiresHumanApproval": false
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     },
     "work-item-create": {
       "provider": "atlassian-rovo",
       "tool": "createJiraIssue",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     },
     "work-item-update": {
       "provider": "atlassian-rovo",
       "tool": "editJiraIssue",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     },
     "work-item-transition": {
       "provider": "atlassian-rovo",
       "tool": "transitionJiraIssue",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     },
     "work-item-link": {
       "provider": "atlassian-rovo",
       "tool": "createIssueLink",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     }
   }
 }

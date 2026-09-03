@@ -15,6 +15,16 @@ MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
+REAL_GENERALIST_POLICY = json.loads(
+    (
+        Path(__file__).resolve().parents[1]
+        / "agent-assets"
+        / "execution-policies"
+        / "permissions"
+        / "generalist-engineering-agent.policy.json"
+    ).read_text()
+)
+
 
 GENERALIST_POLICY = {
     "policyId": "pol_generalist-engineering-agent",
@@ -95,16 +105,124 @@ class RecognizeActionTests(unittest.TestCase):
         match = MODULE.recognize_action("gh pr create --draft", Path("/repo"))
         self.assertEqual(match.action, "github:pull_request:create")
 
+    def test_gh_pr_create_without_draft_is_human_only(self):
+        match = MODULE.recognize_action("gh pr create", Path("/repo"))
+        self.assertEqual(match.action, "github:pull_request:create-ready")
+
+    def test_governed_publisher_execute_is_distinct_from_direct_push(self):
+        with mock.patch.object(
+            MODULE, "current_branch", return_value="feature/AEPI-200-safe-publish"
+        ):
+            match = MODULE.recognize_action(
+                "python3 platform/agent-control-plane/scripts/publish_delivery_branch.py --execute",
+                Path("/repo"),
+            )
+        self.assertEqual(match.action, "git:delivery:publish")
+
+    def test_publisher_dry_run_is_not_a_mutation(self):
+        match = MODULE.recognize_action(
+            "python3 platform/agent-control-plane/scripts/publish_delivery_branch.py",
+            Path("/repo"),
+        )
+        self.assertIsNone(match)
+
+    def test_targeted_cleanup_is_distinct_from_direct_branch_delete(self):
+        with mock.patch.object(
+            MODULE, "current_branch", return_value="feature/AEPI-200-safe-publish"
+        ):
+            match = MODULE.recognize_action(
+                "python3 .agents/skills/manage-git-workflow/scripts/"
+                "delivery_cleanup.py pr --pr 80 --execute",
+                Path("/repo"),
+            )
+        self.assertEqual(match.action, "git:delivery:cleanup")
+        self.assertEqual(
+            match.resource,
+            "git:agentic-engineering-platform:delivery/merged-pr",
+        )
+
+    def test_compound_publisher_command_cannot_hide_an_arbitrary_push(self):
+        with mock.patch.object(
+            MODULE, "current_branch", return_value="feature/AEPI-200-safe-publish"
+        ):
+            match = MODULE.recognize_action(
+                "python3 platform/agent-control-plane/scripts/"
+                "publish_delivery_branch.py --execute; git push origin other",
+                Path("/repo"),
+            )
+        self.assertEqual(match.action, "git:push")
+
     def test_github_mcp_create_uses_the_same_semantic_action(self):
         match = MODULE.recognize_mcp_action(
             "mcp__github__create_pull_request",
-            {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+            {"owner": "Oak-22", "repo": "agentic-engineering-platform", "draft": True},
         )
         self.assertEqual(match.action, "github:pull_request:create")
         self.assertEqual(match.resource, "github:Oak-22/agentic-engineering-platform:*")
 
+    def test_github_review_methods_have_narrow_actions(self):
+        cases = (
+            ({"method": "resolve_thread"}, "github:pull_request:review-thread:resolve"),
+            ({"method": "unresolve_thread"}, "github:pull_request:review-thread:unresolve"),
+            ({"method": "submit_pending", "event": "APPROVE"}, "github:pull_request:approve"),
+            (
+                {"method": "submit_pending", "event": "REQUEST_CHANGES"},
+                "github:pull_request:request-changes",
+            ),
+        )
+        for tool_input, expected in cases:
+            with self.subTest(expected=expected):
+                match = MODULE.recognize_mcp_action(
+                    "mcp__github__pull_request_review_write", tool_input
+                )
+                self.assertEqual(match.action, expected)
+
+    def test_github_update_separates_ready_from_human_only_changes(self):
+        cases = (
+            ({"draft": False}, "github:pull_request:ready"),
+            ({"base": "other"}, "github:pull_request:retarget"),
+            ({"state": "closed"}, "github:pull_request:close"),
+            ({"reviewers": ["person"]}, "github:pull_request:reviewer:update"),
+        )
+        for tool_input, expected in cases:
+            with self.subTest(expected=expected):
+                match = MODULE.recognize_mcp_action(
+                    "mcp__github__update_pull_request", tool_input
+                )
+                self.assertEqual(match.action, expected)
+
+    def test_copilot_review_and_thread_reply_are_recognized(self):
+        for tool, expected in (
+            (
+                "mcp__github__request_copilot_review",
+                "github:pull_request:copilot-review:request",
+            ),
+            (
+                "mcp__github__add_reply_to_pull_request_comment",
+                "github:pull_request:review-thread:reply",
+            ),
+        ):
+            with self.subTest(tool=tool):
+                self.assertEqual(MODULE.recognize_mcp_action(tool, {}).action, expected)
+
     def test_non_destination_mcp_tool_is_not_recognized(self):
         self.assertIsNone(MODULE.recognize_mcp_action("mcp__other__write", {}))
+
+    def test_known_destination_reads_are_not_gated(self):
+        for tool in (
+            "mcp__github__pull_request_read",
+            "mcp__codex_apps__atlassian_rovo_getjiraissue",
+        ):
+            with self.subTest(tool=tool):
+                self.assertIsNone(MODULE.recognize_mcp_action(tool, {}))
+
+    def test_unknown_destination_tools_fail_closed(self):
+        for tool, action in (
+            ("mcp__github__new_write_tool", "github:tool:unclassified"),
+            ("mcp__atlassian__newJiraMutation", "jira:tool:unclassified"),
+        ):
+            with self.subTest(tool=tool):
+                self.assertEqual(MODULE.recognize_mcp_action(tool, {}).action, action)
 
     def test_jira_mcp_transition_uses_a_jira_resource(self):
         match = MODULE.recognize_mcp_action(
@@ -231,6 +349,73 @@ class EvaluatePolicyTests(unittest.TestCase):
         )
         self.assertEqual(MODULE.evaluate_policy(SPECIALIST_POLICY, match), "Deny")
 
+    def test_real_generalist_policy_allows_governed_delivery_without_approval(self):
+        for action in (
+            "git:delivery:publish",
+            "github:pull_request:create",
+            "github:pull_request:sync",
+            "github:pull_request:ready",
+            "github:pull_request:review-thread:reply",
+            "github:pull_request:review-thread:resolve",
+            "jira:issue:transition",
+        ):
+            resource = (
+                "jira:*:issue/AEPI-200"
+                if action.startswith("jira:")
+                else "git:agentic-engineering-platform:delivery/merged-pr"
+                if action == "git:delivery:cleanup"
+                else "git:agentic-engineering-platform:branch/feature/AEPI-200-x"
+                if action.startswith("git:")
+                else "github:Oak-22/agentic-engineering-platform:*"
+            )
+            with self.subTest(action=action):
+                self.assertEqual(
+                    MODULE.evaluate_policy(
+                        REAL_GENERALIST_POLICY, MODULE.ActionMatch(action, resource)
+                    ),
+                    "Allow",
+                )
+
+    def test_real_generalist_policy_denies_human_acceptance_actions(self):
+        for action in (
+            "github:pull_request:merge",
+            "github:pull_request:create-ready",
+            "github:pull_request:approve",
+            "github:pull_request:request-changes",
+            "github:pull_request:close",
+            "github:pull_request:retarget",
+            "github:pull_request:review-thread:unresolve",
+        ):
+            with self.subTest(action=action):
+                self.assertEqual(
+                    MODULE.evaluate_policy(
+                        REAL_GENERALIST_POLICY,
+                        MODULE.ActionMatch(
+                            action, "github:Oak-22/agentic-engineering-platform:*"
+                        ),
+                    ),
+                    "Deny",
+                )
+
+    def test_real_generalist_policy_keeps_direct_push_approval_gated(self):
+        match = MODULE.ActionMatch(
+            "git:push",
+            "git:agentic-engineering-platform:branch/feature/AEPI-200-x",
+        )
+        self.assertEqual(
+            MODULE.evaluate_policy(REAL_GENERALIST_POLICY, match), "AllowApproval"
+        )
+
+    def test_real_generalist_policy_denies_unclassified_destination_tools(self):
+        for action in ("github:tool:unclassified", "jira:tool:unclassified"):
+            with self.subTest(action=action):
+                self.assertEqual(
+                    MODULE.evaluate_policy(
+                        REAL_GENERALIST_POLICY, MODULE.ActionMatch(action, "*")
+                    ),
+                    "Deny",
+                )
+
 
 class HookResponseTests(unittest.TestCase):
     def setUp(self):
@@ -297,7 +482,7 @@ class HookResponseTests(unittest.TestCase):
     def test_github_mcp_write_uses_human_approval_for_generalist(self):
         with mock.patch.object(MODULE, "load_policy", return_value=GENERALIST_POLICY):
             result = MODULE.hook_response(
-                {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+                {"owner": "Oak-22", "repo": "agentic-engineering-platform", "draft": True},
                 {},
                 Path("/repo"),
                 "claude",
@@ -308,7 +493,7 @@ class HookResponseTests(unittest.TestCase):
     def test_github_mcp_write_is_denied_for_specialist(self):
         with mock.patch.object(MODULE, "load_policy", return_value=SPECIALIST_POLICY):
             result = MODULE.hook_response(
-                {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+                {"owner": "Oak-22", "repo": "agentic-engineering-platform", "draft": True},
                 {"agent_type": "architecture-agent"},
                 Path("/repo"),
                 "claude",
@@ -326,6 +511,41 @@ class HookResponseTests(unittest.TestCase):
                 "mcp__codex_apps__atlassian_rovo_createjiraissue",
             )
         self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "ask")
+
+    def test_real_generalist_governed_publish_and_pr_create_do_not_prompt_codex(self):
+        with mock.patch.object(MODULE, "load_policy", return_value=REAL_GENERALIST_POLICY):
+            publish = MODULE.hook_response(
+                {
+                    "command": "python3 platform/agent-control-plane/scripts/"
+                    "publish_delivery_branch.py --execute"
+                },
+                {},
+                Path("/repo"),
+                "codex",
+            )
+            create = MODULE.hook_response(
+                {"owner": "Oak-22", "repo": "agentic-engineering-platform", "draft": True},
+                {},
+                Path("/repo"),
+                "codex",
+                "mcp__github__create_pull_request",
+            )
+        self.assertIsNone(publish)
+        self.assertIsNone(create)
+
+    def test_real_generalist_merge_is_denied_for_every_runtime(self):
+        with mock.patch.object(MODULE, "load_policy", return_value=REAL_GENERALIST_POLICY):
+            for runtime in ("claude", "codex", "copilot"):
+                with self.subTest(runtime=runtime):
+                    result = MODULE.hook_response(
+                        {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+                        {},
+                        Path("/repo"),
+                        runtime,
+                        "mcp__github__merge_pull_request",
+                    )
+                    payload = result if runtime == "copilot" else result["hookSpecificOutput"]
+                    self.assertEqual(payload["permissionDecision"], "deny")
 
 
 class HostilePathMatrixTests(unittest.TestCase):
@@ -424,7 +644,11 @@ class CopilotOutputShapeTests(unittest.TestCase):
         payload = json.dumps(
             {
                 "tool_name": "mcp__github__create_pull_request",
-                "tool_input": {"owner": "Oak-22", "repo": "agentic-engineering-platform"},
+                "tool_input": {
+                    "owner": "Oak-22",
+                    "repo": "agentic-engineering-platform",
+                    "draft": True,
+                },
             }
         )
         with mock.patch.object(MODULE, "repository_root", return_value=Path("/repo")):

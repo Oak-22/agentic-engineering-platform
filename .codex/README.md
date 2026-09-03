@@ -23,6 +23,13 @@ The per-runtime authorization procedure, health check, and the single `gh`
 fallback are documented in
 `platform/agent-control-plane/agent-assets/mcp-servers/github/server.md`.
 
+The GitHub server is allowlisted to the read and governed-delivery tools. Its
+delivery writes use per-tool `approval_mode = "approve"` so Codex does not add
+a second prompt-turn gate after AEP has classified the operation. The
+repository PreToolUse policy still inspects multi-purpose tool arguments;
+`merge_pull_request` is not exposed, and human-acceptance methods remain
+denied. A new Codex session is required after this configuration changes.
+
 Jira stays on the hosted Codex Apps Atlassian Rovo connector, which needs no
 entry in this file. Do **not** add an `atlassian` MCP server here: a direct
 `atlassian` server under Codex holds an invalid OAuth refresh token and fails

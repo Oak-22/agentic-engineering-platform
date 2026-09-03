@@ -25,6 +25,12 @@ only when that deployment has a different mapping.
 which Jira communication surface owns each operation. It does not duplicate
 Jira field IDs or work-item state.
 
+The mapping marks delivery operations `agent-autonomous` only inside an
+explicit governed-delivery lifecycle. The generalist coordinator may maintain
+the bounded AEPI work item through review and, after verifying GitHub's human
+merge, Done. Ordinary implementation requests remain local, and specialist
+policies still deny Jira mutation.
+
 [`manage-jira-confluence`](../../agent-assets/skills/manage-jira-confluence/SKILL.md)
 owns Jira reads, writes, transitions, links, and verification. The delivery
 coordinator may delegate to it, but GitHub and local Git operations remain the

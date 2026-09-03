@@ -811,6 +811,45 @@ def render_plan(
     return "\n".join(lines)
 
 
+def cleanup_plan_as_json(
+    plan: CleanupPlan, *, executed: bool, workbench_sync: str | None = None
+) -> str:
+    """Emit lifecycle evidence consumable by the governed-delivery coordinator."""
+    return json.dumps(
+        {
+            "schemaVersion": 1,
+            "outcome": "cleaned" if executed else "verified",
+            "executed": executed,
+            "pullRequest": plan.pull_request.number,
+            "pullRequestUrl": plan.pull_request.url,
+            "branch": plan.pull_request.head_branch,
+            "mergeOid": plan.pull_request.merge_oid,
+            "localCleanup": "completed" if executed else "planned",
+            "cleanupDebt": None,
+            "remoteBranch": "present" if plan.remote_branch_exists else "absent",
+            "remoteDeletionAttempted": False,
+            "workbenchSync": workbench_sync,
+        },
+        indent=2,
+        sort_keys=True,
+    )
+
+
+def cleanup_debt_as_json(error: Exception, *, executed: bool) -> str:
+    return json.dumps(
+        {
+            "schemaVersion": 1,
+            "outcome": "cleanup-debt",
+            "executed": executed,
+            "localCleanup": "blocked",
+            "cleanupDebt": str(error),
+            "remoteDeletionAttempted": False,
+        },
+        indent=2,
+        sort_keys=True,
+    )
+
+
 def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Verify and clean targeted or stale local delivery state."
@@ -837,6 +876,12 @@ def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
         "--execute",
         action="store_true",
         help="Perform the verified local cleanup; otherwise print a dry-run plan",
+    )
+    pr_parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format",
     )
 
     stale_parser = subparsers.add_parser(
@@ -889,7 +934,14 @@ def main(arguments: Sequence[str] | None = None) -> int:
             workbench_sync = None
             if args.execute:
                 workbench_sync = execute_cleanup(plan)
-            print(render_plan(plan, executed=args.execute, workbench_sync=workbench_sync))
+            if args.format == "json":
+                print(
+                    cleanup_plan_as_json(
+                        plan, executed=args.execute, workbench_sync=workbench_sync
+                    )
+                )
+            else:
+                print(render_plan(plan, executed=args.execute, workbench_sync=workbench_sync))
             if workbench_sync == "conflict-manual-resolution-required":
                 print(
                     f"Workbench sync blocked: {WORKBENCH_BRANCH} could not be merged "
@@ -898,7 +950,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     f"{WORKBENCH_BRANCH}.",
                     file=sys.stderr,
                 )
-            if not args.execute:
+            if not args.execute and args.format == "text":
                 print(
                     "Run again with --execute only after local cleanup is "
                     "authorized."
@@ -926,7 +978,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 )
         return 0
     except CleanupError as error:
-        print(f"Local delivery cleanup blocked: {error}", file=sys.stderr)
+        if getattr(args, "mode", None) == "pr" and getattr(args, "format", "text") == "json":
+            print(cleanup_debt_as_json(error, executed=bool(args.execute)))
+        else:
+            print(f"Local delivery cleanup blocked: {error}", file=sys.stderr)
         return 1
 
 

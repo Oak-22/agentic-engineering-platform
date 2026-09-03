@@ -40,7 +40,7 @@ surface a runtime's incident history has already ruled out.
 | Role or skill | May communicate with | Boundary |
 | --- | --- | --- |
 | `deliver-governed-change` | all surfaces through the owning skill | coordinates the lifecycle; it does not create a second transport |
-| `manage-git-workflow` | local Git, git-over-SSH, GitHub MCP, and the evidenced `gh` fallback | owns branches, commits, pushes, pull requests, reviews, merges, and cleanup |
+| `manage-git-workflow` | local Git, git-over-SSH, GitHub MCP, and the evidenced `gh` fallback | owns branches, commits, bounded publication, pull-request preparation, review remediation, and cleanup; merge remains human |
 | `manage-jira-confluence` | Jira/Rovo, optional direct Atlassian MCP, and the Jira UI fallback | owns work-item state, planning fields, links, transitions, and verification |
 | implementation/documentation agents | local repository files and local verification | do not publish GitHub or mutate Jira unless the governing delivery gate and policy allow it |
 | release-operations agent | read-only delivery evidence by default | does not push, merge, or delete refs; a human release gate remains separate |
@@ -55,9 +55,12 @@ Codex and Claude reach GitHub through GitHub's hosted MCP server at
 authentication: Claude Code uses per-user OAuth, while Codex uses a dedicated
 fine-grained PAT via `GITHUB_MCP_PAT`
 ([ADR-0004](adr/0004-move-github-mcp-to-a-remote-transport.md)). The MCP layer
-owns GitHub platform operations: pull-request reads, creation, updates, review
-writes, merges, and workflow inspection. Git-over-SSH remains the transport for
-Git objects and tree mechanics.
+owns GitHub platform operations: pull-request reads, creation, updates,
+Copilot-review remediation, and workflow inspection. Git-over-SSH remains the
+transport for Git objects and tree mechanics. The generalist may prepare a
+governed pull request, but agent policies deny approval and merge.
+[ADR-0005](adr/0005-stop-agent-delivery-at-human-acceptance.md) defines the
+later GitHub App identity boundary.
 
 ### Readiness
 

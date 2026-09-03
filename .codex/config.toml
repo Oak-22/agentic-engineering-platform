@@ -10,6 +10,46 @@
 url = "https://api.githubcopilot.com/mcp/"
 bearer_token_env_var = "GITHUB_MCP_PAT"
 default_tools_approval_mode = "writes"
+enabled_tools = [
+  "get_me",
+  "get_file_contents",
+  "get_commit",
+  "list_commits",
+  "list_pull_requests",
+  "search_pull_requests",
+  "pull_request_read",
+  "actions_get",
+  "actions_list",
+  "get_job_logs",
+  "create_pull_request",
+  "update_pull_request",
+  "update_pull_request_branch",
+  "request_copilot_review",
+  "add_reply_to_pull_request_comment",
+  "pull_request_review_write",
+]
+
+# These tools are non-prompting only because the repository PreToolUse gate
+# classifies their arguments into agent-autonomous and human-only semantic
+# actions. In particular, merge_pull_request is not exposed at all, while
+# approve/request-changes/unresolve/close/retarget inputs are denied by policy.
+[mcp_servers.github.tools.create_pull_request]
+approval_mode = "approve"
+
+[mcp_servers.github.tools.update_pull_request]
+approval_mode = "approve"
+
+[mcp_servers.github.tools.update_pull_request_branch]
+approval_mode = "approve"
+
+[mcp_servers.github.tools.request_copilot_review]
+approval_mode = "approve"
+
+[mcp_servers.github.tools.add_reply_to_pull_request_comment]
+approval_mode = "approve"
+
+[mcp_servers.github.tools.pull_request_review_write]
+approval_mode = "approve"
 
 # When the hosted server is unavailable the only fallback is the evidenced
 # `gh` CLI, recorded as `fallbackOrder` in

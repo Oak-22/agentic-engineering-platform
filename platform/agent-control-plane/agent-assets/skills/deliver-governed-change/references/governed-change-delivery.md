@@ -120,7 +120,9 @@ traceability easy to inspect and does not serve as a numerical quality target.
 ### 5. Publish
 
 - Skip Git publication when no repository-tracked content changed.
-- Push the feature branch with upstream tracking.
+- Publish through `scripts/publish_delivery_branch.py`, which permits only a
+  clean Jira-keyed current branch, non-rewriting integration, and same-name
+  feature-branch push.
 - Open one draft pull request against the intended target branch.
 - Include outcome, scope, impact, verification, and review boundaries.
 - Record the branch, commits, and pull request in Jira.
@@ -128,14 +130,23 @@ traceability easy to inspect and does not serve as a numerical quality target.
 ### 6. Review
 
 - Compare the pull request with the Jira outcome and acceptance criteria.
-- Inspect commits, tracked file changes, required checks, security results,
-  and unresolved review comments.
+- Keep the branch current with `main`; inspect commits, tracked file changes,
+  required checks, security results, the latest Copilot review, and unresolved
+  review comments.
+- Fix each actionable Copilot finding, publish it, then reply and resolve that
+  finding's thread. Reply with evidence but leave the thread unresolved when
+  the finding is disputed and needs human judgment.
+- Mark the pull request ready only when required checks pass, the latest
+  Copilot review is clean, no actionable thread remains unresolved, and Jira
+  and GitHub evidence agree.
 - Move the Jira task to `In Review` when implementation evidence is ready.
-- Require an accountable human to approve governed work.
+- Present the resulting pull request for accountable human review and merge;
+  a formal self-approval is neither required nor permitted.
 
 ### 7. Merge
 
-- Merge only after approval and required checks.
+- Only the accountable human merges. Agents may not approve, request changes,
+  merge, close, reopen, retarget, or unresolve the pull request.
 - Verify the target branch contains the intended result.
 - Record the merge and verification evidence for repository changes.
 - Record native configuration identifiers and audit evidence for external
@@ -175,7 +186,9 @@ traceability easy to inspect and does not serve as a numerical quality target.
   reporting cleanup complete.
 - Preserve the worktree and refs when state is dirty, unmerged, ambiguous, or
   mismatched.
-- Record cleanup evidence, then move the Jira task to its completed status.
+- Record cleanup evidence, then move the Jira task to its completed status. If
+  cleanup cannot complete after the merge is verified, record the cleanup debt
+  while keeping the Jira delivery state aligned with the merged truth.
 
 GitHub-side merge and branch settings cannot switch a developer's visible
 checkout or remove local worktree directories and branches. Local cleanup
@@ -187,7 +200,7 @@ Each gate requires the authority applicable to its system and impact:
 
 | Gate | Required authority |
 |---|---|
-| Shape through Commit, for every shaped unit | A bare `deliver-governed-change` invocation with no stated scope |
+| Shape through Ready for Human Review, for every shaped unit | An explicit `deliver-governed-change` invocation |
 | Create or update work records | Jira or Confluence mutation request |
 | Modify repository files | Implementation request |
 | Modify external configuration | Mutation request for the owning system and scope |
@@ -195,18 +208,17 @@ Each gate requires the authority applicable to its system and impact:
 | Backfill completed repository work | Retrospective delivery request; includes work-record mutation and local isolation through verified Implement state |
 | Stage and commit | Commit request |
 | Push or open a pull request | Publication request |
-| Approve or request changes | Review authority |
-| Merge | Merge request |
+| Approve, request changes, or merge | Accountable human acting directly in GitHub; never agent authority |
 | Restore a primary checkout or remove a secondary worktree and branch | Local cleanup request naming the delivery unit or targets |
 | Delete a remote branch | Remote cleanup request naming the branch |
 
 Authority for one gate does not approve later gates.
 
-A bare invocation is the one grant that spans several: it covers Shape,
-Isolate, Implement, and Commit, because everything those gates produce is local
-and reversible. It stops at Publish, where work first becomes visible outside
-the developer's machine. That boundary exists so the accountable human reviews
-real branches, commits, and verification output rather than a plan.
+An explicit invocation is the one grant that spans Shape through Ready for
+Human Review. This removes repeated prompt-turn approvals from the governed
+delivery loop while leaving ordinary implementation local. The boundary stops
+before human acceptance: an agent prepares the reviewable outcome, and the
+accountable human alone merges it.
 
 ## Retrospective backfill
 

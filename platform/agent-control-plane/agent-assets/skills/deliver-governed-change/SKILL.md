@@ -24,10 +24,10 @@ delegate each one to the owning operational skill. One row per phase.
 | Isolate | `manage-git-workflow` | Confirmed outcome; clean checkout or workbench-parked changes | A Jira-keyed branch from current `main` carrying only this unit's evidence | Branch exists from `main` and holds only this unit's changes |
 | Implement | This skill, with `manage-jira-confluence` for external configuration | The bounded outcome and its acceptance criteria | Changed files, verification output, and re-read external configuration | Smallest relevant checks pass for the unit |
 | Commit | `manage-git-workflow` | A verified working tree | Coherent commits scoped to the outcome | Result partitioned into explainable commits |
-| Publish | `manage-git-workflow` | The committed branch | One pushed branch and one draft pull request | Draft pull request open against the target branch |
-| Review | `manage-jira-confluence` and `manage-git-workflow` | The draft pull request and synchronized evidence | Jira in review with branch, commit, and check evidence linked | An accountable human review is requested |
-| Merge | `manage-git-workflow` | Approval, required checks, and the requested merge method | Merged pull request with the target containing the result | Merge verified from pull-request and target-branch evidence |
-| Clean up | `manage-git-workflow` | A verified merge | Restored primary checkout, deleted delivery refs, completed Jira work | Local feature ref absent and Jira work completed |
+| Publish | `manage-git-workflow` | The committed branch | One safely published branch and one draft pull request | Draft pull request open against the target branch |
+| Review | `manage-jira-confluence` and `manage-git-workflow` | The draft pull request and synchronized evidence | Current, green, Copilot-clean pull request with evidence linked | Pull request is ready for accountable human review and merge |
+| Merge | Accountable human | A ready pull request | Human acceptance recorded by GitHub's merge event | Merge verified from pull-request and target-branch evidence |
+| Clean up | `manage-git-workflow` | A verified merge | Restored primary checkout, deleted local delivery refs, completed Jira work | Local feature ref absent and Jira work completed |
 
 Deliver only the phases the current request authorizes; see
 [What a bare invocation authorizes](#what-a-bare-invocation-authorizes).
@@ -139,40 +139,58 @@ how many units one invocation delivers.
    checks; re-read external configuration after mutation.
 4. **Commit:** partition the result into coherent commits when committing is
    authorized.
-5. **Publish:** push and open one draft pull request when publication is
-   authorized.
-6. **Review:** synchronize evidence and move the work to review. Require an
-   accountable human to approve governed work.
-7. **Merge:** merge only when the requested method, approval, and required
-   checks are authorized and verified.
-8. **Clean up:** after a verified merge, restore the primary checkout or remove
-   an exceptional secondary worktree, then delete the delivery refs only when
-   cleanup is authorized. Synchronize the cleanup evidence and complete the
-   Jira work.
+5. **Publish:** during an explicit governed-delivery invocation, use the
+   deterministic publisher, open or update one draft pull request, and record
+   its evidence without a second permission turn.
+6. **Review:** synchronize with current `main`; inspect required checks, the
+   latest Copilot review, and every review thread; fix actionable findings;
+   publish the fix; then reply and resolve the corresponding thread. Leave a
+   disputed finding unresolved with an evidence-backed reply for human
+   judgment. Mark ready only when the branch is current, required checks pass,
+   the latest Copilot review has no actionable finding, no actionable thread
+   remains unresolved, and Jira and pull-request evidence agree. Evaluate that
+   combined state with `scripts/evaluate_pull_request_readiness.py` before
+   changing draft status.
+7. **Merge:** stop for accountable human acceptance. No agent may approve,
+   request changes, merge, close, retarget, reopen, or unresolve the pull
+   request.
+8. **Clean up:** after detecting and verifying the human merge, run the
+   deterministic local cleanup, preserve the remote branch, record cleanup
+   debt if local cleanup cannot complete, and transition Jira to Done from the
+   verified merged truth.
 
 Complete only the phases authorized by the current request. Report the next
 gate without treating it as approved.
 
 ## What a bare invocation authorizes
 
-Invoking this skill with no stated scope authorizes **Shape through Commit**
-for every shaped delivery unit: create the Jira work items; park uncommitted,
+Invoking this skill with no stated scope authorizes **Shape through Ready for
+Human Review** for every shaped delivery unit: create the Jira work items; park uncommitted,
 not-yet-bounded work on the workbench when needed; create each Jira-keyed
 branch from current `main`; transfer applicable evidence; run verification;
 and partition the result into coherent commits. Already-bounded work may
 proceed directly to its Jira-keyed branch when a shaping buffer adds no value.
 
-It does **not** authorize Publish, Review, Merge, or Cleanup. Everything it
-produces is local and reversible, which is the point: the accountable human
-reviews real branches, commits, and verification output before anything reaches
-a remote or a reviewer.
+This wider grant applies only when the developer explicitly invokes governed
+delivery. An ordinary request to implement, fix, rename, move, or delete
+repository content remains local and does not silently activate Jira, GitHub,
+or publication work.
+
+The grant does **not** authorize agent approval or merge. It does authorize the
+generalist coordinator to perform the bounded Jira updates, deterministic
+same-branch publication, draft pull-request creation and updates, base sync,
+required-check and Copilot remediation loop, fixed-thread replies and
+resolution, and ready-for-review transition needed to reach the human gate.
+After GitHub records a human merge, the same governed lifecycle authorizes
+verified local cleanup and Jira closure; a cleanup failure is recorded as debt
+and does not falsify the merged Jira state.
 
 Do not stop mid-run to ask for permission to continue within that range, and do
 not ask which unit to deliver — a bare invocation already authorizes all of
 them. Ask only when a boundary is genuinely ambiguous, a unit's blocker changes
 the plan for the others, or a decision would expand authority, sharing, or
-risk. On finishing, report every unit and name Publish as the next unapproved
-gate.
+risk. On finishing, report every unit and name human review and merge as the
+remaining gate.
 
 An invocation that states its own scope overrides this default in either
 direction, narrower or wider.

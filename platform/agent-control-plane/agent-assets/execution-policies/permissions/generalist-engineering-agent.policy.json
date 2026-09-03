@@ -7,7 +7,50 @@
   },
   "statements": [
     {
-      "sid": "AllowFeatureBranchPush",
+      "sid": "DenyUnclassifiedDestinationTools",
+      "effect": "Deny",
+      "action": [
+        "github:tool:unclassified",
+        "jira:tool:unclassified"
+      ],
+      "resource": [
+        "*"
+      ]
+    },
+    {
+      "sid": "AllowGovernedDeliveryGit",
+      "effect": "Allow",
+      "action": [
+        "git:delivery:publish"
+      ],
+      "resource": [
+        "git:agentic-engineering-platform:branch/feature/*",
+        "git:agentic-engineering-platform:branch/fix/*",
+        "git:agentic-engineering-platform:branch/refactor/*",
+        "git:agentic-engineering-platform:branch/chore/*",
+        "git:agentic-engineering-platform:branch/docs/*"
+      ],
+      "condition": {
+        "requiresHumanApproval": false,
+        "tier": 2
+      }
+    },
+    {
+      "sid": "AllowVerifiedMergedDeliveryCleanup",
+      "effect": "Allow",
+      "action": [
+        "git:delivery:cleanup"
+      ],
+      "resource": [
+        "git:agentic-engineering-platform:delivery/merged-pr"
+      ],
+      "condition": {
+        "requiresHumanApproval": false,
+        "tier": 2
+      }
+    },
+    {
+      "sid": "GateUnrestrictedFeatureBranchPush",
       "effect": "Allow",
       "action": [
         "git:push"
@@ -15,28 +58,9 @@
       "resource": [
         "git:agentic-engineering-platform:branch/feature/*",
         "git:agentic-engineering-platform:branch/fix/*",
-        "git:agentic-engineering-platform:branch/bugfix/*",
-        "git:agentic-engineering-platform:branch/hotfix/*",
         "git:agentic-engineering-platform:branch/refactor/*",
         "git:agentic-engineering-platform:branch/chore/*",
-        "git:agentic-engineering-platform:branch/docs/*",
-        "git:agentic-engineering-platform:branch/release/*"
-      ],
-      "condition": {
-        "requiresHumanApproval": true,
-        "tier": 3
-      }
-    },
-    {
-      "sid": "AllowPrWrite",
-      "effect": "Allow",
-      "action": [
-        "github:pull_request:create",
-        "github:pull_request:update",
-        "github:pull_request:review"
-      ],
-      "resource": [
-        "github:*"
+        "git:agentic-engineering-platform:branch/docs/*"
       ],
       "condition": {
         "requiresHumanApproval": true,
@@ -44,21 +68,61 @@
       }
     },
     {
-      "sid": "AllowPrMerge",
+      "sid": "AllowGovernedPullRequestDelivery",
       "effect": "Allow",
       "action": [
-        "github:pull_request:merge"
+        "github:pull_request:create",
+        "github:pull_request:update",
+        "github:pull_request:sync",
+        "github:pull_request:ready",
+        "github:pull_request:copilot-review:request",
+        "github:pull_request:review-thread:reply",
+        "github:pull_request:review-thread:resolve"
       ],
       "resource": [
-        "github:*"
+        "github:Oak-22/agentic-engineering-platform:*",
+        "github:agentic-engineering-platform:*"
       ],
       "condition": {
-        "requiresHumanApproval": true,
-        "tier": 3
+        "requiresHumanApproval": false,
+        "tier": 2
       }
     },
     {
-      "sid": "AllowJiraMutation",
+      "sid": "DenyHumanAcceptanceActions",
+      "effect": "Deny",
+      "action": [
+        "github:pull_request:merge",
+        "github:pull_request:create-ready",
+        "github:pull_request:approve",
+        "github:pull_request:request-changes",
+        "github:pull_request:close",
+        "github:pull_request:reopen",
+        "github:pull_request:retarget",
+        "github:pull_request:review-thread:unresolve"
+      ],
+      "resource": [
+        "*"
+      ]
+    },
+    {
+      "sid": "GateHumanAuthorizedPullRequestActions",
+      "effect": "Allow",
+      "action": [
+        "github:pull_request:reviewer:update",
+        "github:pull_request:review:comment"
+      ],
+      "resource": [
+        "github:Oak-22/agentic-engineering-platform:*",
+        "github:agentic-engineering-platform:*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 2
+      }
+    },
+    {
+      "sid": "AllowGovernedAepiWorkItemMutation",
       "effect": "Allow",
       "action": [
         "jira:issue:create",
@@ -67,15 +131,16 @@
         "jira:issue:link"
       ],
       "resource": [
-        "jira:*"
+        "jira:AEPI:issue/*",
+        "jira:*:issue/AEPI-*"
       ],
       "condition": {
-        "requiresHumanApproval": true,
+        "requiresHumanApproval": false,
         "tier": 2
       }
     },
     {
-      "sid": "AllowBranchDelete",
+      "sid": "GateDirectBranchDelete",
       "effect": "Allow",
       "action": [
         "git:branch:delete"
