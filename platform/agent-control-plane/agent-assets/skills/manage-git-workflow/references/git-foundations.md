@@ -32,8 +32,10 @@ required.
 
 `gh` manages GitHub-level context and metadata that Git itself does not own,
 such as pull requests, issues, reviews, Actions, releases, labels, projects,
-and repository settings. The two interfaces overlap because both can call
-GitHub operations, but `gh` does not replace local `git`.
+and repository settings. The workflows overlap, but the interfaces do not:
+`git` transfers repository objects and refs through Git transport, while `gh`
+uses the GitHub API for platform metadata and may invoke local `git` when
+needed. `gh` does not replace local `git`.
 
 ## Output Style
 
