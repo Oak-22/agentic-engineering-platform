@@ -7,7 +7,7 @@ replace the systems that own the records being coordinated.
 | --- | --- | --- |
 | AEP control plane | portable intent, authorization, execution evidence, and role/policy routing | validates, gates, and links the work |
 | Local Git / git-over-SSH | objects, trees, worktrees, branches, commits, fetches, and pushes | uses governed local mechanics and records commit evidence |
-| GitHub | repositories' pull requests, reviews, checks, merge state, and native URLs | communicates through GitHub's hosted MCP server over OAuth; falls back in a fixed order to the dated local Docker server, then an evidenced `gh` |
+| GitHub | repositories' pull requests, reviews, checks, merge state, and native URLs | communicates through GitHub's hosted MCP server with runtime-specific authentication; falls back only to an evidenced `gh` |
 | Jira | issue identity, workflow status, assignee, and human-visible planning fields | treats Jira as execution system of record and projects portable metadata through the Jira adapter |
 | Atlassian Rovo MCP | Codex's default Jira/Confluence agent communication surface | provides the primary configured Jira tool path; needs no repository-checked-in server entry |
 | Direct Atlassian MCP | a separate optional runtime surface, checked in for Claude only and disabled by default for Codex | may be used only after its own authentication and permission path is verified; it is not silently interchangeable with Rovo |
@@ -40,7 +40,7 @@ surface a runtime's incident history has already ruled out.
 | Role or skill | May communicate with | Boundary |
 | --- | --- | --- |
 | `deliver-governed-change` | all surfaces through the owning skill | coordinates the lifecycle; it does not create a second transport |
-| `manage-git-workflow` | local Git, git-over-SSH, GitHub MCP, and the ordered Codex Apps / evidenced `gh` fallback | owns branches, commits, pushes, pull requests, reviews, merges, and cleanup |
+| `manage-git-workflow` | local Git, git-over-SSH, GitHub MCP, and the evidenced `gh` fallback | owns branches, commits, pushes, pull requests, reviews, merges, and cleanup |
 | `manage-jira-confluence` | Jira/Rovo, optional direct Atlassian MCP, and the Jira UI fallback | owns work-item state, planning fields, links, transitions, and verification |
 | implementation/documentation agents | local repository files and local verification | do not publish GitHub or mutate Jira unless the governing delivery gate and policy allow it |
 | release-operations agent | read-only delivery evidence by default | does not push, merge, or delete refs; a human release gate remains separate |
@@ -51,7 +51,9 @@ this document is the cross-system map they implement.
 ## GitHub communication
 
 Codex and Claude reach GitHub through GitHub's hosted MCP server at
-`https://api.githubcopilot.com/mcp/` over HTTP with per-user OAuth
+`https://api.githubcopilot.com/mcp/` over HTTP with runtime-specific
+authentication: Claude Code uses per-user OAuth, while Codex uses a dedicated
+fine-grained PAT via `GITHUB_MCP_PAT`
 ([ADR-0004](adr/0004-move-github-mcp-to-a-remote-transport.md)). The MCP layer
 owns GitHub platform operations: pull-request reads, creation, updates, review
 writes, merges, and workflow inspection. Git-over-SSH remains the transport for
@@ -59,13 +61,14 @@ Git objects and tree mechanics.
 
 ### Readiness
 
-The hosted server is ready when a user has authorized it (`codex mcp login
-github` on Codex; first tool use on Claude Code) and `get_me` returns that
-user. Only authorization state is checked — no token value is read into logs,
-evidence, or this repository. GitHub does not support OAuth dynamic client
-registration, so a first authorization needs a client-registration strategy;
+The hosted server is ready when Claude Code has completed its first-use OAuth
+consent or Codex has started with `GITHUB_MCP_PAT` available, and `get_me`
+returns the authorizing user. Only authorization state is checked — no token
+value is read into logs, evidence, or this repository. GitHub does not support
+OAuth dynamic client registration, so the Claude Code authorization needs a
+pre-registered OAuth client;
 [`mcp-servers/github/server.md`](../../platform/agent-control-plane/agent-assets/mcp-servers/github/server.md)
-carries the procedure.
+carries the per-runtime procedure.
 
 A failure names the server that failed. An Atlassian OAuth failure and a
 GitHub authorization failure are independent conditions with independent
@@ -77,16 +80,16 @@ about one is not evidence about the other.
 When the hosted server is unavailable, callers fall back in this fixed order,
 stopping at the first surface that can perform the operation:
 
-1. the hosted GitHub MCP server over OAuth (primary);
-2. the dated local Docker server (`github-mcp-local`, disabled by default —
-   a dev-loop bootstrap and offline fallback, not a default);
-3. the `gh` CLI, as an explicit, evidenced fallback only.
+1. the hosted GitHub MCP server with runtime-specific authentication (primary);
+2. the `gh` CLI, as an explicit, evidenced fallback only.
 
-Every tier performs the same semantic operation and the same
-`github:pull_request:*` permission action. The caller records which tier ran
-and why the prior tier was unavailable. `gh` is not an alternate authority or
-protocol, and skipping straight to it without recording the reason is not
-permitted.
+There is no local MCP tier — the pinned Docker `github-mcp-server` that
+preceded ADR-0004 was removed once the hosted transport was verified
+(ADR-0004 amendment, 2026-09-01). Both tiers perform the same semantic
+operation and the same `github:pull_request:*` permission action. The caller
+records that `gh` ran and why the MCP surface was unavailable. `gh` is not an
+alternate authority or protocol, and skipping straight to it without recording
+the reason is not permitted.
 
 ## Jira communication
 

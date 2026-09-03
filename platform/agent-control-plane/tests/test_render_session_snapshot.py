@@ -78,9 +78,9 @@ class PlacementTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("AEP_SESSION_SNAPSHOT_DIR", None)
             os.environ.pop("XDG_DATA_HOME", None)
-            root = snapshot.resolve_snapshot_root(project_dir=Path("/repo/myHealth"))
+            root = snapshot.resolve_snapshot_root(project_dir=Path("/repo/ExampleConsumer"))
         self.assertEqual(root.parent, Path.home() / ".local" / "share" / "aep" / "session-snapshots")
-        self.assertTrue(root.name.startswith("myhealth--"))
+        self.assertTrue(root.name.startswith("exampleconsumer--"))
 
     def test_env_override_wins(self):
         with patch.dict(os.environ, {"AEP_SESSION_SNAPSHOT_DIR": "/tmp/custom"}):

@@ -68,10 +68,10 @@ class StoreRootTests(unittest.TestCase):
                 self.assertEqual(spec.namespace, store.DEFAULT_NAMESPACE)
 
     def test_project_scoped_store_appends_readable_stable_partition(self):
-        root = store.store_root("show-me-captures", project_dir=Path("/repo/myHealth"), base=Path("/b"))
-        identity = store.repository_identity(Path("/repo/myHealth"))
+        root = store.store_root("show-me-captures", project_dir=Path("/repo/ExampleConsumer"), base=Path("/b"))
+        identity = store.repository_identity(Path("/repo/ExampleConsumer"))
         self.assertEqual(root, Path("/b") / "show-me-captures" / identity.partition_name)
-        self.assertTrue(root.name.startswith("myhealth--"))
+        self.assertTrue(root.name.startswith("exampleconsumer--"))
 
     def test_project_scoped_store_requires_project_dir(self):
         with self.assertRaises(ValueError):
