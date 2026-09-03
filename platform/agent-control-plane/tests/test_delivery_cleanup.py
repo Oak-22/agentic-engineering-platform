@@ -674,6 +674,41 @@ class CliModeTests(unittest.TestCase):
         self.assertEqual(events, ["refresh", "remotes", "pull-request", "plan"])
         execute_cleanup.assert_not_called()
 
+    def test_pr_json_records_verified_cleanup_without_remote_deletion(self):
+        pull_request = MODULE.PullRequest(
+            number=19,
+            state="MERGED",
+            merged_at="2026-09-03T00:00:00Z",
+            merge_oid="abc1234",
+            base_branch="main",
+            head_branch="feature/PROJ-19-x",
+            head_oid="def5678",
+            url="https://github.com/Oak-22/repo/pull/19",
+        )
+        plan = MODULE.CleanupPlan(
+            primary_workspace=Path("/mock/workspace"),
+            pull_request=pull_request,
+            target_worktree=None,
+            initial_primary_branch="workbench/local",
+            return_branch="workbench/local",
+            deletion_flag="-D",
+            remote_branch_exists=True,
+            workbench_sync_needed=False,
+        )
+        payload = json.loads(MODULE.cleanup_plan_as_json(plan, executed=True))
+        self.assertEqual(payload["outcome"], "cleaned")
+        self.assertEqual(payload["localCleanup"], "completed")
+        self.assertFalse(payload["remoteDeletionAttempted"])
+        self.assertIsNone(payload["cleanupDebt"])
+
+    def test_pr_json_records_cleanup_debt(self):
+        payload = json.loads(
+            MODULE.cleanup_debt_as_json(MODULE.CleanupError("dirty checkout"), executed=True)
+        )
+        self.assertEqual(payload["outcome"], "cleanup-debt")
+        self.assertEqual(payload["cleanupDebt"], "dirty checkout")
+        self.assertFalse(payload["remoteDeletionAttempted"])
+
     def test_stale_no_fetch_is_read_only_by_default(self):
         workspace = Path("/mock/workspace")
         report = MODULE.ReconciliationReport(base_ref="origin/main", candidates=())

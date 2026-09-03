@@ -10,7 +10,9 @@
       "sid": "DenyPush",
       "effect": "Deny",
       "action": [
-        "git:push"
+        "git:push",
+        "git:delivery:publish",
+        "git:delivery:cleanup"
       ],
       "resource": [
         "*"
@@ -21,13 +23,28 @@
       "effect": "Deny",
       "action": [
                 "github:pull_request:merge",
+                "github:pull_request:create-ready",
                 "github:pull_request:create",
                 "github:pull_request:update",
-                "github:pull_request:review",
+                "github:pull_request:sync",
+                "github:pull_request:ready",
+                "github:pull_request:copilot-review:request",
+                "github:pull_request:review-thread:reply",
+                "github:pull_request:review-thread:resolve",
+                "github:pull_request:review-thread:unresolve",
+                "github:pull_request:approve",
+                "github:pull_request:request-changes",
+                "github:pull_request:close",
+                "github:pull_request:reopen",
+                "github:pull_request:retarget",
+                "github:pull_request:reviewer:update",
+                "github:pull_request:review:comment",
                 "jira:issue:create",
                 "jira:issue:update",
                 "jira:issue:transition",
-                "jira:issue:link"
+                "jira:issue:link",
+                "github:tool:unclassified",
+                "jira:tool:unclassified"
       ],
       "resource": [
         "*"

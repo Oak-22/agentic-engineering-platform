@@ -74,6 +74,13 @@ rules, read [references/aep-information-model.md](references/aep-information-mod
 
 ## Jira operations
 
+An explicit `deliver-governed-change` invocation authorizes the generalist
+coordinator to create and update its bounded delivery work item, link native
+delivery evidence, move it into review, and—only after independently verifying
+GitHub's human merge—transition it to Done. Ordinary implementation requests
+do not activate these mutations, and specialist policies continue to deny
+them.
+
 ### Read and diagnose
 
 - Resolve renamed projects by project ID or live project search when an old

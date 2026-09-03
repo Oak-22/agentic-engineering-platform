@@ -140,6 +140,41 @@ The `PreToolUse` hook denies a bare `git switch -c` / `git checkout -b` for a Ji
 branch when blockers apply, and its denial names this operation as the recovery
 path.
 
+## Governed delivery-branch publication
+
+Publish only the checked-out Jira-keyed delivery branch through the dedicated
+operation:
+
+```bash
+python3 platform/agent-control-plane/scripts/publish_delivery_branch.py
+python3 platform/agent-control-plane/scripts/publish_delivery_branch.py --execute
+```
+
+The dry run refreshes `origin`, validates the canonical repository remote, a
+clean delivery branch, current `origin/main`, and any existing same-name remote
+tip. Execution integrates the remote delivery tip and current `origin/main`
+without rebasing, aborts a conflicting merge, and pushes only
+`refs/heads/<current>:refs/heads/<current>`. It accepts no refspec and never
+force-pushes, deletes a ref, or updates `main`. `--format json` emits structured
+publication evidence.
+
+The permission gate treats this exact execute path as
+`git:delivery:publish`. Direct `git push` remains independently gated; wrapping
+an arbitrary push does not turn it into governed publication.
+
+Before marking the pull request ready, project the current GitHub and Jira
+evidence into the readiness evaluator:
+
+```bash
+python3 platform/agent-control-plane/scripts/evaluate_pull_request_readiness.py evidence.json
+```
+
+The JSON result is ready only when the branch is current with `main`, every
+required check succeeds, the latest Copilot review covers the current head and
+has no actionable findings, no actionable thread remains, and Jira/PR evidence
+is aligned. Disputed threads are preserved in `disputedThreads` for human
+judgment rather than silently resolved.
+
 ## Developer-owned skills
 
 Resolve the developer's cross-project skills, with no part of this platform

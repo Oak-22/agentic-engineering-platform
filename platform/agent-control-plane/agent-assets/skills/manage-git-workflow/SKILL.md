@@ -190,8 +190,9 @@ Apply the narrowest matching authorization:
   or deleting branches.
 - A request for a pull request from a specific branch requires using that
   branch rather than creating another one.
-- A request to merge authorizes only the specified pull request and merge
-  method. It does not authorize branch deletion unless cleanup is explicit.
+- A request to merge identifies the pull request the accountable human intends
+  to accept. An agent never performs the merge; it verifies readiness and
+  returns the GitHub review-and-merge surface.
 - A request to clean up a named local delivery unit after merge authorizes
   switching a clean primary checkout away from its verified feature branch or
   removing its verified secondary worktree, deleting the local feature branch,
@@ -218,12 +219,17 @@ request. If the user expands or narrows the request, apply the newest scope.
    worktree.
 3. Review the staged diff and run the smallest relevant checks.
 4. Commit with a concise, outcome-oriented message.
-5. Push the feature branch with upstream tracking.
-6. Open a draft pull request unless the user explicitly requests
-   ready-for-review status.
+5. During explicit governed delivery, plan and execute
+   `platform/agent-control-plane/scripts/publish_delivery_branch.py`; outside
+   that workflow, direct push retains its separate authority gate.
+6. Open a draft pull request. Do not create it ready: readiness follows only
+   after the combined delivery evidence gate passes.
 7. Include what changed, why, impact, and verification in the pull request.
-8. Return the branch, commit, target, pull-request link, checks, and any
-   unsubmitted work.
+8. Synchronize current `main`, required checks, Copilot findings, and review
+   threads until the ready-for-human-review conditions hold. Do not resolve a
+   disputed finding or perform a human review action.
+9. Return the branch, commit, target, pull-request link, checks, review state,
+   and any unsubmitted work.
 
 ## Preserve recoverability
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "destination": "github",
   "canonicalAdapter": "adapters/github",
   "primaryProvider": "github-mcp",
@@ -29,6 +29,9 @@
         "get_job_logs",
         "create_pull_request",
         "update_pull_request",
+        "update_pull_request_branch",
+        "request_copilot_review",
+        "add_reply_to_pull_request_comment",
         "pull_request_review_write",
         "merge_pull_request"
       ]
@@ -38,7 +41,16 @@
       "transport": "shell",
       "auth": "pat",
       "enabled": true,
-      "tools": ["gh pr view", "gh pr create", "gh pr edit", "gh pr review", "gh pr merge"]
+      "tools": [
+        "gh pr view",
+        "gh pr create",
+        "gh pr edit",
+        "gh pr ready",
+        "gh pr update-branch",
+        "gh pr review",
+        "gh pr close",
+        "gh pr merge"
+      ]
     }
   },
   "operations": {
@@ -47,42 +59,147 @@
       "tool": "pull_request_read",
       "fallbackTool": "gh pr view",
       "readOnly": true,
-      "requiresHumanApproval": false
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     },
     "pull-request-create": {
       "provider": "github-mcp",
       "tool": "create_pull_request",
       "fallbackTool": "gh pr create",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
+    },
+    "pull-request-create-ready": {
+      "provider": "github-mcp",
+      "tool": "create_pull_request",
+      "fallbackTool": "gh pr create",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
     },
     "pull-request-update": {
       "provider": "github-mcp",
       "tool": "update_pull_request",
       "fallbackTool": "gh pr edit",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     },
-    "pull-request-review": {
+    "pull-request-sync": {
+      "provider": "github-mcp",
+      "tool": "update_pull_request_branch",
+      "fallbackTool": "gh pr update-branch",
+      "readOnly": false,
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
+    },
+    "pull-request-ready": {
+      "provider": "github-mcp",
+      "tool": "update_pull_request",
+      "fallbackTool": "gh pr ready",
+      "readOnly": false,
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
+    },
+    "copilot-review-request": {
+      "provider": "github-mcp",
+      "tool": "request_copilot_review",
+      "readOnly": false,
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
+    },
+    "review-thread-reply": {
+      "provider": "github-mcp",
+      "tool": "add_reply_to_pull_request_comment",
+      "readOnly": false,
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
+    },
+    "review-thread-resolve": {
+      "provider": "github-mcp",
+      "tool": "pull_request_review_write",
+      "readOnly": false,
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
+    },
+    "pull-request-review-comment": {
       "provider": "github-mcp",
       "tool": "pull_request_review_write",
       "fallbackTool": "gh pr review",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-authorized-agent"
+    },
+    "pull-request-reviewer-update": {
+      "provider": "github-mcp",
+      "tool": "update_pull_request",
+      "fallbackTool": "gh pr edit",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-authorized-agent"
+    },
+    "pull-request-approve": {
+      "provider": "github-mcp",
+      "tool": "pull_request_review_write",
+      "fallbackTool": "gh pr review",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
+    },
+    "pull-request-request-changes": {
+      "provider": "github-mcp",
+      "tool": "pull_request_review_write",
+      "fallbackTool": "gh pr review",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
+    },
+    "review-thread-unresolve": {
+      "provider": "github-mcp",
+      "tool": "pull_request_review_write",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
+    },
+    "pull-request-close": {
+      "provider": "github-mcp",
+      "tool": "update_pull_request",
+      "fallbackTool": "gh pr close",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
+    },
+    "pull-request-reopen": {
+      "provider": "github-mcp",
+      "tool": "update_pull_request",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
+    },
+    "pull-request-retarget": {
+      "provider": "github-mcp",
+      "tool": "update_pull_request",
+      "fallbackTool": "gh pr edit",
+      "readOnly": false,
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
     },
     "pull-request-merge": {
       "provider": "github-mcp",
       "tool": "merge_pull_request",
       "fallbackTool": "gh pr merge",
       "readOnly": false,
-      "requiresHumanApproval": true
+      "requiresHumanApproval": true,
+      "authorizationClass": "human-only"
     },
     "workflow-read": {
       "provider": "github-mcp",
       "tool": "actions_list",
       "fallbackTool": "gh run list",
       "readOnly": true,
-      "requiresHumanApproval": false
+      "requiresHumanApproval": false,
+      "authorizationClass": "agent-autonomous"
     }
   }
 }

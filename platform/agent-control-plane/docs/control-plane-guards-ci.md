@@ -21,7 +21,7 @@ authority:
 | Workflow success | The `control-plane-guards` job finishing green | Evidence that the guards passed on this commit |
 | Required-check enforcement | The `main` branch ruleset requiring that check | Blocks merge deterministically |
 | Copilot code review | GitHub Copilot, requested automatically | Advisory comments only; approves nothing |
-| Human approval | An accountable reviewer | The governed approval for the change |
+| Human merge | The accountable human acting in GitHub | The governed acceptance of the change |
 
 `main` stays protected by the executable Actions check whether or not Copilot
 is available and whether or not it produces findings.
@@ -238,11 +238,13 @@ Under GitHub's current behavior, Copilot code review submits **Comment**
 reviews. It cannot approve a pull request, cannot request changes in the
 blocking sense, cannot satisfy a required approving review, and cannot block a
 merge. It is an advisory reviewer, not the deterministic enforcement mechanism
-and not the accountable human approver.
+and not the accountable human who accepts the change by merging it.
 
-Findings are triaged by the author or a human reviewer. Suggestions are not
-applied automatically, and a Copilot comment is not evidence that a change is
-correct.
+During explicit governed delivery, the generalist coordinator triages
+findings, applies actionable fixes, publishes them, and replies before
+resolving the fixed thread. A disputed finding receives an evidence-backed
+reply and remains unresolved for human judgment. A Copilot comment alone is
+not evidence that a change is correct.
 
 ### How an unresolved Copilot comment still stops a merge
 
@@ -254,8 +256,10 @@ The two statements above are both true and easy to trip over together: Copilot's
 *review* cannot block a merge, but an *unresolved thread* it opened can — the
 block comes from the thread-resolution rule, not from Copilot's authority. The
 author or reviewer clears it by acting on the comment or by resolving it with a
-reason. That is the intended shape: Copilot raises something, a person decides,
-and the decision is recorded.
+reason. A governed coordinator may resolve the thread only after its fix is
+published. Disputed findings remain for the human. That preserves the intended
+shape: Copilot raises something, the response is evidenced, and acceptance
+remains human.
 
 Do not resolve a thread merely to unlock the merge. That converts a review
 signal into a formality.

@@ -7,7 +7,8 @@ planning metadata; AEP owns the portable contract and execution evidence.
 - `jira-delivery-operation.schema.json` describes a work-item operation.
 - `jira-delivery-result.schema.json` describes a traceable result.
 - `jira-delivery-mapping.schema.json` describes the Atlassian/Rovo primary
-  surface, each provider's `runtimeScope`, and the explicit human/UI fallback.
+  surface, each provider's `runtimeScope`, the agent-autonomous governed
+  delivery operations, and the explicit human/UI fallback.
 - `jira-work-item-metadata.schema.json` is the Jira state projection contract.
 
 Deployment field IDs stay in [`adapters/jira/`](../../adapters/jira/), and

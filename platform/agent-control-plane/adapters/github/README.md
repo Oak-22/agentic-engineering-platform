@@ -10,7 +10,8 @@ justified by an unavailable MCP surface, the equivalent `gh` fallback.
 - Local Git and git-over-SSH own Git objects, trees, worktrees, branches,
   commits, fetches, and pushes.
 - GitHub MCP owns GitHub platform metadata and operations such as pull-request
-  reads, creation, review, update, merge, and workflow inspection.
+  reads, creation, update, Copilot review remediation, and workflow inspection.
+  Accountable humans alone own approval and merge.
 - GitHub remains authoritative for pull-request state, checks, reviews, and
   native URLs. AEP stores only the traceable references needed for governed
   execution evidence.
@@ -30,6 +31,16 @@ When it is unavailable, the only fallback is `gh`, the terminal entry in
 caller performs the same semantic operation and `github:pull_request:*`
 permission action, and records that `gh` ran and why the MCP surface was
 unavailable.
+Each mapped operation declares one authorization class:
+
+- `agent-autonomous` for the bounded governed-delivery loop;
+- `human-authorized-agent` for an agent action requiring a distinct human
+  grant; or
+- `human-only` for acceptance actions no agent may perform.
+
+Multi-purpose tools such as `update_pull_request` and
+`pull_request_review_write` are classified from their arguments by the
+permission gate. Tool availability is therefore not acceptance authority.
 
 The provider mapping is [`github-delivery-mapping.json`](github-delivery-mapping.json).
 The shared server definition is [`../../agent-assets/mcp-servers/github/server.md`](../../agent-assets/mcp-servers/github/server.md).
@@ -38,4 +49,6 @@ The shared server definition is [`../../agent-assets/mcp-servers/github/server.m
 [`manage-git-workflow`](../../agent-assets/skills/manage-git-workflow/SKILL.md)
 owns this adapter's GitHub and local-Git procedure. Implementation and
 documentation roles may prepare local changes and evidence; they do not gain
-publication or merge authority through this adapter.
+publication or merge authority through this adapter. The generalist gains
+bounded publication authority only from an explicit governed-delivery
+invocation and never gains merge authority.

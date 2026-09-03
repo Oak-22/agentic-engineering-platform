@@ -7,13 +7,26 @@
   "additionalProperties": false,
   "required": ["schemaVersion", "operation", "repository"],
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {"const": 2},
     "operation": {
       "enum": [
         "pull-request-read",
         "pull-request-create",
+        "pull-request-create-ready",
         "pull-request-update",
-        "pull-request-review",
+        "pull-request-sync",
+        "pull-request-ready",
+        "copilot-review-request",
+        "review-thread-reply",
+        "review-thread-resolve",
+        "pull-request-review-comment",
+        "pull-request-reviewer-update",
+        "pull-request-approve",
+        "pull-request-request-changes",
+        "review-thread-unresolve",
+        "pull-request-close",
+        "pull-request-reopen",
+        "pull-request-retarget",
         "pull-request-merge",
         "workflow-read"
       ]
@@ -24,7 +37,9 @@
     "targetBranch": {"type": ["string", "null"], "minLength": 1},
     "title": {"type": ["string", "null"], "minLength": 1},
     "body": {"type": ["string", "null"]},
-    "reviewDecision": {"type": ["string", "null"]}
+    "reviewDecision": {"type": ["string", "null"]},
+    "reviewThreadId": {"type": ["string", "null"], "minLength": 1},
+    "commentBody": {"type": ["string", "null"]}
   },
   "$defs": {
     "repository": {
