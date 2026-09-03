@@ -428,11 +428,21 @@ def verified_main(root: Path) -> str:
 
 
 def dirty_entries(worktree: Path) -> tuple[str, ...]:
+    status = _git(
+        worktree,
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+        check=False,
+    )
+    if status.returncode != 0:
+        raise WorktreeError(
+            f"could not inspect worktree status at {worktree}: "
+            + (status.stderr.strip() or "unknown Git failure")
+        )
     return tuple(
         line
-        for line in _git(
-            worktree, "status", "--porcelain=v1", "--untracked-files=all"
-        ).stdout.splitlines()
+        for line in status.stdout.splitlines()
         if line
     )
 
