@@ -29,23 +29,23 @@ class ResolveCaptureRootTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("AEP_SHOW_ME_CAPTURE_DIR", None)
             os.environ.pop("XDG_DATA_HOME", None)
-            root = capture.resolve_capture_root(project_dir=Path("/repo/myHealth"))
+            root = capture.resolve_capture_root(project_dir=Path("/repo/ExampleConsumer"))
         self.assertEqual(root.parent, Path.home() / ".local" / "share" / "aep" / "show-me-captures")
-        self.assertTrue(root.name.startswith("myhealth--"))
+        self.assertTrue(root.name.startswith("exampleconsumer--"))
 
     def test_xdg_data_home_env_var_overrides_default_base(self):
         with tempfile.TemporaryDirectory() as directory:
             xdg_home = Path(directory) / "xdg-data"
             with patch.dict(os.environ, {"XDG_DATA_HOME": str(xdg_home)}, clear=False):
                 os.environ.pop("AEP_SHOW_ME_CAPTURE_DIR", None)
-                root = capture.resolve_capture_root(project_dir=Path("/repo/myHealth"))
+                root = capture.resolve_capture_root(project_dir=Path("/repo/ExampleConsumer"))
             self.assertEqual(root.parent, xdg_home / "aep" / "show-me-captures")
 
     def test_explicit_base_overrides_default(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             root = capture.resolve_capture_root(
-                project_dir=Path("/repo/myHealth"), capture_base=base
+                project_dir=Path("/repo/ExampleConsumer"), capture_base=base
             )
             self.assertEqual(root.parent, base / "show-me-captures")
 

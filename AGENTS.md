@@ -4,9 +4,8 @@
 
 This repository is the canonical Agentic Engineering Platform monorepo. It
 owns reusable agent governance, inference telemetry, developer learning,
-shared contracts and tooling, and evidence from applied workflows. Product
-repositories such as `myHealth` remain downstream consumers and proving
-grounds.
+shared contracts and tooling, and evidence from applied workflows. Downstream
+product repositories remain independently governed consumers.
 
 ## Working rules
 

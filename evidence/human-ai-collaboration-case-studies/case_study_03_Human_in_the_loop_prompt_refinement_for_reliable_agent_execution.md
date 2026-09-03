@@ -1,5 +1,4 @@
-
-Case Study 02 — case_study_02_Human-in-the-Loop_prompt_refinement_for_reliable_agent_execution
+# Case Study 03: Human-in-the-Loop Prompt Refinement for Reliable Agent Execution
 
 Part of: AI-Human Engineering Collaboration — Case Studies & Best Practices
 
@@ -334,7 +333,6 @@ formalize behavior as instruction (global agent layer)
 use behavior temporarily (one-off prompt)
 
 In this way, prompt recursion becomes not just a curiosity of long conversational threads, but a mechanism through which developers iteratively discover, test, and formalize reliable interaction patterns between humans and AI systems
-
 
 
 
