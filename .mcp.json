@@ -6,11 +6,7 @@
     },
     "github": {
       "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "oauth": {
-        "clientId": "Ov23likTgnP3wPVPkjHg",
-        "callbackPort": 41847
-      }
+      "url": "https://api.githubcopilot.com/mcp/"
     }
   }
 }

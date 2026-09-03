@@ -29,7 +29,7 @@ amendment (2026-09-01) for the client model and retirement trigger.
 
 | Runtime | First authorization | Client registration |
 | --- | --- | --- |
-| Claude Code | authorize on first use of a `github` tool; Claude Code runs the browser consent itself | `.mcp.json` identifies Claude Code's registered client; Claude Code stores its secret outside the repository |
+| Claude Code | authorize on first use of a `github` tool; Claude Code runs the browser consent itself | a pre-registered OAuth client is configured in Claude Code's machine-local runtime settings; its registration values are not committed |
 | Codex | start Codex with `GITHUB_MCP_PAT` available, then verify `get_me` | `.codex/config.toml` names the variable; the PAT value stays in a local credential store |
 
 **Codex readiness note (2026-09-01).** A live authorization with Codex CLI

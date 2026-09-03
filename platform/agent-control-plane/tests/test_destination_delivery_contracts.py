@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -140,6 +141,7 @@ class RuntimeConfigurationParityTests(unittest.TestCase):
         self.assertNotIn("command", codex)
         self.assertNotIn("env", claude)
         self.assertNotIn("env_vars", codex)
+        self.assertNotIn("oauth", claude)
         self.assertEqual(codex["bearer_token_env_var"], "GITHUB_MCP_PAT")
 
         mapping = load_json(
@@ -188,6 +190,22 @@ class RuntimeConfigurationParityTests(unittest.TestCase):
         # value. No local PAT-bearing MCP tier remains.
         self.assertNotIn("GITHUB_PERSONAL_ACCESS_TOKEN", read_text(".mcp.json"))
         self.assertNotIn("GITHUB_PERSONAL_ACCESS_TOKEN", read_text(".codex/config.toml"))
+
+    def test_github_mapping_requires_http_endpoints_and_forbids_shell_endpoints(self):
+        mapping = load_json(
+            "platform/agent-control-plane/adapters/github/github-delivery-mapping.json"
+        )
+        validator = contracts.validator_for(
+            "github-delivery/github-delivery-mapping.schema.json"
+        )
+
+        missing_endpoint = copy.deepcopy(mapping)
+        del missing_endpoint["providers"]["github-mcp"]["endpoint"]
+        self.assertTrue(list(validator.iter_errors(missing_endpoint)))
+
+        shell_with_endpoint = copy.deepcopy(mapping)
+        shell_with_endpoint["providers"]["gh"]["endpoint"] = "https://example.test"
+        self.assertTrue(list(validator.iter_errors(shell_with_endpoint)))
 
     def test_checked_in_mcp_config_has_no_machine_specific_paths(self):
         for relative in (".mcp.json", ".codex/config.toml"):

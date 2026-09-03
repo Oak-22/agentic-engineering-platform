@@ -7,7 +7,7 @@ replace the systems that own the records being coordinated.
 | --- | --- | --- |
 | AEP control plane | portable intent, authorization, execution evidence, and role/policy routing | validates, gates, and links the work |
 | Local Git / git-over-SSH | objects, trees, worktrees, branches, commits, fetches, and pushes | uses governed local mechanics and records commit evidence |
-| GitHub | repositories' pull requests, reviews, checks, merge state, and native URLs | communicates through GitHub's hosted MCP server over OAuth; falls back only to an evidenced `gh` |
+| GitHub | repositories' pull requests, reviews, checks, merge state, and native URLs | communicates through GitHub's hosted MCP server with runtime-specific authentication; falls back only to an evidenced `gh` |
 | Jira | issue identity, workflow status, assignee, and human-visible planning fields | treats Jira as execution system of record and projects portable metadata through the Jira adapter |
 | Atlassian Rovo MCP | Codex's default Jira/Confluence agent communication surface | provides the primary configured Jira tool path; needs no repository-checked-in server entry |
 | Direct Atlassian MCP | a separate optional runtime surface, checked in for Claude only and disabled by default for Codex | may be used only after its own authentication and permission path is verified; it is not silently interchangeable with Rovo |
@@ -80,7 +80,7 @@ about one is not evidence about the other.
 When the hosted server is unavailable, callers fall back in this fixed order,
 stopping at the first surface that can perform the operation:
 
-1. the hosted GitHub MCP server over OAuth (primary);
+1. the hosted GitHub MCP server with runtime-specific authentication (primary);
 2. the `gh` CLI, as an explicit, evidenced fallback only.
 
 There is no local MCP tier — the pinned Docker `github-mcp-server` that

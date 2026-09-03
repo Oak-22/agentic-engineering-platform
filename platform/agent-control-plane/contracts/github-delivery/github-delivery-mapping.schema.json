@@ -38,6 +38,14 @@
         {
           "if": {"properties": {"auth": {"const": "runtime-specific"}}},
           "then": {"required": ["authByRuntime"]}
+        },
+        {
+          "if": {"properties": {"transport": {"const": "http"}}},
+          "then": {"required": ["endpoint"]}
+        },
+        {
+          "if": {"properties": {"transport": {"const": "shell"}}},
+          "then": {"not": {"required": ["endpoint"]}}
         }
       ],
       "properties": {
