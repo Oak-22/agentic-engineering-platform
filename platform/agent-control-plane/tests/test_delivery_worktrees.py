@@ -448,6 +448,13 @@ class ExistingWorktreeClaimTests(unittest.TestCase):
 
         self.assertIn("index unreadable", str(raised.exception))
 
+    def test_status_process_start_failure_is_a_controlled_claim_error(self):
+        with mock.patch.object(MODULE, "_git", side_effect=OSError("git missing")):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.dirty_entries(Path("/w/PROJ-1"))
+
+        self.assertIn("git missing", str(raised.exception))
+
     def test_a_branch_not_at_verified_main_is_refused(self):
         target = Path("/w/PROJ-1")
 

@@ -428,13 +428,18 @@ def verified_main(root: Path) -> str:
 
 
 def dirty_entries(worktree: Path) -> tuple[str, ...]:
-    status = _git(
-        worktree,
-        "status",
-        "--porcelain=v1",
-        "--untracked-files=all",
-        check=False,
-    )
+    try:
+        status = _git(
+            worktree,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            check=False,
+        )
+    except OSError as error:
+        raise WorktreeError(
+            f"could not inspect worktree status at {worktree}: {error}"
+        ) from error
     if status.returncode != 0:
         raise WorktreeError(
             f"could not inspect worktree status at {worktree}: "
