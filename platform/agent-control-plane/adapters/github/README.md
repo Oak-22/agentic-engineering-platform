@@ -18,18 +18,18 @@ justified by an unavailable MCP surface, the equivalent `gh` fallback.
 ## Availability and fallback
 
 The shared GitHub MCP surface is GitHub's hosted remote server at
-`https://api.githubcopilot.com/mcp/`, reached over HTTP with per-user OAuth
-(ADR-0004). Its authorization procedure, health check, and the independence of
-its failures from Atlassian's are in the
+`https://api.githubcopilot.com/mcp/`, reached over HTTP (ADR-0004). Claude Code
+uses OAuth; Codex uses the documented interim PAT path until its MCP client can
+supply GitHub's required OAuth client secret. The authorization procedures,
+health check, and independence of GitHub failures from Atlassian's are in the
 [shared server definition](../../agent-assets/mcp-servers/github/server.md).
 
-When it is unavailable, callers fall back in the fixed order recorded as
-`fallbackOrder` in [`github-delivery-mapping.json`](github-delivery-mapping.json):
-the hosted server, then the dated local Docker server (`github-mcp-local`,
-disabled by default), then `gh`. `gh` is a shell fallback, not a second
-primary protocol. At every tier the caller performs the same semantic
-operation and `github:pull_request:*` permission action, and records which
-tier ran and why each earlier tier was unavailable.
+When it is unavailable, the only fallback is `gh`, the terminal entry in
+`fallbackOrder` in [`github-delivery-mapping.json`](github-delivery-mapping.json).
+`gh` is a shell fallback, not a second primary protocol. At both tiers the
+caller performs the same semantic operation and `github:pull_request:*`
+permission action, and records that `gh` ran and why the MCP surface was
+unavailable.
 
 The provider mapping is [`github-delivery-mapping.json`](github-delivery-mapping.json).
 The shared server definition is [`../../agent-assets/mcp-servers/github/server.md`](../../agent-assets/mcp-servers/github/server.md).

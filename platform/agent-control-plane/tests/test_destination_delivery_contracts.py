@@ -126,9 +126,9 @@ GITHUB_MCP_ENDPOINT = "https://api.githubcopilot.com/mcp/"
 
 
 class RuntimeConfigurationParityTests(unittest.TestCase):
-    def test_codex_and_claude_use_the_same_hosted_github_oauth_endpoint(self):
-        """ADR-0004: both runtimes reach GitHub through the one hosted server
-        over OAuth. Transport is now uniform; no PAT sits in either config."""
+    def test_codex_and_claude_share_transport_with_runtime_specific_auth(self):
+        """ADR-0004 amendment: both runtimes use the hosted endpoint. Claude
+        uses OAuth; Codex temporarily resolves a PAT from its environment."""
         claude = load_json(".mcp.json")["mcpServers"]["github"]
         with (ROOT / ".codex" / "config.toml").open("rb") as handle:
             codex = tomllib.load(handle)["mcp_servers"]["github"]
@@ -140,25 +140,29 @@ class RuntimeConfigurationParityTests(unittest.TestCase):
         self.assertNotIn("command", codex)
         self.assertNotIn("env", claude)
         self.assertNotIn("env_vars", codex)
+        self.assertEqual(codex["bearer_token_env_var"], "GITHUB_MCP_PAT")
 
         mapping = load_json(
             "platform/agent-control-plane/adapters/github/github-delivery-mapping.json"
         )
         primary = mapping["providers"][mapping["primaryProvider"]]
         self.assertEqual(primary["transport"], "http")
-        self.assertEqual(primary["auth"], "oauth")
+        self.assertEqual(primary["auth"], "runtime-specific")
+        self.assertEqual(
+            primary["authByRuntime"], {"claude-code": "oauth", "codex": "pat"}
+        )
         self.assertEqual(primary["endpoint"], GITHUB_MCP_ENDPOINT)
 
-    def test_local_docker_provider_is_a_dated_disabled_fallback(self):
+    def test_github_mapping_declares_no_local_mcp_tier(self):
+        """ADR-0004 amendment (2026-09-01): the local Docker `github-mcp-server`
+        tier was removed once the hosted transport was verified. Only the
+        hosted server and the `gh` CLI remain."""
         mapping = load_json(
             "platform/agent-control-plane/adapters/github/github-delivery-mapping.json"
         )
-        local = mapping["providers"]["github-mcp-local"]
-        self.assertFalse(local["enabled"])
-        self.assertEqual(local["transport"], "stdio")
-        self.assertIn("supersededAsPrimary", local)
-        # The pinned Docker invocation is preserved as a commented fallback.
-        self.assertIn("github-mcp-server@sha256:", read_text(".codex/config.toml"))
+        self.assertEqual(set(mapping["providers"]), {"github-mcp", "gh"})
+        self.assertNotIn("github-mcp-server@sha256:", read_text(".codex/config.toml"))
+        self.assertNotIn("docker", read_text(".codex/config.toml").lower())
 
     def test_codex_config_declares_no_direct_atlassian_mcp_server(self):
         """Codex reaches Jira through the hosted Rovo connector. A direct
@@ -180,10 +184,10 @@ class RuntimeConfigurationParityTests(unittest.TestCase):
                     pattern.search(text),
                     f"{relative} matches secret pattern {pattern.pattern}",
                 )
-        # The hosted OAuth entry carries no token at all; the commented Docker
-        # fallback in the Codex config still refers to the token only by name.
+        # Checked-in config may name a token variable but never stores its
+        # value. No local PAT-bearing MCP tier remains.
         self.assertNotIn("GITHUB_PERSONAL_ACCESS_TOKEN", read_text(".mcp.json"))
-        self.assertIn("GITHUB_PERSONAL_ACCESS_TOKEN", read_text(".codex/config.toml"))
+        self.assertNotIn("GITHUB_PERSONAL_ACCESS_TOKEN", read_text(".codex/config.toml"))
 
     def test_checked_in_mcp_config_has_no_machine_specific_paths(self):
         for relative in (".mcp.json", ".codex/config.toml"):
@@ -202,7 +206,7 @@ class GithubFallbackRoutingTests(unittest.TestCase):
         providers = self.mapping["providers"]
         self.assertEqual(order[0], self.mapping["primaryProvider"])
         self.assertEqual(order[-1], self.mapping["fallbackProvider"])
-        self.assertIn("github-mcp-local", order)
+        self.assertEqual(order, ["github-mcp", "gh"])
         for key in order:
             self.assertIn(key, providers, f"fallbackOrder names undeclared provider {key}")
 
