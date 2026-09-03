@@ -398,9 +398,12 @@ Which agent owns which delivery worktree lives at
 `.local-mirrors/delivery-worktrees`.
 
 Each record carries the Jira key, branch, worktree path, base commit, owning
-agent, and claim time. `delivery_worktrees.py` refuses a second claim on either
-the branch or the directory, so two agents cannot publish incompatible
-histories to one ref or overwrite each other's files.
+agent, and claim time. Git or VS Code creates the linked worktree;
+`delivery_worktrees.py claim` verifies its clean Jira-keyed branch at current
+`main` and refuses a second claim on either the branch or the directory, so two
+agents cannot publish incompatible histories to one ref or overwrite each
+other's files. Its separate `provision` command is only an optional terminal
+convenience for creating and immediately claiming a new worktree.
 
 The record is machine-local because a worktree path is machine-local: an
 absolute directory on one developer's disk means nothing in another checkout,
@@ -414,7 +417,7 @@ trusted. A record whose directory has gone reports as `missing` and is not
 deleted: it is the only remaining trace that a delivery existed, and whether it
 was abandoned or cleaned up outside this tooling is a question for a person. A
 worktree with no record reports as `unregistered`, because nobody can be held
-to it.
+to it; native creation alone never establishes governed delivery state.
 
 ## Resolving these paths
 

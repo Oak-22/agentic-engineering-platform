@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Own one Git worktree per active Jira delivery, so agents stop colliding.
+"""Claim one existing Git worktree per active Jira delivery.
 
 Two agents sharing a checkout cannot work at once: whichever switches branches
 last decides what the other one sees, and neither can tell that it happened.
@@ -13,9 +13,11 @@ path, and surfaces file overlap between concurrent deliveries before they
 reach integration. Divergence between active branches is expected; what must
 not happen is divergence nobody can attribute.
 
-Branches come from `prepare_delivery_branch.py` rather than a second
-implementation of baseline verification: a worktree cut from an unverified
-`main` is the same defect in a new directory.
+Git and editors such as VS Code own ordinary worktree provisioning. This tool
+claims an existing linked worktree only after verifying its Jira-keyed branch,
+path, clean HEAD, current-main baseline, and unique owner. An optional
+``provision`` command remains for terminal-only workflows, but it is a Git
+convenience rather than the platform's canonical entry path.
 """
 
 from __future__ import annotations
@@ -262,11 +264,18 @@ def _cleanup_module():
 
 
 def live_worktrees(root: Path) -> dict[str, tuple[str | None, str]]:
-    """Worktree path -> (branch, head oid), excluding the primary checkout."""
+    """Worktree path -> (branch, head oid), excluding Git's primary checkout.
+
+    The caller may itself be inside a linked worktree after an editor opens it.
+    Git lists the primary worktree first, so excluding the first record rather
+    than ``root`` keeps the newly opened worktree visible to ``claim``.
+    """
     cleanup = _cleanup_module()
+    worktrees = cleanup.inspect_worktrees(root)
+    primary = worktrees[0].path if worktrees else None
     found: dict[str, tuple[str | None, str]] = {}
-    for worktree in cleanup.inspect_worktrees(root):
-        if worktree.path == root.resolve():
+    for worktree in worktrees:
+        if worktree.path == primary:
             continue
         found[str(worktree.path)] = (worktree.branch, worktree.head_oid)
     return found
@@ -379,34 +388,139 @@ def usable_worktree_target(target: Path) -> None:
         )
 
 
-def worktree_add_arguments(branch: str, target: Path, source: str) -> tuple[str, ...]:
-    """How to attach a worktree, given where the branch already lives.
-
-    A branch published on the remote must be checked out from it. Creating a
-    fresh local branch of the same name from `main` instead would diverge from
-    the published ref and turn the next push into a non-fast-forward.
-    """
-    if source == "local":
-        return ("worktree", "add", str(target), branch)
-    if source == "remote":
-        return ("worktree", "add", "--track", "-b", branch, str(target), f"origin/{branch}")
-    return ("worktree", "add", "-b", branch, str(target), "main")
-
-
-def branch_source(root: Path, branch: str) -> str:
+def branch_exists(root: Path, branch: str) -> bool:
     preflight = _sibling("governed_task_preflight")
     if preflight.local_branch_exists(root, branch):
-        return "local"
+        return True
     published = _git(
-        root, "ls-remote", "--exit-code", "--heads", "origin", f"refs/heads/{branch}",
+        root,
+        "ls-remote",
+        "--exit-code",
+        "--branches",
+        "origin",
+        f"refs/heads/{branch}",
         check=False,
     )
-    return "remote" if published.returncode == 0 else "new"
+    return published.returncode == 0
 
 
-def create(
+def verified_main(root: Path) -> str:
+    """Return the exact current integration baseline or refuse the claim.
+
+    The preparation operation owns the repository-wide checks. Reusing its
+    plan keeps claims aligned with ordinary delivery branches without letting
+    this command switch the primary checkout or create a branch.
+    """
+    prepare = _sibling("prepare_delivery_branch")
+    blocked = prepare.blocking(prepare.plan(root, fetch=True))
+    if blocked:
+        raise WorktreeError(
+            "the integration baseline is not ready, so the worktree cannot be "
+            "claimed:\n"
+            + "\n".join(f"  {item.stage}: {item.detail}" for item in blocked)
+        )
+    return prepare.resolve(root, "main")
+
+
+def dirty_entries(worktree: Path) -> tuple[str, ...]:
+    return tuple(
+        line
+        for line in _git(
+            worktree, "status", "--porcelain=v1", "--untracked-files=all"
+        ).stdout.splitlines()
+        if line
+    )
+
+
+def validate_existing_worktree(
+    branch: str,
+    target: Path,
+    worktrees: Mapping[str, tuple[str | None, str]],
+    baseline: str,
+    dirty: Sequence[str],
+) -> str:
+    """Verify that a native worktree is safe to enter governed delivery."""
+    live = worktrees.get(str(target))
+    if live is None:
+        raise WorktreeError(
+            f"{target} is not an existing linked worktree. Create it with Git or "
+            "VS Code, then claim it."
+        )
+    actual_branch, head = live
+    if actual_branch is None:
+        raise WorktreeError(f"{target} is detached; a governed delivery needs a branch")
+    if actual_branch != branch:
+        raise WorktreeError(
+            f"{target} has {actual_branch} checked out, not the requested {branch}"
+        )
+    if dirty:
+        listed = "\n".join(f"    {entry}" for entry in dirty)
+        raise WorktreeError(
+            "the worktree already has uncommitted changes. Claim it before work "
+            "begins so native worktree actions cannot bypass governed delivery:\n"
+            + listed
+        )
+    if head != baseline:
+        raise WorktreeError(
+            f"{branch} starts at {head}, not verified current main {baseline}. "
+            "Create a clean Jira-keyed worktree from current main before claiming it."
+        )
+    return head
+
+
+def claim(
+    root: Path,
+    branch: str,
+    agent: str,
+    requested_path: Path,
+    *,
+    now: str | None = None,
+) -> Ownership:
+    """Record governance for an existing Git- or VS Code-created worktree."""
+    key = jira_key_of(branch)
+    prepare = _sibling("prepare_delivery_branch")
+    error = prepare.validate_branch_name(branch)
+    if error:
+        raise WorktreeError(error)
+
+    target = requested_path.resolve()
+    worktrees = live_worktrees(root)
+    if str(target) not in worktrees:
+        raise WorktreeError(
+            f"{target} is not an existing linked worktree. Create it with Git or "
+            "VS Code, then claim it."
+        )
+    baseline = verified_main(root)
+    head = validate_existing_worktree(
+        branch, target, worktrees, baseline, dirty_entries(target)
+    )
+
+    record_path = ownership_path(root)
+    with exclusive(record_path):
+        existing = load_ownership(record_path)
+        conflict = claim_conflict(branch, str(target), existing)
+        if conflict:
+            raise WorktreeError(conflict)
+        record = Ownership(
+            branch=branch,
+            jira_key=key,
+            worktree_path=str(target),
+            base_commit=head,
+            agent=agent,
+            created_at=now or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        )
+        save_ownership(record_path, [*existing, record])
+    return record
+
+
+def provision(
     root: Path, branch: str, agent: str, requested_path: Path | None, *, now: str | None = None
 ) -> Ownership:
+    """Optionally create a new linked worktree, then claim it.
+
+    This exists for terminal-only workflows. Git and editor-native worktree
+    creation remain the normal provisioning surfaces.
+    """
     key = jira_key_of(branch)
 
     # Validated for every claim, not only for branches this creates. An
@@ -419,15 +533,12 @@ def create(
     target = (requested_path or default_worktree_path(root, key)).resolve()
     usable_worktree_target(target)
 
-    source = branch_source(root, branch)
-    if source == "new":
-        blocked = prepare.blocking(prepare.plan(root, fetch=True))
-        if blocked:
-            raise WorktreeError(
-                "the integration baseline is not ready, so a worktree would start "
-                "from an unverified commit:\n"
-                + "\n".join(f"  {item.stage}: {item.detail}" for item in blocked)
-            )
+    if branch_exists(root, branch):
+        raise WorktreeError(
+            f"{branch} already exists. Provision is only for a new worktree; "
+            "create or open the existing worktree with Git or VS Code, then claim it."
+        )
+    baseline = verified_main(root)
 
     record_path = ownership_path(root)
     with exclusive(record_path):
@@ -437,7 +548,16 @@ def create(
             raise WorktreeError(conflict)
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        added = _git(root, *worktree_add_arguments(branch, target, source), check=False)
+        added = _git(
+            root,
+            "worktree",
+            "add",
+            "-b",
+            branch,
+            str(target),
+            baseline,
+            check=False,
+        )
         if added.returncode != 0:
             raise WorktreeError(
                 f"could not create the worktree: {added.stderr.strip() or 'unknown failure'}"
@@ -447,7 +567,7 @@ def create(
             branch=branch,
             jira_key=key,
             worktree_path=str(target),
-            base_commit=_git(target, "rev-parse", "HEAD").stdout.strip(),
+            base_commit=baseline,
             agent=agent,
             created_at=now or datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
@@ -632,10 +752,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
-    creating = commands.add_parser("create", help="claim a worktree for a delivery branch")
-    creating.add_argument("branch")
-    creating.add_argument("--agent", required=True, help="opaque identity of the owning agent")
-    creating.add_argument("--path", type=Path, help="worktree directory; defaults beside the repository")
+    claiming = commands.add_parser(
+        "claim", help="claim an existing Git- or VS Code-created worktree"
+    )
+    claiming.add_argument("branch")
+    claiming.add_argument(
+        "--agent", required=True, help="opaque identity of the owning agent"
+    )
+    claiming.add_argument(
+        "--path", type=Path, required=True, help="existing linked worktree directory"
+    )
+
+    provisioning = commands.add_parser(
+        "provision", help="optionally create and claim a new linked worktree"
+    )
+    provisioning.add_argument("branch")
+    provisioning.add_argument(
+        "--agent", required=True, help="opaque identity of the owning agent"
+    )
+    provisioning.add_argument(
+        "--path", type=Path, help="new worktree directory; defaults beside the repository"
+    )
 
     commands.add_parser("list", help="show recorded ownership against live worktrees")
 
@@ -652,7 +789,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     refreshing.add_argument("branch")
 
-    for name in ("create", "list", "release", "overlap", "refresh"):
+    for name in ("claim", "provision", "list", "release", "overlap", "refresh"):
         commands.choices[name].add_argument(
             "--format", choices=("text", "json"), default="text"
         )
@@ -666,12 +803,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
-        if args.command == "create":
-            record = create(root, args.branch, args.agent, args.path)
+        if args.command == "claim":
+            record = claim(root, args.branch, args.agent, args.path)
             print(
                 as_json(ownership_json(record))
                 if args.format == "json"
-                else f"Claimed {record.branch} for {record.agent}\n"
+                else f"Claimed existing {record.branch} for {record.agent}\n"
+                f"  worktree: {record.worktree_path}\n"
+                f"  base:     {record.base_commit}"
+            )
+        elif args.command == "provision":
+            record = provision(root, args.branch, args.agent, args.path)
+            print(
+                as_json(ownership_json(record))
+                if args.format == "json"
+                else f"Provisioned and claimed {record.branch} for {record.agent}\n"
                 f"  worktree: {record.worktree_path}\n"
                 f"  base:     {record.base_commit}"
             )

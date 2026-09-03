@@ -214,12 +214,14 @@ makes that a separate, explicit act that only runs after verification passes.
 
 ## Parallel delivery worktrees
 
-Give each concurrent Jira delivery its own worktree, with ownership recorded so
-two agents cannot claim the same branch or directory:
+Let Git or VS Code create the linked worktree, then claim it for one concurrent
+Jira delivery so two agents cannot own the same branch or directory:
 
 ```bash
+# First create a clean worktree from current main with Git or VS Code.
+git worktree add -b feature/PROJ-12-thing ../aep-PROJ-12 main
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
-  create feature/PROJ-12-thing --agent agent-a
+  claim feature/PROJ-12-thing --path ../aep-PROJ-12 --agent agent-a
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py overlap
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
@@ -229,18 +231,30 @@ python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
 Sharing one checkout makes concurrent work impossible: whichever agent switches
 branches last decides what the other sees, and neither can tell it happened.
 Separate worktrees remove that contention, but only if ownership is recorded —
-otherwise the collision moves from the branch to the directory.
+otherwise the collision moves from the branch to the directory. `claim` is the
+canonical governance entry point. It does not create, move, or open a worktree;
+it verifies that the supplied path is an existing linked worktree on the exact
+Jira-keyed branch, that the worktree is still clean and at verified current
+`main`, and that neither its branch nor path already has an owner.
 
-`create` refuses a second claim on the branch *and* a second claim on the path.
-Both matter: two agents on one ref publish incompatible histories to it, two in
-one directory overwrite each other's files. Branch creation delegates to
-`prepare_delivery_branch.py`, so a worktree never starts from an unverified
-`main` — that would be the same defect in a new directory.
+Claim immediately after native creation and before implementation. A worktree
+with changes or commits before its claim is rejected so Git or editor actions
+cannot silently bypass the governed baseline. Until a claim succeeds, `list`
+reports the native worktree as `unregistered` and it is not a governed delivery.
 
-Worktrees are placed beside the repository (`<repo>.worktrees/<JIRA-KEY>`)
-rather than inside it. A nested worktree appears in the primary checkout's
-status as untracked content, which is the dirty-tree condition that blocks the
-next delivery.
+For terminal-only operation, `provision` remains an optional convenience that
+creates a new worktree beside the repository (`<repo>.worktrees/<JIRA-KEY>`) at
+verified current `main` and immediately records its claim:
+
+```bash
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
+  provision feature/PROJ-12-thing --agent agent-a
+```
+
+Provision refuses an existing local or remote branch; use Git or VS Code to
+open that branch in a worktree, then run `claim`. A nested worktree is still a
+bad target because it appears in the primary checkout as untracked content and
+blocks the next governed delivery.
 
 Claiming is a locked read-modify-write. Without it two agents racing to claim
 both read the registry, both find no conflict, and the second write erases the
@@ -260,6 +274,11 @@ it, and exits 1 when anything needs attention:
 A `missing` record is reported, never silently dropped: it is the only trace
 that the delivery existed, and which of the two happened is a question for a
 person.
+
+VS Code's **Migrate Worktree Changes** transfers changes into another workspace.
+It does not establish a Jira-keyed branch, verified baseline, ownership claim,
+publication record, or reviewed integration into `main`, so it is not a
+substitute for this delivery path.
 
 `refresh` merges current `main` into one delivery branch, inside that
 delivery's own worktree:

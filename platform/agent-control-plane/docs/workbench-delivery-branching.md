@@ -128,23 +128,35 @@ filesystem view is authoritative.
 
 ### Parallel governed delivery
 
-Concurrent Jira deliveries are the one exception with tooling behind it. Claim
-each through `delivery_worktrees.py` rather than by hand, so the Jira key,
-branch, worktree path, base commit, and owning agent are recorded and a second
-claim on either the branch or the directory is refused:
+Concurrent Jira deliveries are the one exception with tooling behind it. Git
+or VS Code owns creation, opening, detection, and display of linked worktrees.
+After native creation from current `main`, claim the existing worktree through
+`delivery_worktrees.py` so the Jira key, branch, worktree path, base commit, and
+owning agent are recorded and a second claim on either the branch or the
+directory is refused:
 
 ```bash
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
-  create <category>/<JIRA-ISSUE-KEY>-<slug> --agent <opaque-agent-id>
+  claim <category>/<JIRA-ISSUE-KEY>-<slug> \
+  --path <existing-worktree-path> --agent <opaque-agent-id>
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py overlap
 ```
 
+Claiming is the governance boundary, not provisioning. It accepts only an
+existing linked worktree on the named Jira-keyed branch, with a clean HEAD at
+verified current `main` and no prior owner for its branch or path. Native-created
+worktrees remain `unregistered` until claimed and cannot be treated as governed
+deliveries. The optional `provision` command exists for terminal-only
+convenience, but is not a platform capability required to use this workflow.
+
 A delivery that falls behind takes `main` in through `refresh`, which merges
 inside that delivery's own worktree and refuses while local `main` is itself
-stale. Branches still come from the governed preparation operation, so a
-worktree never starts from an unverified `main`. Integration stays serialized and
-independently verified per delivery; only execution is parallel.
+stale. Integration stays serialized and independently verified per delivery;
+only execution is parallel. VS Code's **Migrate Worktree Changes** moves changes
+between workspaces; it does not prove the Jira branch, claim, baseline,
+publication, review, or integration state and is not a substitute for governed
+delivery.
 
 ### Switching windows is not switching branches
 
