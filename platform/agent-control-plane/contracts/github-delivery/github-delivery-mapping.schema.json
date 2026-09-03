@@ -34,22 +34,40 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["role", "transport", "auth", "enabled", "tools"],
+      "allOf": [
+        {
+          "if": {"properties": {"auth": {"const": "runtime-specific"}}},
+          "then": {"required": ["authByRuntime"]}
+        },
+        {
+          "if": {"properties": {"transport": {"const": "http"}}},
+          "then": {"required": ["endpoint"]}
+        },
+        {
+          "if": {"properties": {"transport": {"const": "shell"}}},
+          "then": {"not": {"required": ["endpoint"]}}
+        }
+      ],
       "properties": {
         "role": {"enum": ["primary", "optional-fallback"]},
-        "transport": {"enum": ["http", "stdio", "shell"]},
+        "transport": {"enum": ["http", "shell"]},
         "auth": {
-          "enum": ["oauth", "pat"],
-          "description": "oauth = per-user browser authorization against a hosted server; pat = a GitHub personal access token held on the endpoint."
+          "enum": ["oauth", "pat", "runtime-specific"],
+          "description": "Authentication mode for the provider. runtime-specific requires authByRuntime to describe each runtime adapter."
+        },
+        "authByRuntime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claude-code", "codex"],
+          "properties": {
+            "claude-code": {"enum": ["oauth", "pat"]},
+            "codex": {"enum": ["oauth", "pat"]}
+          }
         },
         "endpoint": {
           "type": "string",
           "format": "uri",
           "description": "Hosted server URL. Present for http transport."
-        },
-        "supersededAsPrimary": {
-          "type": "string",
-          "format": "date",
-          "description": "Date this provider stopped being the primary transport. Marks a dated fallback."
         },
         "enabled": {"type": "boolean"},
         "tools": {"type": "array", "items": {"type": "string", "minLength": 1}}
