@@ -1,33 +1,20 @@
 # Repository-scoped MCP configuration. Secrets are resolved from the parent
 # environment; no token value belongs in this file.
 
-# GitHub is reached over GitHub's hosted remote MCP server with per-user OAuth
-# (ADR-0004). Each developer authorizes once with `codex mcp login github`;
-# GitHub does not support dynamic client registration, so that login needs
-# `--oauth-client-registration cimd` or a registered `--oauth-client-id`. See
+# GitHub is reached over GitHub's hosted remote MCP server (ADR-0004). The
+# current Codex MCP client cannot supply the client secret GitHub requires for
+# hosted OAuth, so Codex uses the documented interim PAT path. This file stores
+# only the environment-variable name, never the token value. See
 # platform/agent-control-plane/agent-assets/mcp-servers/github/server.md.
 [mcp_servers.github]
 url = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var = "GITHUB_MCP_PAT"
 default_tools_approval_mode = "writes"
 
-# Dated fallback (superseded as primary 2026-08-31 by ADR-0004): the local
-# digest-pinned Docker server. Uncomment as `[mcp_servers.github]` only when
-# the hosted server is unavailable and Docker plus GITHUB_PERSONAL_ACCESS_TOKEN
-# are present. Keep exactly one `[mcp_servers.github*]` table active.
-# [mcp_servers.github-local]
-# command = "docker"
-# args = [
-#   "run",
-#   "--rm",
-#   "-i",
-#   "-e",
-#   "GITHUB_PERSONAL_ACCESS_TOKEN",
-#   "ghcr.io/github/github-mcp-server@sha256:fbec75de11c255213fa08d80fb166abe73d851fff631c51c0079872967720699",
-#   "stdio",
-#   "--tools=get_me,get_file_contents,get_commit,list_commits,list_pull_requests,search_pull_requests,pull_request_read,actions_get,actions_list,get_job_logs,create_pull_request,update_pull_request,pull_request_review_write,merge_pull_request"
-# ]
-# env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN"]
-# default_tools_approval_mode = "writes"
+# When the hosted server is unavailable the only fallback is the evidenced
+# `gh` CLI, recorded as `fallbackOrder` in
+# platform/agent-control-plane/adapters/github/github-delivery-mapping.json.
+# There is no local MCP tier.
 
 # Jira stays on the hosted Codex Apps Atlassian Rovo connector for Codex, which
 # needs no entry in this file. Do not add an `[mcp_servers.atlassian]` table: a

@@ -3,86 +3,106 @@
 ## Identity
 
 - **Upstream service**: GitHub, through GitHub's official
-  [`github-mcp-server`](https://github.com/github/github-mcp-server).
+  [`github-mcp-server`](https://github.com/github/github-mcp-server), run by
+  GitHub as a hosted service.
 - **Purpose**: gives AEP agents a shared, allowlisted tool surface for GitHub
   platform metadata, pull requests, reviews, and workflow inspection.
 - **Authoritative transport**: GitHub's hosted remote server at
-  `https://api.githubcopilot.com/mcp/`, reached over HTTP with per-user OAuth
-  (ADR-0004). Codex and Claude both point at this one endpoint.
+  `https://api.githubcopilot.com/mcp/`, reached over HTTP (ADR-0004). Codex and
+  Claude both point at this one endpoint; authentication is runtime-specific.
 
 ## Authorization
 
-The hosted server authenticates each user through their own GitHub OAuth
-consent; no personal access token is held on any endpoint or in this
-repository. Scope is whatever the authorizing user's account already grants.
+The hosted server accepts a GitHub access token. Claude Code obtains one through
+the user's GitHub OAuth consent. Codex temporarily supplies a dedicated
+fine-grained, least-privilege PAT by environment-variable reference because its
+current hosted-OAuth client
+cannot complete GitHub's confidential-client exchange. No credential value is
+stored in this repository.
 
-GitHub's endpoint does **not** support OAuth dynamic client registration, so a
-first authorization needs an explicit client-registration strategy:
+GitHub's endpoint does **not** support OAuth dynamic client registration or a
+Client ID Metadata Document. A runtime using OAuth must therefore use a
+pre-registered OAuth client (a GitHub OAuth App or GitHub App) provisioned out
+of band. Claude Code uses that model today. Codex's separate registration is
+retained but inactive while its interim PAT path is in force. See the ADR-0004
+amendment (2026-09-01) for the client model and retirement trigger.
 
-| Runtime | Command | Notes |
+| Runtime | First authorization | Client registration |
 | --- | --- | --- |
-| Codex | `codex mcp login github --oauth-client-registration cimd` | Falls back to a registered `--oauth-client-id` if CIMD is rejected. |
-| Claude Code | authorize on first use of a `github` tool | Claude Code runs the browser consent itself for an `http` server in `.mcp.json`. |
+| Claude Code | authorize on first use of a `github` tool; Claude Code runs the browser consent itself | a pre-registered OAuth client is configured in Claude Code's machine-local runtime settings; its registration values are not committed |
+| Codex | start Codex with `GITHUB_MCP_PAT` available, then verify `get_me` | `.codex/config.toml` names the variable; the PAT value stays in a local credential store |
+
+**Codex readiness note (2026-09-01).** A live authorization with Codex CLI
+0.151.0 reached the registered loopback callback, then failed at GitHub's token
+exchange because no access token was returned. The released 0.151.0 and 0.152.0
+configuration types expose `client_id`, `callback_url`, and `callback_port`, but
+no client-secret input. GitHub requires the client secret at its token endpoint,
+so a pre-registered GitHub OAuth App cannot yet complete this Codex flow. Do not
+add an undocumented `client_secret_env_var` setting: these releases do not wire
+it into the OAuth exchange.
+
+The separately registered Codex OAuth App may be retained for a future Codex
+release that adds confidential-client support. Its title is descriptive only;
+it is not the MCP server name. The MCP server remains `github`.
+
+### Codex interim path: hosted remote plus PAT
+
+The interim path preserves the selected hosted transport and changes only the
+Codex authentication mechanism:
+
+1. Create a dedicated fine-grained, least-privilege GitHub PAT for this MCP
+   surface.
+2. Store it in a local credential store; never put the value in TOML, `.env`,
+   repository files, or shell history.
+3. Make it available to the Codex process as `GITHUB_MCP_PAT`. The checked-in
+   config contains only `bearer_token_env_var = "GITHUB_MCP_PAT"`.
+4. Start a fresh Codex process and verify readiness by calling `get_me`.
+5. Retire the PAT path when a released Codex MCP client can send the registered
+   OAuth client secret and the separate OAuth App passes the same health check.
+
+Credential creation and process injection are operator actions, not implied by
+this documentation change. The PAT should grant only the repository and
+organization permissions needed by the configured MCP tools.
 
 **Health check** — the server is ready when `get_me` returns the authorizing
 user. A failure here identifies **this** server by name; it is a separate
 condition from an Atlassian OAuth failure (different endpoint, credential, and
 lifecycle), and a message about one carries no information about the other.
 
-## Fallback order
+## Fallback
 
-When the hosted server is unavailable, callers fall back in the fixed order
-recorded as `fallbackOrder` in
-[`adapters/github/github-delivery-mapping.json`](../../../adapters/github/github-delivery-mapping.json),
-stopping at the first surface that can perform the operation:
+When the hosted server is unavailable, the only fallback is the `gh` CLI,
+recorded as the terminal entry in `fallbackOrder` in
+[`adapters/github/github-delivery-mapping.json`](../../../adapters/github/github-delivery-mapping.json).
+`gh` performs the same semantic operation and the same `github:pull_request:*`
+permission action; it is an explicit, evidenced fallback, not an alternate
+authority or protocol. The caller records that `gh` ran and why the MCP
+surface was unavailable.
 
-1. **hosted GitHub MCP** (`https://api.githubcopilot.com/mcp/`) — primary;
-2. **local GitHub MCP** — the dated Docker fallback below;
-3. **`gh` CLI** — explicit, evidenced fallback only.
-
-Every tier performs the same semantic operation and the same
-`github:pull_request:*` permission action. The caller records which tier ran
-and why each earlier tier was unavailable. `gh` is not an alternate authority
-or protocol.
-
-## Local Docker fallback (dated)
-
-Superseded as the primary transport on 2026-08-31 by ADR-0004. Retained as a
-dev-loop bootstrap and an offline fallback, not a default.
-
-- **Pinned image**:
-  `ghcr.io/github/github-mcp-server@sha256:fbec75de11c255213fa08d80fb166abe73d851fff631c51c0079872967720699`
-- **Transport**: local `stdio` through Docker.
-- **Credential**: `GITHUB_PERSONAL_ACCESS_TOKEN`, resolved from the runtime
-  environment; its value never appears in this repository.
-- **Prerequisites**: Docker daemon running, the pinned image present or
-  pullable, and `GITHUB_PERSONAL_ACCESS_TOKEN` set (presence only — never the
-  value).
-- **Enabling it**: uncomment the `[mcp_servers.github-local]` block in
-  `.codex/config.toml` (renaming it to `[mcp_servers.github]`), or restore the
-  `stdio` `github` entry in `.mcp.json` from version history. Keep exactly one
-  `github` server active per runtime.
-
-Update the digest only with a deliberate dependency review.
+There is no local MCP tier. The pinned Docker `github-mcp-server` invocation
+that preceded ADR-0004 is recoverable from Git history if a self-hosted
+deployment is ever built (the ADR-0004 target state).
 
 ## Tool boundary
 
-The semantic surface is the same fourteen tools on every transport:
+The semantic surface is fourteen tools:
 
 `get_me`, `get_file_contents`, `get_commit`, `list_commits`,
 `list_pull_requests`, `search_pull_requests`, `pull_request_read`,
 `actions_get`, `actions_list`, `get_job_logs`, `create_pull_request`,
 `update_pull_request`, `pull_request_review_write`, `merge_pull_request`.
 
-The hosted and local servers run the same `github-mcp-server` codebase, so the
-tool names and behaviour match. The allowlist **mechanism** differs: the local
-server takes an explicit `--tools=` flag, while the hosted server is scoped by
-toolset (URL path segment or `X-MCP-Toolsets` header). AEP does not rely on the
-transport-level filter for safety — the AEP permission policy gates every
-mutation (`create_pull_request`, `update_pull_request`,
-`pull_request_review_write`, `merge_pull_request`) regardless of which tools a
-transport exposes. Read tools need no delivery approval; mutation tools remain
-subject to the runtime approval and AEP permission policy.
+The hosted server is scoped to this set by toolset (URL path segment or
+`X-MCP-Toolsets` header). AEP does not rely on the transport-level filter for
+safety — the AEP permission policy gates every mutation
+(`create_pull_request`, `update_pull_request`, `pull_request_review_write`,
+`merge_pull_request`) regardless of which tools the transport exposes. Read
+tools need no delivery approval; mutation tools remain subject to the runtime
+approval and AEP permission policy.
+
+GitHub rolls the hosted server's version. The tool-surface contract test
+(`configured_tools == mapping_tools`) is the drift guard against an
+unannounced change to a tool AEP already uses.
 
 ## Dependent assets
 

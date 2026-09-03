@@ -4,37 +4,18 @@
   "canonicalAdapter": "adapters/github",
   "primaryProvider": "github-mcp",
   "fallbackProvider": "gh",
-  "fallbackOrder": ["github-mcp", "github-mcp-local", "gh"],
+  "fallbackOrder": ["github-mcp", "gh"],
   "providers": {
     "github-mcp": {
       "role": "primary",
       "transport": "http",
       "endpoint": "https://api.githubcopilot.com/mcp/",
-      "auth": "oauth",
+      "auth": "runtime-specific",
+      "authByRuntime": {
+        "claude-code": "oauth",
+        "codex": "pat"
+      },
       "enabled": true,
-      "tools": [
-        "get_me",
-        "get_file_contents",
-        "get_commit",
-        "list_commits",
-        "list_pull_requests",
-        "search_pull_requests",
-        "pull_request_read",
-        "actions_get",
-        "actions_list",
-        "get_job_logs",
-        "create_pull_request",
-        "update_pull_request",
-        "pull_request_review_write",
-        "merge_pull_request"
-      ]
-    },
-    "github-mcp-local": {
-      "role": "optional-fallback",
-      "transport": "stdio",
-      "auth": "pat",
-      "enabled": false,
-      "supersededAsPrimary": "2026-08-31",
       "tools": [
         "get_me",
         "get_file_contents",
