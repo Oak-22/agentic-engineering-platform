@@ -396,11 +396,16 @@ def branch_exists(root: Path, branch: str) -> bool:
         root,
         "ls-remote",
         "--exit-code",
-        "--branches",
+        "--heads",
         "origin",
         f"refs/heads/{branch}",
         check=False,
     )
+    if published.returncode not in (0, 2):
+        raise WorktreeError(
+            f"could not inspect origin for {branch}: "
+            + (published.stderr.strip() or "unknown remote failure")
+        )
     return published.returncode == 0
 
 

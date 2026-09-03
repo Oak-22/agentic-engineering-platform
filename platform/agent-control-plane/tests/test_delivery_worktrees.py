@@ -526,6 +526,42 @@ class ProvisioningBoundaryTests(unittest.TestCase):
     branch = "feature/PROJ-1-x"
     baseline = "abc1234"
 
+    def test_remote_branch_detection_uses_the_supported_heads_filter(self):
+        remote = mock.Mock(returncode=2, stderr="")
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = False
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_git", return_value=remote) as git,
+        ):
+            exists = MODULE.branch_exists(Path("/repo"), self.branch)
+
+        self.assertFalse(exists)
+        git.assert_called_once_with(
+            Path("/repo"),
+            "ls-remote",
+            "--exit-code",
+            "--heads",
+            "origin",
+            f"refs/heads/{self.branch}",
+            check=False,
+        )
+
+    def test_remote_inspection_failure_is_not_treated_as_branch_absence(self):
+        remote = mock.Mock(returncode=128, stderr="network failed")
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = False
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_git", return_value=remote),
+        ):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.branch_exists(Path("/repo"), self.branch)
+
+        self.assertIn("network failed", str(raised.exception))
+
     def test_provision_refuses_to_take_over_an_existing_branch(self):
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.object(MODULE, "branch_exists", return_value=True):
