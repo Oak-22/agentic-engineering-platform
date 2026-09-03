@@ -368,6 +368,5 @@ core identity.
 High-level rationale for the control-plane pattern lives in
 [`docs/strategy/`](docs/strategy/).
 
-Domain-specific extensions, such as biohealth governance and clinical
-translation boundaries, should live in the downstream repository that
-owns that domain surface.
+Domain-specific extensions should live in the downstream repository that owns
+the domain surface.
