@@ -35,6 +35,13 @@ summary pairs each guard's outcome with the command that reproduces it.
 explains the workflow's triggers, permissions, caching, concurrency, required
 check, Copilot advisory review, and troubleshooting commands.
 
+The ordered post-guard Copilot gate is described in
+[`../docs/copilot-review-gate.md`](../docs/copilot-review-gate.md). Its local
+normalizer is `copilot_review_gate.py`; it rejects stale, pending, unknown, or
+unclassified review evidence rather than treating a `COMMENTED` review as
+clean. The readiness input is schema version 2 and must include both
+`control-plane-guards` and `aep-copilot-review`.
+
 ## Protect the integration branch
 
 Enable the repository-owned Git hooks once per clone:

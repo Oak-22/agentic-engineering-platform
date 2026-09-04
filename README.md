@@ -92,6 +92,12 @@ so the commands above are a fast local preview of a gate that runs anyway
 rather than a step someone has to remember. See
 [Control Plane Guards in CI](platform/agent-control-plane/docs/control-plane-guards-ci.md).
 
+The ordered follow-on gate requests Copilot only after those guards pass and
+reports an exact-head `aep-copilot-review` check. A new push invalidates the
+previous review; actionable or unrecognized findings block readiness, while
+explicit disputes remain visible for human judgment. See
+[Ordered Copilot review gate](platform/agent-control-plane/docs/copilot-review-gate.md).
+
 ## Agent Behavior Smoke Test
 
 After the deterministic checks pass, open the clone in any supported agent and

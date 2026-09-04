@@ -1,0 +1,162 @@
+name: AEP Copilot Review Gate
+
+# Copilot is requested only after the guard workflow has completed successfully.
+# A push creates a new pending check; a review event normalizes evidence for the
+# exact head SHA and completes that same check. The workflow never approves,
+# resolves threads, promotes a draft, merges, or bypasses a ruleset.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+  workflow_run:
+    workflows: ["Control Plane Guards"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: aep-copilot-review-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  aep-copilot-review:
+    # workflow_run is privileged but never checks out or executes pull-request
+    # code. It only reads provider data and writes a check/request.
+    if: >-
+      (github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success')
+      && (github.event_name != 'pull_request_review' ||
+      github.event.review.user.login == 'copilot-pull-request-reviewer')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the default-branch tooling
+        if: github.event_name == 'pull_request_review'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set up Python for the normalizer
+        if: github.event_name == 'pull_request_review'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: platform/agent-control-plane/pyproject.toml
+
+      - name: Mark the current head pending
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHECK_ID="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '.check_runs[] | select(.name == "aep-copilot-review") | .id' | head -n 1)"
+          if [ -n "${CHECK_ID}" ]; then
+            gh api --method PATCH "repos/${REPOSITORY}/check-runs/${CHECK_ID}" \
+              -f status='in_progress' \
+              -f 'output[title]=Waiting for exact-head Copilot review' \
+              -f 'output[summary]=Guard checks must pass before a review is requested.'
+          else
+            gh api --method POST "repos/${REPOSITORY}/check-runs" \
+              -f name='aep-copilot-review' \
+              -f head_sha="${HEAD_SHA}" \
+              -f status='in_progress' \
+              -f 'output[title]=Waiting for exact-head Copilot review' \
+              -f 'output[summary]=Guard checks must pass before a review is requested.'
+          fi
+
+      - name: Request Copilot after guards pass
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          PR_NUMBER="$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.pull_requests[0].number // empty')"
+          HEAD_SHA="$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.head_sha')"
+          if [ -z "${PR_NUMBER}" ]; then
+            echo "Guard run is not attached to a pull request; no review requested."
+            exit 0
+          fi
+          gh api --method POST "repos/${REPOSITORY}/pulls/${PR_NUMBER}/requested_reviewers" \
+            -f 'reviewers[]=copilot-pull-request-reviewer'
+          CHECK_ID="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '.check_runs[] | select(.name == "aep-copilot-review") | .id' | head -n 1)"
+          if [ -n "${CHECK_ID}" ]; then
+            gh api --method PATCH "repos/${REPOSITORY}/check-runs/${CHECK_ID}" \
+              -f status='in_progress' \
+              -f 'output[title]=Copilot review requested for the guarded head' \
+              -f 'output[summary]=Waiting for the provider review event.'
+          else
+            gh api --method POST "repos/${REPOSITORY}/check-runs" \
+              -f name='aep-copilot-review' \
+              -f head_sha="${HEAD_SHA}" \
+              -f status='in_progress' \
+              -f 'output[title]=Copilot review requested for the guarded head' \
+              -f 'output[summary]=Waiting for the provider review event.'
+          fi
+
+      - name: Normalize the completed Copilot review
+        if: github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews" > /tmp/reviews.json
+          gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments" > /tmp/comments.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          reviews = json.loads(Path('/tmp/reviews.json').read_text())
+          comments = json.loads(Path('/tmp/comments.json').read_text())
+          copilot = [item for item in reviews if item.get('user', {}).get('login') == 'copilot-pull-request-reviewer']
+          if not copilot:
+              raise SystemExit('no Copilot review event exists for this pull request')
+          latest = copilot[-1]
+          line_comments = [
+              {'id': str(item['id']), 'source': 'line', 'actionable': True}
+              for item in comments
+              if item.get('pull_request_review_id') == latest.get('id')
+          ]
+          summary = []
+          body = (latest.get('body') or '').lower()
+          if body and 'no issues found' not in body and '[aep-clean]' not in body:
+              summary.append({'id': f"summary:{latest['id']}", 'source': 'summary', 'actionable': True})
+          payload = {
+              'reviewId': latest.get('id'),
+              'headSha': latest.get('commit_id'),
+              'submittedAt': latest.get('submitted_at'),
+              'state': latest.get('state'),
+              'lineComments': line_comments,
+              'summaryFindings': summary,
+          }
+          Path('/tmp/copilot-review.json').write_text(json.dumps(payload))
+          PY
+          set +e
+          RESULT="$(python platform/agent-control-plane/scripts/copilot_review_gate.py --head-sha "${HEAD_SHA}" /tmp/copilot-review.json 2>/tmp/copilot-error)"
+          CODE=$?
+          set -e
+          if [ "${CODE}" -eq 2 ]; then
+            cat /tmp/copilot-error >&2
+            exit 1
+          fi
+          CONCLUSION="$(printf '%s' "${RESULT}" | python -c 'import json,sys; print(json.load(sys.stdin)["conclusion"])')"
+          REVIEW_ID="$(printf '%s' "${RESULT}" | python -c 'import json,sys; print(json.load(sys.stdin)["review"]["reviewId"])')"
+          SUMMARY="Exact-head Copilot review ${REVIEW_ID}: ${CONCLUSION}."
+          CHECK_ID="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '.check_runs[] | select(.name == "aep-copilot-review") | .id' | head -n 1)"
+          if [ -z "${CHECK_ID}" ]; then
+            echo "No pending aep-copilot-review check exists for ${HEAD_SHA}" >&2
+            exit 1
+          fi
+          gh api --method PATCH "repos/${REPOSITORY}/check-runs/${CHECK_ID}" \
+            -f status='completed' \
+            -f conclusion="${CONCLUSION}" \
+            -f "output[title]=AEP Copilot review gate" \
+            -f "output[summary]=${SUMMARY}"
+          test "${CODE}" -eq 0
