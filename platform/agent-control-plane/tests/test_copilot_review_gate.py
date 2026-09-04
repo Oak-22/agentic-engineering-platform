@@ -34,7 +34,7 @@ class CopilotGateTests(unittest.TestCase):
         self.assertEqual(MODULE.gate(review(), head_sha="abc1234")["conclusion"], "success")
 
     def test_stale_head_fails(self):
-        self.assertEqual(MODULE.gate(review(headSha="old"), head_sha="abc1234")["conclusion"], "failure")
+        self.assertEqual(MODULE.gate(review(headSha="old1234"), head_sha="abc1234")["conclusion"], "failure")
 
     def test_actionable_finding_fails(self):
         result = MODULE.gate(

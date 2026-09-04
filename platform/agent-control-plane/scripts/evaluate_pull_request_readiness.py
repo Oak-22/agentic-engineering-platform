@@ -57,15 +57,17 @@ def _identifier(value: object, field: str) -> str:
     return rendered
 
 
+def _head_sha(value: object) -> str:
+    rendered = required_string(value, "copilotReview.headSha").strip()
+    if len(rendered) < 7:
+        raise ReadinessError("copilotReview.headSha must be at least 7 characters")
+    return rendered
+
+
 def _finding(value: object, index: int, *, source: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ReadinessError(f"{source}[{index}] must be an object")
-    identifier = value.get("id")
-    if isinstance(identifier, bool) or not isinstance(identifier, (str, int)):
-        raise ReadinessError(f"{source}[{index}].id must be a string or integer")
-    finding_id = str(identifier)
-    if not finding_id:
-        raise ReadinessError(f"{source}[{index}].id must be non-empty")
+    finding_id = _identifier(value.get("id"), f"{source}[{index}].id")
     actionable = value.get("actionable")
     if not isinstance(actionable, bool):
         raise ReadinessError(f"{source}[{index}].actionable must be boolean")
@@ -94,7 +96,7 @@ def normalize_copilot_review(review: object, *, current_head: str | None = None)
     """
     if not isinstance(review, dict):
         raise ReadinessError("Copilot review must be an object")
-    head = required_string(review.get("headSha"), "copilotReview.headSha")
+    head = _head_sha(review.get("headSha"))
     review_id = _review_id(review.get("reviewId"))
     submitted_at = required_string(review.get("submittedAt"), "copilotReview.submittedAt")
 
@@ -141,7 +143,7 @@ def normalize_copilot_review(review: object, *, current_head: str | None = None)
     disputed = []
     for index, entry in enumerate(disputed_raw):
         if isinstance(entry, (str, int)) and not isinstance(entry, bool):
-            disputed.append(str(entry))
+            disputed.append(_identifier(entry, f"copilotReview.disputedFindings[{index}]"))
         elif isinstance(entry, dict):
             disputed.append(
                 _identifier(entry.get("id"), f"copilotReview.disputedFindings[{index}].id")

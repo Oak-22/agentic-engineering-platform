@@ -121,6 +121,26 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(normalized["actionableFindings"], 1)
         self.assertEqual(normalized["unrecognizedFindings"], 1)
 
+    def test_whitespace_only_finding_id_is_rejected(self):
+        review = ready_snapshot()["copilotReview"]
+        review["normalizedFindings"] = [
+            {"id": "   ", "source": "line", "actionable": True}
+        ]
+        with self.assertRaisesRegex(MODULE.ReadinessError, "normalizedFindings\\[0\\]\\.id"):
+            MODULE.normalize_copilot_review(review)
+
+    def test_short_head_sha_is_rejected(self):
+        review = ready_snapshot()["copilotReview"]
+        review["headSha"] = "abc12"
+        with self.assertRaisesRegex(MODULE.ReadinessError, "headSha must be at least 7"):
+            MODULE.normalize_copilot_review(review)
+
+    def test_whitespace_only_disputed_finding_id_is_rejected(self):
+        review = ready_snapshot()["copilotReview"]
+        review["disputedFindings"] = ["   "]
+        with self.assertRaisesRegex(MODULE.ReadinessError, "disputedFindings\\[0\\]"):
+            MODULE.normalize_copilot_review(review)
+
     def test_unknown_thread_state_is_rejected(self):
         snapshot = ready_snapshot()
         snapshot["reviewThreads"] = [{"id": "thread-3", "state": "ignored"}]
