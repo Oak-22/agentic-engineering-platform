@@ -128,6 +128,8 @@ jobs:
           import json
           from pathlib import Path
 
+          import re
+
           review = json.loads(Path('/tmp/copilot-event-review.json').read_text())
           comments = json.loads(Path('/tmp/comments.json').read_text())
           line_comments = [
@@ -135,17 +137,33 @@ jobs:
               for item in comments
               if item.get('pull_request_review_id') == review.get('id')
           ]
-          body = (review.get('body') or '').lower()
-          summary = []
-          if body and 'no issues found' not in body and '[aep-clean]' not in body:
-              summary.append({'id': f"summary:{review['id']}", 'source': 'summary', 'actionable': True})
+          body = review.get('body') or ''
+          lowered = body.lower()
+          # Copilot's own posting threshold is the gate's threshold. A review is
+          # actionable when Copilot generated a line comment or headlined it as
+          # changes recommended/required. Findings it chose to suppress are
+          # recorded so they stay visible, but they do not block: a suppressed
+          # item in unchanged code would otherwise resurface on every push and
+          # the gate could never converge.
+          changes_requested = 'changes recommended' in lowered or 'changes required' in lowered
+          summary = [{
+              'id': f"summary:{review['id']}",
+              'source': 'summary',
+              'actionable': changes_requested,
+          }]
+          suppressed = [
+              {'id': f"suppressed:{path}:{line}", 'actionable': False}
+              for path, line in re.findall(r'^\*\*(\S+?):(\d+)\*\*$', body, flags=re.M)
+          ]
           payload = {
               'reviewId': review.get('id'),
               'headSha': review.get('commit_id'),
               'submittedAt': review.get('submitted_at'),
               'state': review.get('state'),
+              'status': 'failure' if (line_comments or changes_requested) else 'success',
               'lineComments': line_comments,
               'summaryFindings': summary,
+              'suppressedFindings': suppressed,
           }
           Path('/tmp/copilot-review.json').write_text(json.dumps(payload))
           PY

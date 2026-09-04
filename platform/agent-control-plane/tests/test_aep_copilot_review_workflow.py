@@ -76,5 +76,25 @@ class AepCopilotReviewWorkflowTests(unittest.TestCase):
         self.assertNotIn("not attributable to Copilot", workflow)
 
 
+    def test_clean_rule_follows_copilot_posting_threshold(self):
+        """Actionable means a generated comment or a changes headline.
+
+        Suppressed findings are recorded but never block, and the payload sets
+        status explicitly so a COMMENTED review with nothing actionable is not
+        mapped to failure by the state alone.
+        """
+        workflow = self.workflow
+
+        self.assertIn("'changes recommended' in lowered or 'changes required' in lowered", workflow)
+        self.assertIn("'actionable': changes_requested", workflow)
+        self.assertIn("f\"suppressed:{path}:{line}\", 'actionable': False", workflow)
+        self.assertIn("'suppressedFindings': suppressed", workflow)
+        self.assertIn(
+            "'status': 'failure' if (line_comments or changes_requested) else 'success'",
+            workflow,
+        )
+        self.assertNotIn("no issues found", workflow)
+
+
 if __name__ == "__main__":
     unittest.main()

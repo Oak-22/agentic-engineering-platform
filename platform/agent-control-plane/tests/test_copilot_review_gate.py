@@ -53,6 +53,36 @@ class CopilotGateTests(unittest.TestCase):
         result = MODULE.gate(review(status="pending"), head_sha="abc1234")
         self.assertEqual(result["conclusion"], "pending")
 
+    def test_commented_review_with_only_suppressed_findings_passes_when_status_is_explicit(self):
+        # The workflow emits exactly this shape for a "Needs a closer look"
+        # review with zero generated comments: state COMMENTED, explicit
+        # status, a non-actionable summary, and the suppressed items.
+        result = MODULE.gate(
+            review(
+                state="COMMENTED",
+                status="success",
+                normalizedFindings=None,
+                summaryFindings=[{"id": "summary:r-1", "actionable": False}],
+                suppressedFindings=[{"id": "suppressed:a.py:7"}, {"id": "suppressed:b.py:9"}],
+            ),
+            head_sha="abc1234",
+        )
+        self.assertEqual(result["conclusion"], "success")
+        self.assertEqual(result["review"]["actionableFindings"], 0)
+        self.assertEqual(len(result["review"]["normalizedFindings"]), 3)
+
+    def test_changes_recommended_headline_fails_even_without_generated_comments(self):
+        result = MODULE.gate(
+            review(
+                state="COMMENTED",
+                status="failure",
+                normalizedFindings=None,
+                summaryFindings=[{"id": "summary:r-1", "actionable": True}],
+            ),
+            head_sha="abc1234",
+        )
+        self.assertEqual(result["conclusion"], "failure")
+
     def test_suppressed_summary_is_retained_without_blocking(self):
         result = MODULE.gate(
             review(
