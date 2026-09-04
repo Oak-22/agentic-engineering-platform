@@ -66,14 +66,15 @@ jobs:
             exit 0
           fi
           gh api --method POST "repos/${REPOSITORY}/pulls/${PR_NUMBER}/requested_reviewers" \
-            -f 'reviewers[]=copilot-pull-request-reviewer'
+            -f 'reviewers[]=copilot-pull-request-reviewer[bot]'
 
   aep-copilot-review:
     # Human reviews do not start this job. A new push has no completed job for
     # its SHA, so the required context remains pending until Copilot submits.
     if: >-
       github.event_name == 'pull_request_review' &&
-      github.event.review.user.login == 'copilot-pull-request-reviewer'
+      (github.event.review.user.login == 'copilot-pull-request-reviewer' ||
+      github.event.review.user.login == 'copilot-pull-request-reviewer[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -103,7 +104,7 @@ jobs:
 
           reviews = json.loads(Path('/tmp/reviews.json').read_text())
           comments = json.loads(Path('/tmp/comments.json').read_text())
-          copilot = [item for item in reviews if item.get('user', {}).get('login') == 'copilot-pull-request-reviewer']
+          copilot = [item for item in reviews if item.get('user', {}).get('login') in {'copilot-pull-request-reviewer', 'copilot-pull-request-reviewer[bot]'}]
           if not copilot:
               raise SystemExit('no Copilot review event exists for this pull request')
           latest = copilot[-1]
