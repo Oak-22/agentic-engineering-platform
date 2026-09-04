@@ -207,11 +207,13 @@ reserved for a deliberate, recorded exception, not for a delivery path.
 
 ## Ordered Copilot code review
 
-Copilot review is requested by `.github/workflows/aep-copilot-review.yml` only
-after the guard workflow succeeds for the current head. The same workflow
-publishes the exact-head `aep-copilot-review` check; a new push creates a new
-pending result and invalidates earlier review evidence. The ruleset no longer
-uses automatic draft/push requests or counts Copilot as an approval.
+Copilot review is requested by
+`.github/workflows/aep-copilot-review-request.yml` only after the guard
+workflow succeeds for the current head. A separate workflow,
+`.github/workflows/aep-copilot-review.yml`, publishes the exact-head
+`aep-copilot-review` check; a new push creates a new pending result and
+invalidates earlier review evidence. The ruleset no longer uses automatic
+draft/push requests or counts Copilot as an approval.
 
 | Setting | Value |
 | --- | --- |

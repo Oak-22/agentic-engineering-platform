@@ -88,6 +88,32 @@ class ReadinessTests(unittest.TestCase):
         self.assertIn("Copilot review status is neutral", result.blockers)
         self.assertEqual(result.disputedFindings, ("finding-3",))
 
+    def test_duplicate_ids_merge_toward_the_more_severe_disposition(self):
+        # A suppressed copy arriving first must not waive a later dispute, and
+        # a dispute must not mask a later open finding.
+        cases = {
+            ("suppressed", "disputed"): "disputed",
+            ("disputed", "suppressed"): "disputed",
+            ("suppressed", "open"): "open",
+            ("open", "disputed"): "open",
+        }
+        for (first, second), expected in cases.items():
+            with self.subTest(first=first, second=second):
+                result = MODULE.normalize_copilot_review({
+                    "status": "success",
+                    "reviewId": "review-1",
+                    "headSha": "abc1234",
+                    "submittedAt": "2026-09-04T12:00:00Z",
+                    "normalizedFindings": [
+                        {"id": "f-1", "source": "line", "actionable": False, "disposition": first},
+                        {"id": "f-1", "source": "line", "actionable": False, "disposition": second},
+                    ],
+                })
+                self.assertEqual(result["normalizedFindings"][0]["disposition"], expected)
+                if expected == "disputed":
+                    self.assertEqual(result["disputedFindings"], ["f-1"])
+                    self.assertEqual(result["status"], "neutral")
+
     def test_comment_only_review_is_not_clean(self):
         review = {
             "reviewId": "review-2",

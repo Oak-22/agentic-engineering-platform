@@ -26,6 +26,10 @@ class ReadinessResult:
 
 
 COPILOT_STATUSES = frozenset({"pending", "success", "failure", "neutral"})
+# Ordered by how much attention the finding still demands. A duplicate id may
+# arrive under either disposition, and the more severe reading has to win:
+# open blocks, disputed stays visible for a human, suppressed is waived.
+DISPOSITION_SEVERITY = {"suppressed": 0, "disputed": 1, "open": 2}
 REQUIRED_CHECK_NAMES = frozenset({"control-plane-guards", "aep-copilot-review"})
 
 
@@ -134,8 +138,8 @@ def normalize_copilot_review(review: object, *, current_head: str | None = None)
         existing["actionable"] = existing["actionable"] or finding["actionable"]
         if finding["source"] == "unknown":
             existing["source"] = "unknown"
-        if finding["disposition"] == "open":
-            existing["disposition"] = "open"
+        if DISPOSITION_SEVERITY[finding["disposition"]] > DISPOSITION_SEVERITY[existing["disposition"]]:
+            existing["disposition"] = finding["disposition"]
 
     disputed_raw = review.get("disputedFindings", [])
     if not isinstance(disputed_raw, list):

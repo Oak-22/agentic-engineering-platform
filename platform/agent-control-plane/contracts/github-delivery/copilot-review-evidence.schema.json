@@ -27,7 +27,9 @@
           {"type": "integer", "minimum": 1}
         ]
       }
-    }
+    },
+    "actionableFindings": {"type": "integer", "minimum": 0},
+    "unrecognizedFindings": {"type": "integer", "minimum": 0}
   },
   "$defs": {
     "finding": {
