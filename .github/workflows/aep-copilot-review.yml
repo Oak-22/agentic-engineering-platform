@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: aep-copilot-review-${{ github.event.pull_request.number }}
