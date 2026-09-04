@@ -24,7 +24,7 @@ class AepCopilotReviewWorkflowTests(unittest.TestCase):
         self.assertIn("pulls/${PR_NUMBER}/reviews/${REVIEW_ID}", workflow)
         self.assertIn("Check out the exact-head tooling", workflow)
         self.assertIn("ref: ${{ env.HEAD_SHA }}", workflow)
-        self.assertIn("not attributable to Copilot", workflow)
+        self.assertIn("No Copilot review exists for current head", workflow)
         # Every review comment must reach the normalizer; one page is 30.
         self.assertIn(
             'gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments?per_page=100"',
@@ -56,8 +56,24 @@ class AepCopilotReviewWorkflowTests(unittest.TestCase):
         )
         # Both entry paths converge on one validation step; there is no second
         # validation chain a dispatch could take.
-        self.assertEqual(workflow.count("not attributable to Copilot"), 1)
+        self.assertEqual(workflow.count("No Copilot review exists for current head"), 1)
         self.assertEqual(workflow.count("not current head"), 1)
+
+    def test_human_review_event_evaluates_copilot_latest_exact_head_review(self):
+        """A person's review submission must not flip the required check.
+
+        Every reply on a review thread is wrapped in a review by the replier and
+        fires this workflow. The gate must then look up Copilot's latest review
+        of the exact current head rather than judging the event's author, and
+        fail only when no such review exists.
+        """
+        workflow = self.workflow
+
+        self.assertIn("not Copilot; evaluating Copilot's latest review of", workflow)
+        self.assertIn('--paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100"', workflow)
+        self.assertIn(".commit_id == $head", workflow)
+        self.assertIn("sort_by(.submitted_at) | last // empty", workflow)
+        self.assertNotIn("not attributable to Copilot", workflow)
 
 
 if __name__ == "__main__":

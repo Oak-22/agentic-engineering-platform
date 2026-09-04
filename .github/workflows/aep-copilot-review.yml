@@ -82,8 +82,21 @@ jobs:
           case "${review_login}" in
             copilot-pull-request-reviewer|'copilot-pull-request-reviewer[bot]') ;;
             *)
-              echo "Review ${REVIEW_ID} is not attributable to Copilot (provider=${review_login:-unknown})." >&2
-              exit 1
+              # A person discussing the pull request is not evidence against it.
+              # Any reply on a review thread arrives wrapped in a review by the
+              # replier, so the evidence stays Copilot's latest review of this
+              # exact head. Its absence, not the event's author, fails the gate.
+              echo "Review ${REVIEW_ID} is by ${review_login:-unknown}, not Copilot; evaluating Copilot's latest review of ${HEAD_SHA}."
+              gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" --jq '.[]' \
+                | jq -s --arg head "${HEAD_SHA}" '[.[] | select((.user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]") and .commit_id == $head)] | sort_by(.submitted_at) | last // empty' \
+                > /tmp/copilot-event-review.json
+              REVIEW_ID="$(jq -r '.id // empty' /tmp/copilot-event-review.json 2>/dev/null || true)"
+              if [ -z "${REVIEW_ID}" ]; then
+                echo "No Copilot review exists for current head ${HEAD_SHA}; nothing to evaluate." >&2
+                exit 1
+              fi
+              echo "REVIEW_ID=${REVIEW_ID}" >> "$GITHUB_ENV"
+              review_commit="$(jq -r '.commit_id // empty' /tmp/copilot-event-review.json)"
               ;;
           esac
           if [ "${review_commit}" != "${HEAD_SHA}" ]; then
