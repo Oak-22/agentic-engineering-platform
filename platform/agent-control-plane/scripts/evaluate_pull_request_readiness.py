@@ -150,6 +150,9 @@ def normalize_copilot_review(review: object, *, current_head: str | None = None)
             )
         else:
             raise ReadinessError(f"copilotReview.disputedFindings[{index}] is not identifiable")
+    # A finding the producer marked disputed is a dispute whether or not it
+    # was also listed, so the two representations cannot disagree.
+    disputed.extend(item["id"] for item in normalized if item["disposition"] == "disputed")
     disputed = list(dict.fromkeys(disputed))
 
     status = review.get("status")
@@ -176,6 +179,11 @@ def normalize_copilot_review(review: object, *, current_head: str | None = None)
             "disposition": "open",
         })
         status = "failure"
+
+    # A dispute is never clean. It keeps the result visible for a human
+    # decision, so a review that would otherwise pass reports neutral.
+    if disputed and status == "success":
+        status = "neutral"
 
     if current_head is not None and head != current_head:
         status = "failure"

@@ -80,6 +80,14 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(result.ready)
         self.assertIn("finding-2", result.disputedFindings)
 
+    def test_declared_success_with_disputed_findings_is_neutral_not_ready(self):
+        snapshot = ready_snapshot()
+        snapshot["copilotReview"]["disputedFindings"] = ["finding-3"]
+        result = MODULE.evaluate(snapshot)
+        self.assertFalse(result.ready)
+        self.assertIn("Copilot review status is neutral", result.blockers)
+        self.assertEqual(result.disputedFindings, ("finding-3",))
+
     def test_comment_only_review_is_not_clean(self):
         review = {
             "reviewId": "review-2",

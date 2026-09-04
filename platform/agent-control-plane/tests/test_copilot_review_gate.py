@@ -49,6 +49,29 @@ class CopilotGateTests(unittest.TestCase):
         )
         self.assertEqual(result["conclusion"], "neutral")
 
+    def test_disputed_findings_never_pass_as_success(self):
+        # A payload cannot declare success while listing disputes; the dispute
+        # keeps the result visible for a human decision.
+        result = MODULE.gate(
+            review(status="success", disputedFindings=["f-1"]), head_sha="abc1234"
+        )
+        self.assertEqual(result["conclusion"], "neutral")
+        self.assertEqual(result["review"]["status"], "neutral")
+
+    def test_finding_with_disputed_disposition_is_listed_and_neutral(self):
+        result = MODULE.gate(
+            review(
+                status="success",
+                normalizedFindings=[
+                    {"id": "f-2", "source": "line", "actionable": True, "disposition": "disputed"}
+                ],
+            ),
+            head_sha="abc1234",
+        )
+        self.assertEqual(result["conclusion"], "neutral")
+        self.assertEqual(result["review"]["disputedFindings"], ["f-2"])
+        self.assertEqual(result["review"]["actionableFindings"], 0)
+
     def test_pending_review_stays_pending(self):
         result = MODULE.gate(review(status="pending"), head_sha="abc1234")
         self.assertEqual(result["conclusion"], "pending")
