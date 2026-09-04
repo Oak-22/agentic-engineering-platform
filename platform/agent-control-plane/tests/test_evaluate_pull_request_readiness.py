@@ -104,14 +104,22 @@ class ReadinessTests(unittest.TestCase):
         with self.assertRaisesRegex(MODULE.ReadinessError, "unknown format"):
             MODULE.evaluate(snapshot)
 
-    def test_duplicate_findings_are_deduplicated(self):
+    def test_duplicate_findings_merge_toward_the_severe_reading(self):
         review = ready_snapshot()["copilotReview"]
         review["normalizedFindings"] = [
-            {"id": "finding-1", "source": "line", "actionable": False},
+            {"id": "finding-1", "source": "line", "actionable": False, "disposition": "suppressed"},
             {"id": "finding-1", "source": "summary", "actionable": True},
+            {"id": "finding-2", "source": "line", "actionable": False},
+            {"id": "finding-2", "source": "unknown", "actionable": False},
         ]
         normalized = MODULE.normalize_copilot_review(review)
-        self.assertEqual([item["id"] for item in normalized["normalizedFindings"]], ["finding-1"])
+        findings = {item["id"]: item for item in normalized["normalizedFindings"]}
+        self.assertEqual(list(findings), ["finding-1", "finding-2"])
+        self.assertTrue(findings["finding-1"]["actionable"])
+        self.assertEqual(findings["finding-1"]["disposition"], "open")
+        self.assertEqual(findings["finding-2"]["source"], "unknown")
+        self.assertEqual(normalized["actionableFindings"], 1)
+        self.assertEqual(normalized["unrecognizedFindings"], 1)
 
     def test_unknown_thread_state_is_rejected(self):
         snapshot = ready_snapshot()

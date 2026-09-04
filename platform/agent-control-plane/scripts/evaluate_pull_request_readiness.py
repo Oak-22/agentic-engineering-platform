@@ -117,14 +117,23 @@ def normalize_copilot_review(review: object, *, current_head: str | None = None)
     if not isinstance(raw_findings, list):
         raise ReadinessError("copilotReview.normalizedFindings must be an array")
 
+    # One id may arrive more than once. Keeping the first would let a benign
+    # copy hide a later actionable or unrecognized one, so duplicates merge
+    # toward the more severe reading; position follows the first occurrence.
     normalized: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    by_id: dict[str, dict[str, Any]] = {}
     for index, entry in enumerate(raw_findings):
         finding = _finding(entry, index, source="copilotReview.normalizedFindings")
-        if finding["id"] in seen:
+        existing = by_id.get(finding["id"])
+        if existing is None:
+            by_id[finding["id"]] = finding
+            normalized.append(finding)
             continue
-        seen.add(finding["id"])
-        normalized.append(finding)
+        existing["actionable"] = existing["actionable"] or finding["actionable"]
+        if finding["source"] == "unknown":
+            existing["source"] = "unknown"
+        if finding["disposition"] == "open":
+            existing["disposition"] = "open"
 
     disputed_raw = review.get("disputedFindings", [])
     if not isinstance(disputed_raw, list):
