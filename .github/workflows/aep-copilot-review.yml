@@ -1,12 +1,10 @@
 name: AEP Copilot Review Gate
 
 # Copilot is requested only after the guard workflow has completed successfully.
-# A push creates a new pending check; a review event normalizes evidence for the
-# exact head SHA and completes that same check. The workflow never approves,
-# resolves threads, promotes a draft, merges, or bypasses a ruleset.
+# The required check is the native `aep-copilot-review` Actions job on a
+# completed Copilot review. Before that job exists for a new SHA, GitHub shows
+# the required context as pending; no API-created check run is needed.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   pull_request_review:
     types: [submitted]
   workflow_run:
@@ -16,91 +14,54 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  checks: write
 
 concurrency:
   group: aep-copilot-review-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  aep-copilot-review:
+  request-copilot:
     # workflow_run is privileged but never checks out or executes pull-request
-    # code. It only reads provider data and writes a check/request.
-    if: >-
-      (github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success')
-      && (github.event_name != 'pull_request_review' ||
-      github.event.review.user.login == 'copilot-pull-request-reviewer')
+    # code. It only reads provider data and requests a reviewer.
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out the default-branch tooling
-        if: github.event_name == 'pull_request_review'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Set up Python for the normalizer
-        if: github.event_name == 'pull_request_review'
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version-file: platform/agent-control-plane/pyproject.toml
-
-      - name: Mark the current head pending
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          CHECK_ID="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '.check_runs[] | select(.name == "aep-copilot-review") | .id' | head -n 1)"
-          if [ -n "${CHECK_ID}" ]; then
-            gh api --method PATCH "repos/${REPOSITORY}/check-runs/${CHECK_ID}" \
-              -f status='in_progress' \
-              -f 'output[title]=Waiting for exact-head Copilot review' \
-              -f 'output[summary]=Guard checks must pass before a review is requested.'
-          else
-            gh api --method POST "repos/${REPOSITORY}/check-runs" \
-              -f name='aep-copilot-review' \
-              -f head_sha="${HEAD_SHA}" \
-              -f status='in_progress' \
-              -f 'output[title]=Waiting for exact-head Copilot review' \
-              -f 'output[summary]=Guard checks must pass before a review is requested.'
-          fi
-
-      - name: Request Copilot after guards pass
-        if: github.event_name == 'workflow_run'
+      - name: Request Copilot for the guarded head
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           PR_NUMBER="$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.pull_requests[0].number // empty')"
-          HEAD_SHA="$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}" --jq '.head_sha')"
           if [ -z "${PR_NUMBER}" ]; then
             echo "Guard run is not attached to a pull request; no review requested."
             exit 0
           fi
           gh api --method POST "repos/${REPOSITORY}/pulls/${PR_NUMBER}/requested_reviewers" \
             -f 'reviewers[]=copilot-pull-request-reviewer'
-          CHECK_ID="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '.check_runs[] | select(.name == "aep-copilot-review") | .id' | head -n 1)"
-          if [ -n "${CHECK_ID}" ]; then
-            gh api --method PATCH "repos/${REPOSITORY}/check-runs/${CHECK_ID}" \
-              -f status='in_progress' \
-              -f 'output[title]=Copilot review requested for the guarded head' \
-              -f 'output[summary]=Waiting for the provider review event.'
-          else
-            gh api --method POST "repos/${REPOSITORY}/check-runs" \
-              -f name='aep-copilot-review' \
-              -f head_sha="${HEAD_SHA}" \
-              -f status='in_progress' \
-              -f 'output[title]=Copilot review requested for the guarded head' \
-              -f 'output[summary]=Waiting for the provider review event.'
-          fi
 
-      - name: Normalize the completed Copilot review
-        if: github.event_name == 'pull_request_review'
+  aep-copilot-review:
+    # Human reviews do not start this job. A new push has no completed job for
+    # its SHA, so the required context remains pending until Copilot submits.
+    if: >-
+      github.event_name == 'pull_request_review' &&
+      github.event.review.user.login == 'copilot-pull-request-reviewer'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the default-branch tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set up Python for the normalizer
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: platform/agent-control-plane/pyproject.toml
+
+      - name: Fetch and normalize the exact-head review
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -124,8 +85,8 @@ jobs:
               for item in comments
               if item.get('pull_request_review_id') == latest.get('id')
           ]
-          summary = []
           body = (latest.get('body') or '').lower()
+          summary = []
           if body and 'no issues found' not in body and '[aep-clean]' not in body:
               summary.append({'id': f"summary:{latest['id']}", 'source': 'summary', 'actionable': True})
           payload = {
@@ -139,24 +100,37 @@ jobs:
           Path('/tmp/copilot-review.json').write_text(json.dumps(payload))
           PY
           set +e
-          RESULT="$(python platform/agent-control-plane/scripts/copilot_review_gate.py --head-sha "${HEAD_SHA}" /tmp/copilot-review.json 2>/tmp/copilot-error)"
+          python platform/agent-control-plane/scripts/copilot_review_gate.py \
+            --head-sha "${HEAD_SHA}" /tmp/copilot-review.json > /tmp/copilot-result.json
           CODE=$?
           set -e
           if [ "${CODE}" -eq 2 ]; then
-            cat /tmp/copilot-error >&2
+            echo "Copilot review could not be normalized safely." >&2
             exit 1
           fi
-          CONCLUSION="$(printf '%s' "${RESULT}" | python -c 'import json,sys; print(json.load(sys.stdin)["conclusion"])')"
-          REVIEW_ID="$(printf '%s' "${RESULT}" | python -c 'import json,sys; print(json.load(sys.stdin)["review"]["reviewId"])')"
-          SUMMARY="Exact-head Copilot review ${REVIEW_ID}: ${CONCLUSION}."
-          CHECK_ID="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '.check_runs[] | select(.name == "aep-copilot-review") | .id' | head -n 1)"
-          if [ -z "${CHECK_ID}" ]; then
-            echo "No pending aep-copilot-review check exists for ${HEAD_SHA}" >&2
-            exit 1
-          fi
-          gh api --method PATCH "repos/${REPOSITORY}/check-runs/${CHECK_ID}" \
-            -f status='completed' \
-            -f conclusion="${CONCLUSION}" \
-            -f "output[title]=AEP Copilot review gate" \
-            -f "output[summary]=${SUMMARY}"
-          test "${CODE}" -eq 0
+
+      - name: Publish the normalized result in the job summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          result = json.load(open('/tmp/copilot-result.json'))
+          review = result['review']
+          print('## AEP Copilot review gate')
+          print()
+          print(f"Conclusion: **{result['conclusion']}**")
+          print(f"Review ID: `{review['reviewId']}`")
+          print(f"Head SHA: `{review['headSha']}`")
+          print(f"Actionable findings: {review['actionableFindings']}")
+          print(f"Unrecognized findings: {review['unrecognizedFindings']}")
+          print(f"Disputed findings: {len(review['disputedFindings'])}")
+          PY
+
+      - name: Enforce the normalized conclusion
+        run: |
+          CONCLUSION="$(python -c 'import json; print(json.load(open("/tmp/copilot-result.json"))["conclusion"])')"
+          case "${CONCLUSION}" in
+            success) exit 0 ;;
+            neutral) exit 78 ;;
+            pending|failure) exit 1 ;;
+            *) echo "unknown conclusion: ${CONCLUSION}" >&2; exit 1 ;;
+          esac
