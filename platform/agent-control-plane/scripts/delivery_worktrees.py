@@ -411,15 +411,20 @@ def branch_exists(root: Path, branch: str) -> bool:
     preflight = _sibling("governed_task_preflight")
     if preflight.local_branch_exists(root, branch):
         return True
-    published = _git(
-        root,
-        "ls-remote",
-        "--exit-code",
-        "--heads",
-        "origin",
-        f"refs/heads/{branch}",
-        check=False,
-    )
+    try:
+        published = _git(
+            root,
+            "ls-remote",
+            "--exit-code",
+            "--heads",
+            "origin",
+            f"refs/heads/{branch}",
+            check=False,
+        )
+    except OSError as error:
+        raise WorktreeError(
+            f"could not inspect origin for {branch}: {error}"
+        ) from error
     if published.returncode not in (0, 2):
         raise WorktreeError(
             f"could not inspect origin for {branch}: "

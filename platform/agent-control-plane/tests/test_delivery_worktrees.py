@@ -601,6 +601,19 @@ class ProvisioningBoundaryTests(unittest.TestCase):
 
         self.assertIn("network failed", str(raised.exception))
 
+    def test_remote_process_start_failure_is_a_controlled_error(self):
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = False
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_git", side_effect=OSError("git missing")),
+        ):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.branch_exists(Path("/repo"), self.branch)
+
+        self.assertIn("git missing", str(raised.exception))
+
     def test_provision_refuses_to_take_over_an_existing_branch(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
