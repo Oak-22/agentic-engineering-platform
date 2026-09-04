@@ -218,8 +218,9 @@ Let Git or VS Code create the linked worktree, then claim it for one concurrent
 Jira delivery so two agents cannot own the same branch or directory:
 
 ```bash
-# First create a clean worktree from current main with Git or VS Code.
-git worktree add -b feature/PROJ-12-thing ../aep-PROJ-12 main
+# First create a clean worktree from the verified remote baseline with Git or VS Code.
+git fetch origin main
+git worktree add -b feature/PROJ-12-thing ../aep-PROJ-12 origin/main
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
   claim feature/PROJ-12-thing --path ../aep-PROJ-12 --agent agent-a
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
