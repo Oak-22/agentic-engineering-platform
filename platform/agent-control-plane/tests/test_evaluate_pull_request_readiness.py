@@ -78,7 +78,7 @@ class ReadinessTests(unittest.TestCase):
         snapshot["copilotReview"]["disputedFindings"] = ["finding-2"]
         result = MODULE.evaluate(snapshot)
         self.assertFalse(result.ready)
-        self.assertIn("finding-2", result.disputedThreads)
+        self.assertIn("finding-2", result.disputedFindings)
 
     def test_comment_only_review_is_not_clean(self):
         review = {

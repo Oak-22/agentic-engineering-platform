@@ -22,6 +22,7 @@ class ReadinessResult:
     headSha: str
     blockers: tuple[str, ...]
     disputedThreads: tuple[str, ...]
+    disputedFindings: tuple[str, ...]
 
 
 COPILOT_STATUSES = frozenset({"pending", "success", "failure", "neutral"})
@@ -40,6 +41,15 @@ def _review_id(value: object) -> str:
     rendered = str(value)
     if not rendered:
         raise ReadinessError("copilotReview.reviewId must be non-empty")
+    return rendered
+
+
+def _identifier(value: object, field: str) -> str:
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        raise ReadinessError(f"{field} must be a string or integer")
+    rendered = str(value)
+    if not rendered:
+        raise ReadinessError(f"{field} must be non-empty")
     return rendered
 
 
@@ -120,7 +130,9 @@ def normalize_copilot_review(review: object, *, current_head: str | None = None)
         if isinstance(entry, (str, int)) and not isinstance(entry, bool):
             disputed.append(str(entry))
         elif isinstance(entry, dict):
-            disputed.append(_review_id(entry.get("id")))
+            disputed.append(
+                _identifier(entry.get("id"), f"copilotReview.disputedFindings[{index}].id")
+            )
         else:
             raise ReadinessError(f"copilotReview.disputedFindings[{index}] is not identifiable")
     disputed = list(dict.fromkeys(disputed))
@@ -234,7 +246,8 @@ def evaluate(snapshot: object) -> ReadinessResult:
         ready=not blockers,
         headSha=head,
         blockers=tuple(blockers),
-        disputedThreads=tuple(disputed + copilot["disputedFindings"]),
+        disputedThreads=tuple(disputed),
+        disputedFindings=tuple(copilot["disputedFindings"]),
     )
 
 
@@ -267,7 +280,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 "headSha": result.headSha,
                 "blockers": list(result.blockers),
                 "disputedThreads": list(result.disputedThreads),
-                "disputedFindings": list(result.disputedThreads),
+                "disputedFindings": list(result.disputedFindings),
             },
             indent=2,
         )

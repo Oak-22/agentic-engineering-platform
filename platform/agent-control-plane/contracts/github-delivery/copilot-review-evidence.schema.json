@@ -7,7 +7,12 @@
   "required": ["status", "reviewId", "headSha", "submittedAt", "normalizedFindings", "disputedFindings"],
   "properties": {
     "status": {"enum": ["pending", "success", "failure", "neutral"]},
-    "reviewId": {"type": ["string", "integer"], "minimum": 1},
+    "reviewId": {
+      "anyOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "integer", "minimum": 1}
+      ]
+    },
     "headSha": {"type": "string", "minLength": 7},
     "submittedAt": {"type": "string", "minLength": 1},
     "normalizedFindings": {
@@ -16,7 +21,12 @@
     },
     "disputedFindings": {
       "type": "array",
-      "items": {"type": ["string", "integer"], "minimum": 1}
+      "items": {
+        "anyOf": [
+          {"type": "string", "minLength": 1},
+          {"type": "integer", "minimum": 1}
+        ]
+      }
     }
   },
   "$defs": {

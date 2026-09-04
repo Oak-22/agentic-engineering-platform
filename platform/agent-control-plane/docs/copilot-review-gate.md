@@ -35,5 +35,6 @@ python platform/agent-control-plane/scripts/copilot_review_gate.py \
 
 `evaluate_pull_request_readiness.py` consumes the normalized evidence only when
 the review ID, head SHA, submission timestamp, status, findings, and disputes
-are present. Jira alignment remains in that broader readiness declaration;
+are present. Thread disputes are emitted as `disputedThreads` and Copilot
+finding disputes as `disputedFindings`. Jira alignment remains in that broader readiness declaration;
 GitHub Actions never receives Atlassian credentials.
