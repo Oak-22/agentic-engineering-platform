@@ -189,9 +189,9 @@ requirement.
 | Ruleset | `Protect main` (repository → Settings → Rules → Rulesets) |
 | Target | Branch `~DEFAULT_BRANCH` |
 | Enforcement | Active |
-| Required status check context | `control-plane-guards` |
+| Required status check contexts | `control-plane-guards`, `aep-copilot-review` |
 | Strict policy | Branch must be up to date with `main` before merging |
-| Pull request | Required, with one approving review |
+| Pull request | Required, zero required approvals, thread resolution advisory |
 
 The required status check context is the **job ID**, `control-plane-guards`,
 because the job declares no separate `name:`. Renaming that job ID silently
@@ -205,15 +205,21 @@ runs once on a real pull request before the rule can select it.
 A failing required check is not an ordinary thing to route around. Bypass is
 reserved for a deliberate, recorded exception, not for a delivery path.
 
-## Copilot code review
+## Ordered Copilot code review
 
-Copilot code review is configured on the same ruleset:
+Copilot review is requested by
+`.github/workflows/aep-copilot-review-request.yml` only after the guard
+workflow succeeds for the current head. A separate workflow,
+`.github/workflows/aep-copilot-review.yml`, publishes the exact-head
+`aep-copilot-review` check; a new push creates a new pending result and
+invalidates earlier review evidence. The ruleset no longer uses automatic
+draft/push requests or counts Copilot as an approval.
 
 | Setting | Value |
 | --- | --- |
-| Rule | Automatically request Copilot code review |
-| Review draft pull requests | Enabled |
-| Review new pushes | Enabled |
+| Rule | Explicit post-guard request |
+| Review draft pull requests | Disabled in ruleset; the workflow can review a draft when requested |
+| Review new pushes | New SHA creates pending, then requests exactly once after guards |
 
 Reviewing drafts surfaces feedback before a human is asked to look. Reviewing
 new pushes keeps the review attached to the current commit rather than only the
@@ -246,34 +252,25 @@ resolving the fixed thread. A disputed finding receives an evidence-backed
 reply and remains unresolved for human judgment. A Copilot comment alone is
 not evidence that a change is correct.
 
-### How an unresolved Copilot comment still stops a merge
+### Thread resolution remains advisory
 
-The `pull_request` rule sets `required_review_thread_resolution: true`, so every
-review thread must be resolved before the merge button unlocks. A Copilot
-comment opens a thread like any other.
-
-The two statements above are both true and easy to trip over together: Copilot's
-*review* cannot block a merge, but an *unresolved thread* it opened can — the
-block comes from the thread-resolution rule, not from Copilot's authority. The
-author or reviewer clears it by acting on the comment or by resolving it with a
-reason. A governed coordinator may resolve the thread only after its fix is
-published. Disputed findings remain for the human. That preserves the intended
-shape: Copilot raises something, the response is evidenced, and acceptance
-remains human.
-
-Do not resolve a thread merely to unlock the merge. That converts a review
-signal into a formality.
+The ruleset sets `required_review_thread_resolution: false`. A Copilot comment
+therefore does not mechanically lock the merge button. Actionable findings
+still fail `aep-copilot-review`; disputed findings produce a visible `neutral`
+result and remain unresolved for the accountable human. Neither the workflow
+nor Copilot approves, resolves, merges, closes, or bypasses the PR.
 
 ### Availability
 
 Automatic review needs a Copilot plan that includes code review on the account
 or organization that owns the repository — the individual Pro, Pro+, and Max
 plans, and the Business and Enterprise plans. It is active on this repository:
-reviews arrive when a pull request is marked ready and again on each new push.
+reviews arrive after the guard workflow requests them for the current SHA.
 
 Note that an already-reviewed pull request shows an empty `requested_reviewers`
 list, because Copilot leaves the request list once it submits. An empty list
-means "already reviewed", not "unavailable" — check the reviews themselves.
+means "already reviewed", not "unavailable" — check the exact-head reviews and
+the `aep-copilot-review` check itself.
 
 If a plan lapses, the rule stays stored and simply stops producing reviews; the
 fallback is an ordinary human reviewer requested from the Reviewers menu. The

@@ -7,6 +7,8 @@ metadata.
 
 - `github-delivery-operation.schema.json` describes an operation request.
 - `github-delivery-result.schema.json` describes the traceable result.
+- `copilot-review-evidence.schema.json` describes the normalized exact-head
+  Copilot result consumed by readiness evaluation.
 - `github-delivery-mapping.schema.json` describes the selected MCP provider,
   the ordered `fallbackOrder` a caller tries when a surface is unavailable,
   the `gh` fallback tool where one exists, and the operation's

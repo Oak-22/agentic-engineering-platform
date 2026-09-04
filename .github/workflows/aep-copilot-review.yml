@@ -1,0 +1,227 @@
+name: AEP Copilot Review Gate
+
+# The required check is triggered by the pull request, not by the review event.
+#
+# Two GitHub behaviours make an event-driven gate unable to ever pass. A Copilot
+# review that generates no comments does not create a `pull_request_review` run,
+# and a check run produced by any trigger that is not the pull request itself
+# never enters the pull request's status rollup, so the branch rule cannot see
+# it. Together those mean the review event only arrives when Copilot has
+# findings, which is exactly when the gate fails.
+#
+# So the job starts with the pull request and waits for the ordered evidence
+# instead: `control-plane-guards` on this head, then Copilot's review of this
+# head. Waiting is what makes the result deterministic; every head gets exactly
+# one gate run whose verdict the branch rule can read.
+#
+# The manual dispatch is a diagnostic, not a bypass. It runs the same
+# evaluation, but its check run does not enter the rollup and therefore cannot
+# satisfy the required check.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request whose current head is evaluated"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: aep-copilot-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  # A superseded head's evidence can never satisfy the new head, so stop waiting
+  # for it rather than holding a runner until the timeout.
+  cancel-in-progress: true
+
+jobs:
+  aep-copilot-review:
+    runs-on: ubuntu-latest
+    # Covers the two waits below plus checkout and normalization.
+    timeout-minutes: 30
+    steps:
+      - name: Resolve the pull request under evaluation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          PR_NUMBER="${EVENT_PR_NUMBER:-${INPUT_PR_NUMBER}}"
+          if [ -z "${PR_NUMBER}" ]; then
+            echo "A pull request number is required." >&2
+            exit 1
+          fi
+          HEAD_SHA="${EVENT_HEAD_SHA}"
+          if [ -z "${HEAD_SHA}" ]; then
+            # Manual diagnosis: the head comes from the live pull request, and
+            # the dispatched ref must already be at that head so the run
+            # evaluates the commit it was pointed at.
+            HEAD_SHA="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+            if [ "${RUN_SHA}" != "${HEAD_SHA}" ]; then
+              echo "Dispatched ref is at ${RUN_SHA}, not pull request head ${HEAD_SHA}; dispatch from the current head." >&2
+              exit 1
+            fi
+          fi
+          {
+            echo "PR_NUMBER=${PR_NUMBER}"
+            echo "HEAD_SHA=${HEAD_SHA}"
+          } >> "$GITHUB_ENV"
+
+      - name: Wait for the control-plane guards on this head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # Copilot is only requested once the guards pass, so a guard failure
+          # means no review will ever arrive. Say that immediately rather than
+          # waiting out the review window for evidence that cannot appear.
+          GUARD=""
+          for _ in $(seq 1 30); do
+            GUARD="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+              --jq '[.check_runs[] | select(.name == "control-plane-guards")] | sort_by(.completed_at // "") | last | .conclusion // empty')"
+            case "${GUARD}" in
+              success) break ;;
+              "") ;;
+              *)
+                echo "control-plane-guards concluded ${GUARD} for ${HEAD_SHA}; the gate has nothing to evaluate." >&2
+                exit 1
+                ;;
+            esac
+            sleep 20
+          done
+          if [ "${GUARD}" != "success" ]; then
+            echo "control-plane-guards did not complete for ${HEAD_SHA} within the wait window." >&2
+            exit 1
+          fi
+
+      - name: Wait for Copilot's review of this head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # Paginate: a single page is 30 reviews, and the gate must select
+          # Copilot's latest review of this exact head, not merely a recent one.
+          REVIEW_ID=""
+          for _ in $(seq 1 45); do
+            gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" --jq '.[]' \
+              | jq -s --arg head "${HEAD_SHA}" '[.[] | select((.user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]") and .commit_id == $head)] | sort_by(.submitted_at) | last // empty' \
+              > /tmp/copilot-event-review.json
+            REVIEW_ID="$(jq -r '.id // empty' /tmp/copilot-event-review.json)"
+            if [ -n "${REVIEW_ID}" ]; then
+              break
+            fi
+            sleep 20
+          done
+          if [ -z "${REVIEW_ID}" ]; then
+            echo "No Copilot review exists for current head ${HEAD_SHA}; nothing to evaluate." >&2
+            exit 1
+          fi
+          echo "REVIEW_ID=${REVIEW_ID}" >> "$GITHUB_ENV"
+
+      - name: Check out the exact-head tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          persist-credentials: false
+
+      - name: Set up Python for the normalizer
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: platform/agent-control-plane/pyproject.toml
+
+      - name: Fetch and normalize the exact-head review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # Paginate: a single page is 30 comments, and a review comment the gate
+          # never sees is a finding it silently waives.
+          gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments?per_page=100" --jq '.[]' \
+            | jq -s '.' > /tmp/comments.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          import re
+
+          review = json.loads(Path('/tmp/copilot-event-review.json').read_text())
+          comments = json.loads(Path('/tmp/comments.json').read_text())
+          line_comments = [
+              {'id': str(item['id']), 'source': 'line', 'actionable': True}
+              for item in comments
+              if item.get('pull_request_review_id') == review.get('id')
+          ]
+          body = review.get('body') or ''
+          lowered = body.lower()
+          # Copilot's own posting threshold is the gate's threshold. A review is
+          # actionable when Copilot generated a line comment or headlined it as
+          # changes recommended/required. Findings it chose to suppress are
+          # recorded so they stay visible, but they do not block: a suppressed
+          # item in unchanged code would otherwise resurface on every push and
+          # the gate could never converge.
+          changes_requested = 'changes recommended' in lowered or 'changes required' in lowered
+          summary = [{
+              'id': f"summary:{review['id']}",
+              'source': 'summary',
+              'actionable': changes_requested,
+          }]
+          suppressed = [
+              {'id': f"suppressed:{path}:{line}", 'actionable': False}
+              for path, line in re.findall(r'^\*\*(\S+?):(\d+)\*\*$', body, flags=re.M)
+          ]
+          payload = {
+              'reviewId': review.get('id'),
+              'headSha': review.get('commit_id'),
+              'submittedAt': review.get('submitted_at'),
+              'state': review.get('state'),
+              'status': 'failure' if (line_comments or changes_requested) else 'success',
+              'lineComments': line_comments,
+              'summaryFindings': summary,
+              'suppressedFindings': suppressed,
+          }
+          Path('/tmp/copilot-review.json').write_text(json.dumps(payload))
+          PY
+          # The normalizer re-checks the head, so the selection above needs no
+          # second comparison here.
+          set +e
+          python platform/agent-control-plane/scripts/copilot_review_gate.py \
+            --head-sha "${HEAD_SHA}" /tmp/copilot-review.json > /tmp/copilot-result.json
+          CODE=$?
+          set -e
+          if [ "${CODE}" -eq 2 ]; then
+            echo "Copilot review could not be normalized safely." >&2
+            exit 1
+          fi
+
+      - name: Publish the normalized result in the job summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          result = json.load(open('/tmp/copilot-result.json'))
+          review = result['review']
+          print('## AEP Copilot review gate')
+          print()
+          print(f"Conclusion: **{result['conclusion']}**")
+          print(f"Review ID: `{review['reviewId']}`")
+          print(f"Head SHA: `{review['headSha']}`")
+          print(f"Actionable findings: {review['actionableFindings']}")
+          print(f"Unrecognized findings: {review['unrecognizedFindings']}")
+          print(f"Disputed findings: {len(review['disputedFindings'])}")
+          PY
+
+      - name: Enforce the normalized conclusion
+        run: |
+          CONCLUSION="$(python -c 'import json; print(json.load(open("/tmp/copilot-result.json"))["conclusion"])')"
+          case "${CONCLUSION}" in
+            success) exit 0 ;;
+            neutral) exit 78 ;;
+            pending|failure) exit 1 ;;
+            *) echo "unknown conclusion: ${CONCLUSION}" >&2; exit 1 ;;
+          esac

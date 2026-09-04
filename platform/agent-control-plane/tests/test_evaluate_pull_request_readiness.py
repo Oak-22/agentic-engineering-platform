@@ -20,11 +20,21 @@ SPEC.loader.exec_module(MODULE)
 
 def ready_snapshot() -> dict:
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "headSha": "abc1234",
         "currentWithBase": True,
-        "requiredChecks": [{"name": "control-plane-guards", "status": "success"}],
-        "copilotReview": {"headSha": "abc1234", "actionableFindings": 0},
+        "requiredChecks": [
+            {"name": "control-plane-guards", "status": "success"},
+            {"name": "aep-copilot-review", "status": "success"},
+        ],
+        "copilotReview": {
+            "status": "success",
+            "reviewId": "review-1",
+            "headSha": "abc1234",
+            "submittedAt": "2026-09-04T12:00:00Z",
+            "normalizedFindings": [],
+            "disputedFindings": [],
+        },
         "reviewThreads": [],
         "evidenceAligned": True,
     }
@@ -41,7 +51,9 @@ class ReadinessTests(unittest.TestCase):
             "stale": lambda item: item.update(currentWithBase=False),
             "check": lambda item: item["requiredChecks"][0].update(status="pending"),
             "copilot-head": lambda item: item["copilotReview"].update(headSha="old1234"),
-            "copilot-finding": lambda item: item["copilotReview"].update(actionableFindings=1),
+            "copilot-finding": lambda item: item["copilotReview"].update(
+                normalizedFindings=[{"id": "finding-1", "source": "line", "actionable": True}]
+            ),
             "thread": lambda item: item["reviewThreads"].append(
                 {"id": "thread-1", "state": "actionable"}
             ),
@@ -59,6 +71,109 @@ class ReadinessTests(unittest.TestCase):
         result = MODULE.evaluate(snapshot)
         self.assertTrue(result.ready)
         self.assertEqual(result.disputedThreads, ("thread-2",))
+
+    def test_disputed_copilot_finding_is_exposed_but_not_clean(self):
+        snapshot = ready_snapshot()
+        snapshot["copilotReview"]["status"] = "neutral"
+        snapshot["copilotReview"]["disputedFindings"] = ["finding-2"]
+        result = MODULE.evaluate(snapshot)
+        self.assertFalse(result.ready)
+        self.assertIn("finding-2", result.disputedFindings)
+
+    def test_declared_success_with_disputed_findings_is_neutral_not_ready(self):
+        snapshot = ready_snapshot()
+        snapshot["copilotReview"]["disputedFindings"] = ["finding-3"]
+        result = MODULE.evaluate(snapshot)
+        self.assertFalse(result.ready)
+        self.assertIn("Copilot review status is neutral", result.blockers)
+        self.assertEqual(result.disputedFindings, ("finding-3",))
+
+    def test_duplicate_ids_merge_toward_the_more_severe_disposition(self):
+        # A suppressed copy arriving first must not waive a later dispute, and
+        # a dispute must not mask a later open finding.
+        cases = {
+            ("suppressed", "disputed"): "disputed",
+            ("disputed", "suppressed"): "disputed",
+            ("suppressed", "open"): "open",
+            ("open", "disputed"): "open",
+        }
+        for (first, second), expected in cases.items():
+            with self.subTest(first=first, second=second):
+                result = MODULE.normalize_copilot_review({
+                    "status": "success",
+                    "reviewId": "review-1",
+                    "headSha": "abc1234",
+                    "submittedAt": "2026-09-04T12:00:00Z",
+                    "normalizedFindings": [
+                        {"id": "f-1", "source": "line", "actionable": False, "disposition": first},
+                        {"id": "f-1", "source": "line", "actionable": False, "disposition": second},
+                    ],
+                })
+                self.assertEqual(result["normalizedFindings"][0]["disposition"], expected)
+                if expected == "disputed":
+                    self.assertEqual(result["disputedFindings"], ["f-1"])
+                    self.assertEqual(result["status"], "neutral")
+
+    def test_comment_only_review_is_not_clean(self):
+        review = {
+            "reviewId": "review-2",
+            "headSha": "abc1234",
+            "submittedAt": "2026-09-04T12:00:00Z",
+            "state": "COMMENTED",
+            "lineComments": [],
+        }
+        normalized = MODULE.normalize_copilot_review(review, current_head="abc1234")
+        self.assertEqual(normalized["status"], "failure")
+        self.assertEqual(normalized["actionableFindings"], 1)
+
+    def test_missing_review_metadata_is_rejected(self):
+        snapshot = ready_snapshot()
+        del snapshot["copilotReview"]["reviewId"]
+        with self.assertRaisesRegex(MODULE.ReadinessError, "reviewId"):
+            MODULE.evaluate(snapshot)
+
+    def test_unknown_review_status_is_rejected(self):
+        snapshot = ready_snapshot()
+        snapshot["copilotReview"]["status"] = "commented"
+        with self.assertRaisesRegex(MODULE.ReadinessError, "unknown format"):
+            MODULE.evaluate(snapshot)
+
+    def test_duplicate_findings_merge_toward_the_severe_reading(self):
+        review = ready_snapshot()["copilotReview"]
+        review["normalizedFindings"] = [
+            {"id": "finding-1", "source": "line", "actionable": False, "disposition": "suppressed"},
+            {"id": "finding-1", "source": "summary", "actionable": True},
+            {"id": "finding-2", "source": "line", "actionable": False},
+            {"id": "finding-2", "source": "unknown", "actionable": False},
+        ]
+        normalized = MODULE.normalize_copilot_review(review)
+        findings = {item["id"]: item for item in normalized["normalizedFindings"]}
+        self.assertEqual(list(findings), ["finding-1", "finding-2"])
+        self.assertTrue(findings["finding-1"]["actionable"])
+        self.assertEqual(findings["finding-1"]["disposition"], "open")
+        self.assertEqual(findings["finding-2"]["source"], "unknown")
+        self.assertEqual(normalized["actionableFindings"], 1)
+        self.assertEqual(normalized["unrecognizedFindings"], 1)
+
+    def test_whitespace_only_finding_id_is_rejected(self):
+        review = ready_snapshot()["copilotReview"]
+        review["normalizedFindings"] = [
+            {"id": "   ", "source": "line", "actionable": True}
+        ]
+        with self.assertRaisesRegex(MODULE.ReadinessError, "normalizedFindings\\[0\\]\\.id"):
+            MODULE.normalize_copilot_review(review)
+
+    def test_short_head_sha_is_rejected(self):
+        review = ready_snapshot()["copilotReview"]
+        review["headSha"] = "abc12"
+        with self.assertRaisesRegex(MODULE.ReadinessError, "headSha must be at least 7"):
+            MODULE.normalize_copilot_review(review)
+
+    def test_whitespace_only_disputed_finding_id_is_rejected(self):
+        review = ready_snapshot()["copilotReview"]
+        review["disputedFindings"] = ["   "]
+        with self.assertRaisesRegex(MODULE.ReadinessError, "disputedFindings\\[0\\]"):
+            MODULE.normalize_copilot_review(review)
 
     def test_unknown_thread_state_is_rejected(self):
         snapshot = ready_snapshot()

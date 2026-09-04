@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/copilot-review-evidence.schema.json",
+  "title": "Exact-head Copilot Review Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "reviewId", "headSha", "submittedAt", "normalizedFindings", "disputedFindings"],
+  "properties": {
+    "status": {"enum": ["pending", "success", "failure", "neutral"]},
+    "reviewId": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "integer", "minimum": 1}
+      ]
+    },
+    "headSha": {"type": "string", "minLength": 7},
+    "submittedAt": {"type": "string", "minLength": 1},
+    "normalizedFindings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/finding"}
+    },
+    "disputedFindings": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {"type": "string", "minLength": 1},
+          {"type": "integer", "minimum": 1}
+        ]
+      }
+    },
+    "actionableFindings": {"type": "integer", "minimum": 0},
+    "unrecognizedFindings": {"type": "integer", "minimum": 0}
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "actionable", "disposition"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "source": {"enum": ["line", "summary", "suppressed", "unknown"]},
+        "actionable": {"type": "boolean"},
+        "disposition": {"enum": ["open", "disputed", "suppressed"]}
+      }
+    }
+  }
+}
