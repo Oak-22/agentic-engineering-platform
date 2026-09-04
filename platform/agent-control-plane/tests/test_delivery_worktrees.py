@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "delivery_worktrees.py"
@@ -344,6 +345,23 @@ class ReleaseIsolationTests(unittest.TestCase):
 
 
 class WorktreeTargetTests(unittest.TestCase):
+    def test_a_target_inside_the_primary_worktree_is_refused(self):
+        root = Path("/projects/aep")
+        target = root / "nested" / "PROJ-1"
+
+        with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.reject_nested_worktree_target(root, target)
+
+        self.assertIn("inside the primary worktree", str(raised.exception))
+
+    def test_a_target_beside_the_primary_worktree_is_allowed(self):
+        root = Path("/projects/aep")
+        target = Path("/projects/aep.worktrees/PROJ-1")
+
+        with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+            MODULE.reject_nested_worktree_target(root, target)
+
     def test_a_path_that_does_not_exist_is_usable(self):
         with tempfile.TemporaryDirectory() as directory:
             MODULE.usable_worktree_target(Path(directory) / "new")
@@ -371,32 +389,300 @@ class WorktreeTargetTests(unittest.TestCase):
                 MODULE.usable_worktree_target(Path(directory))
 
 
-class WorktreeAttachmentTests(unittest.TestCase):
-    def test_an_existing_local_branch_is_checked_out_as_is(self):
-        args = MODULE.worktree_add_arguments(
-            "feature/PROJ-1-x", Path("/w/PROJ-1"), "local"
+class ExistingWorktreeClaimTests(unittest.TestCase):
+    branch = "feature/PROJ-1-x"
+    baseline = "abc1234"
+
+    def test_a_matching_clean_worktree_is_valid(self):
+        target = Path("/w/PROJ-1")
+
+        head = MODULE.validate_existing_worktree(
+            self.branch,
+            target,
+            {str(target): (self.branch, self.baseline)},
+            self.baseline,
+            (),
         )
 
-        self.assertEqual(args, ("worktree", "add", "/w/PROJ-1", "feature/PROJ-1-x"))
-        self.assertNotIn("-b", args)
+        self.assertEqual(head, self.baseline)
 
-    def test_a_published_branch_is_tracked_from_the_remote(self):
-        """Recreating it from main would diverge from the published ref."""
-        args = MODULE.worktree_add_arguments(
-            "feature/PROJ-1-x", Path("/w/PROJ-1"), "remote"
+    def test_a_missing_worktree_must_be_created_by_git_or_vscode_first(self):
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.validate_existing_worktree(
+                self.branch, Path("/w/missing"), {}, self.baseline, ()
+            )
+
+        self.assertIn("Create it with Git or VS Code", str(raised.exception))
+
+    def test_a_different_checked_out_branch_is_refused(self):
+        target = Path("/w/PROJ-1")
+
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.validate_existing_worktree(
+                self.branch,
+                target,
+                {str(target): ("feature/PROJ-2-other", self.baseline)},
+                self.baseline,
+                (),
+            )
+
+        self.assertIn("not the requested", str(raised.exception))
+
+    def test_a_detached_worktree_is_refused(self):
+        target = Path("/w/PROJ-1")
+
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.validate_existing_worktree(
+                self.branch,
+                target,
+                {str(target): (None, self.baseline)},
+                self.baseline,
+                (),
+            )
+
+        self.assertIn("detached", str(raised.exception))
+
+    def test_uncommitted_work_cannot_enter_before_the_claim(self):
+        target = Path("/w/PROJ-1")
+
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.validate_existing_worktree(
+                self.branch,
+                target,
+                {str(target): (self.branch, self.baseline)},
+                self.baseline,
+                (" M one.py",),
+            )
+
+        self.assertIn("Claim it before work begins", str(raised.exception))
+
+    def test_status_inspection_failure_is_a_controlled_claim_error(self):
+        failed = mock.Mock(returncode=128, stdout="", stderr="index unreadable")
+
+        with mock.patch.object(MODULE, "_git", return_value=failed):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.dirty_entries(Path("/w/PROJ-1"))
+
+        self.assertIn("index unreadable", str(raised.exception))
+
+    def test_status_process_start_failure_is_a_controlled_claim_error(self):
+        with mock.patch.object(MODULE, "_git", side_effect=OSError("git missing")):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.dirty_entries(Path("/w/PROJ-1"))
+
+        self.assertIn("git missing", str(raised.exception))
+
+    def test_a_branch_not_at_verified_main_is_refused(self):
+        target = Path("/w/PROJ-1")
+
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.validate_existing_worktree(
+                self.branch,
+                target,
+                {str(target): (self.branch, "older")},
+                self.baseline,
+                (),
+            )
+
+        self.assertIn("verified current main", str(raised.exception))
+
+    def test_claim_records_an_unregistered_worktree_without_provisioning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = (Path(directory) / "PROJ-1").resolve()
+            record_path = Path(directory) / MODULE.OWNERSHIP_FILENAME
+            live = {str(target): (self.branch, self.baseline)}
+
+            with (
+                mock.patch.object(MODULE, "live_worktrees", return_value=live),
+                mock.patch.object(
+                    MODULE, "primary_worktree_path", return_value=Path(directory) / "primary"
+                ),
+                mock.patch.object(MODULE, "verified_main", return_value=self.baseline),
+                mock.patch.object(MODULE, "dirty_entries", return_value=()),
+                mock.patch.object(MODULE, "ownership_path", return_value=record_path),
+                mock.patch.object(MODULE, "_git") as git,
+            ):
+                record = MODULE.claim(
+                    Path(directory),
+                    self.branch,
+                    "agent-a",
+                    target,
+                    now="2026-09-03T00:00:00+00:00",
+                )
+
+            git.assert_not_called()
+            self.assertEqual(record.base_commit, self.baseline)
+            self.assertEqual(MODULE.load_ownership(record_path), (record,))
+            self.assertEqual(
+                MODULE.reconcile((record,), live)[0].status, MODULE.REGISTERED_LIVE
+            )
+
+    def test_claim_keeps_duplicate_ownership_protection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = (Path(directory) / "PROJ-1").resolve()
+            record_path = Path(directory) / MODULE.OWNERSHIP_FILENAME
+            MODULE.save_ownership(
+                record_path,
+                (ownership(branch=self.branch, worktree_path="/w/already"),),
+            )
+
+            with (
+                mock.patch.object(
+                    MODULE,
+                    "live_worktrees",
+                    return_value={str(target): (self.branch, self.baseline)},
+                ),
+                mock.patch.object(
+                    MODULE, "primary_worktree_path", return_value=Path(directory) / "primary"
+                ),
+                mock.patch.object(MODULE, "verified_main", return_value=self.baseline),
+                mock.patch.object(MODULE, "dirty_entries", return_value=()),
+                mock.patch.object(MODULE, "ownership_path", return_value=record_path),
+            ):
+                with self.assertRaises(MODULE.WorktreeError) as raised:
+                    MODULE.claim(Path(directory), self.branch, "agent-b", target)
+
+            self.assertIn("already owned", str(raised.exception))
+
+    def test_live_worktrees_keeps_the_current_linked_worktree_visible(self):
+        primary = mock.Mock(path=Path("/w/primary"), branch="main", head_oid="base")
+        linked = mock.Mock(
+            path=Path("/w/PROJ-1"), branch=self.branch, head_oid=self.baseline
+        )
+        cleanup = mock.Mock()
+        cleanup.inspect_worktrees.return_value = (primary, linked)
+
+        with mock.patch.object(MODULE, "_cleanup_module", return_value=cleanup):
+            worktrees = MODULE.live_worktrees(linked.path)
+
+        self.assertEqual(
+            worktrees,
+            {str(linked.path): (self.branch, self.baseline)},
         )
 
-        self.assertIn("--track", args)
-        self.assertIn("origin/feature/PROJ-1-x", args)
-        self.assertNotIn("main", args)
 
-    def test_an_unknown_branch_is_created_from_main(self):
-        args = MODULE.worktree_add_arguments(
-            "feature/PROJ-1-x", Path("/w/PROJ-1"), "new"
+class ProvisioningBoundaryTests(unittest.TestCase):
+    branch = "feature/PROJ-1-x"
+    baseline = "abc1234"
+
+    def test_remote_branch_detection_uses_the_supported_heads_filter(self):
+        remote = mock.Mock(returncode=2, stderr="")
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = False
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_git", return_value=remote) as git,
+        ):
+            exists = MODULE.branch_exists(Path("/repo"), self.branch)
+
+        self.assertFalse(exists)
+        git.assert_called_once_with(
+            Path("/repo"),
+            "ls-remote",
+            "--exit-code",
+            "--heads",
+            "origin",
+            f"refs/heads/{self.branch}",
+            check=False,
         )
 
-        self.assertIn("-b", args)
-        self.assertEqual(args[-1], "main")
+    def test_remote_inspection_failure_is_not_treated_as_branch_absence(self):
+        remote = mock.Mock(returncode=128, stderr="network failed")
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = False
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_git", return_value=remote),
+        ):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.branch_exists(Path("/repo"), self.branch)
+
+        self.assertIn("network failed", str(raised.exception))
+
+    def test_remote_process_start_failure_is_a_controlled_error(self):
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = False
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_git", side_effect=OSError("git missing")),
+        ):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.branch_exists(Path("/repo"), self.branch)
+
+        self.assertIn("git missing", str(raised.exception))
+
+    def test_provision_refuses_to_take_over_an_existing_branch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            with (
+                mock.patch.object(MODULE, "primary_worktree_path", return_value=root),
+                mock.patch.object(MODULE, "branch_exists", return_value=True),
+            ):
+                with self.assertRaises(MODULE.WorktreeError) as raised:
+                    MODULE.provision(
+                        root, self.branch, "agent-a", root.parent / "wt"
+                    )
+
+        self.assertIn("then claim it", str(raised.exception))
+
+    def test_optional_provision_uses_the_exact_verified_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root.parent / "wt"
+            record_path = root / MODULE.OWNERSHIP_FILENAME
+            completed = mock.Mock(returncode=0, stderr="")
+
+            with (
+                mock.patch.object(MODULE, "branch_exists", return_value=False),
+                mock.patch.object(MODULE, "primary_worktree_path", return_value=root),
+                mock.patch.object(MODULE, "verified_main", return_value=self.baseline),
+                mock.patch.object(MODULE, "ownership_path", return_value=record_path),
+                mock.patch.object(MODULE, "_git", return_value=completed) as git,
+            ):
+                record = MODULE.provision(
+                    root,
+                    self.branch,
+                    "agent-a",
+                    target,
+                    now="2026-09-03T00:00:00+00:00",
+                )
+
+            git.assert_called_once_with(
+                root,
+                "worktree",
+                "add",
+                "-b",
+                self.branch,
+                str(target.resolve()),
+                self.baseline,
+                check=False,
+            )
+            self.assertEqual(record.base_commit, self.baseline)
+
+    def test_provision_refuses_a_target_nested_under_the_primary_worktree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            target = root / "nested"
+
+            with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+                with self.assertRaises(MODULE.WorktreeError) as raised:
+                    MODULE.provision(root, self.branch, "agent-a", target)
+
+            self.assertIn("inside the primary worktree", str(raised.exception))
+
+    def test_claim_refuses_a_target_nested_under_the_primary_worktree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            target = root / "nested"
+
+            with mock.patch.object(MODULE, "primary_worktree_path", return_value=root):
+                with self.assertRaises(MODULE.WorktreeError) as raised:
+                    MODULE.claim(root, self.branch, "agent-a", target)
+
+            self.assertIn("inside the primary worktree", str(raised.exception))
 
 
 class ConcurrentClaimTests(unittest.TestCase):
