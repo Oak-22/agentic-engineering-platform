@@ -107,7 +107,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments" > /tmp/comments.json
+          # Paginate: a single page is 30 comments, and a review comment the gate
+          # never sees is a finding it silently waives.
+          gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments?per_page=100" --jq '.[]' \
+            | jq -s '.' > /tmp/comments.json
           python - <<'PY'
           import json
           from pathlib import Path

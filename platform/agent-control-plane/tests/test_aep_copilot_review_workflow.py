@@ -25,6 +25,11 @@ class AepCopilotReviewWorkflowTests(unittest.TestCase):
         self.assertIn("Check out the exact-head tooling", workflow)
         self.assertIn("ref: ${{ env.HEAD_SHA }}", workflow)
         self.assertIn("not attributable to Copilot", workflow)
+        # Every review comment must reach the normalizer; one page is 30.
+        self.assertIn(
+            'gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments?per_page=100"',
+            workflow,
+        )
 
     def test_manual_recovery_requires_explicit_tuple_and_exact_head(self):
         """A dispatch is a recovery path for a missing event run, never a bypass.
