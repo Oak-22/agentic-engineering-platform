@@ -56,7 +56,7 @@ jobs:
           if [ -z "${HEAD_SHA}" ]; then
             HEAD_SHA="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           fi
-          GUARD="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '.check_runs[] | select(.name == "control-plane-guards") | .conclusion' | head -n 1)"
+          GUARD="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '[.check_runs[] | select(.name == "control-plane-guards")] | sort_by(.completed_at // .started_at // .created_at) | last | .conclusion // empty')"
           if [ "${GUARD}" != "success" ]; then
             echo "control-plane-guards is ${GUARD:-pending} for ${HEAD_SHA}; review request deferred."
             exit 0
