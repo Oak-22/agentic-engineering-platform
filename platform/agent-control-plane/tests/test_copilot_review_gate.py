@@ -75,6 +75,12 @@ class CopilotGateTests(unittest.TestCase):
                 head_sha="abc1234",
             )
 
+    def test_non_positive_or_blank_review_ids_are_rejected(self):
+        for value in (0, "   "):
+            with self.subTest(value=value):
+                with self.assertRaises(MODULE.ReadinessError):
+                    MODULE.gate(review(reviewId=value), head_sha="abc1234")
+
 
 if __name__ == "__main__":
     unittest.main()

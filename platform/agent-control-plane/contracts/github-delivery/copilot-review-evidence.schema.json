@@ -8,7 +8,7 @@
   "properties": {
     "status": {"enum": ["pending", "success", "failure", "neutral"]},
     "reviewId": {
-      "anyOf": [
+      "oneOf": [
         {"type": "string", "minLength": 1},
         {"type": "integer", "minimum": 1}
       ]
@@ -22,7 +22,7 @@
     "disputedFindings": {
       "type": "array",
       "items": {
-        "anyOf": [
+        "oneOf": [
           {"type": "string", "minLength": 1},
           {"type": "integer", "minimum": 1}
         ]

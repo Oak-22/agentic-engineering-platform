@@ -38,7 +38,9 @@ def required_string(value: object, field: str) -> str:
 def _review_id(value: object) -> str:
     if isinstance(value, bool) or not isinstance(value, (str, int)):
         raise ReadinessError("copilotReview.reviewId must be a string or integer")
-    rendered = str(value)
+    if isinstance(value, int) and value < 1:
+        raise ReadinessError("copilotReview.reviewId integer must be positive")
+    rendered = str(value).strip()
     if not rendered:
         raise ReadinessError("copilotReview.reviewId must be non-empty")
     return rendered
@@ -47,7 +49,9 @@ def _review_id(value: object) -> str:
 def _identifier(value: object, field: str) -> str:
     if isinstance(value, bool) or not isinstance(value, (str, int)):
         raise ReadinessError(f"{field} must be a string or integer")
-    rendered = str(value)
+    if isinstance(value, int) and value < 1:
+        raise ReadinessError(f"{field} integer must be positive")
+    rendered = str(value).strip()
     if not rendered:
         raise ReadinessError(f"{field} must be non-empty")
     return rendered
