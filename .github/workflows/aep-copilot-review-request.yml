@@ -22,7 +22,10 @@ permissions:
   checks: read
 
 concurrency:
-  group: aep-copilot-review-request-${{ github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  # One request run at a time per pull request, whichever event started it,
+  # so request runs for one pull request never execute concurrently. The
+  # live-head check below is what keeps a superseded head from being requested.
+  group: aep-copilot-review-request-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number || github.event.inputs.pr_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -54,8 +57,16 @@ jobs:
             echo "Guard run is not attached to a pull request; no review requested."
             exit 0
           fi
+          # The review must target the live head. A guard run or pull_request
+          # event describes the head as of when it was created; if the pull
+          # request has advanced since, the newer head's own guard run
+          # requests its review, and a request for the old head is only noise.
+          LIVE_HEAD_SHA="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
           if [ -z "${HEAD_SHA}" ]; then
-            HEAD_SHA="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+            HEAD_SHA="${LIVE_HEAD_SHA}"
+          elif [ "${HEAD_SHA}" != "${LIVE_HEAD_SHA}" ]; then
+            echo "Head ${HEAD_SHA} from the triggering event is not the current head ${LIVE_HEAD_SHA} of pull request #${PR_NUMBER}; review request deferred to the current head's guard run."
+            exit 0
           fi
           if [ -z "${GUARD:-}" ]; then
             GUARD="$(gh api "repos/${REPOSITORY}/commits/${HEAD_SHA}/check-runs" --jq '[.check_runs[] | select(.name == "control-plane-guards")] | sort_by(.completed_at // .started_at // .created_at) | last | .conclusion // empty')"
