@@ -1,8 +1,9 @@
 name: AEP Copilot Review Gate
 
-# This workflow has exactly one required job. It runs only when Copilot submits
-# a review. Before that event exists for a new SHA, the required context is
-# absent/pending; no skipped job can accidentally satisfy the ruleset.
+# This workflow has exactly one required job. GitHub triggers it for every
+# submitted review, then the first step validates the event as Copilot's exact
+# head review. Unknown providers fail closed instead of producing a skipped
+# required check.
 on:
   pull_request_review:
     types: [submitted]
@@ -17,16 +18,36 @@ concurrency:
 
 jobs:
   aep-copilot-review:
-    if: >-
-      github.event.review.user.login == 'copilot-pull-request-reviewer' ||
-      github.event.review.user.login == 'copilot-pull-request-reviewer[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out the default-branch tooling
+      - name: Validate the submitted review event
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_ID: ${{ github.event.review.id }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}" > /tmp/copilot-event-review.json
+          review_login="$(jq -r '.user.login // empty' /tmp/copilot-event-review.json)"
+          review_commit="$(jq -r '.commit_id // empty' /tmp/copilot-event-review.json)"
+          case "${review_login}" in
+            copilot-pull-request-reviewer|'copilot-pull-request-reviewer[bot]') ;;
+            *)
+              echo "Review ${REVIEW_ID} is not attributable to Copilot (provider=${review_login:-unknown})." >&2
+              exit 1
+              ;;
+          esac
+          if [ "${review_commit}" != "${HEAD_SHA}" ]; then
+            echo "Review ${REVIEW_ID} targets ${review_commit:-unknown}, not current head ${HEAD_SHA}." >&2
+            exit 1
+          fi
+
+      - name: Check out the exact-head tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Set up Python for the normalizer
@@ -39,34 +60,30 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_ID: ${{ github.event.review.id }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews" > /tmp/reviews.json
           gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments" > /tmp/comments.json
           python - <<'PY'
           import json
           from pathlib import Path
 
-          reviews = json.loads(Path('/tmp/reviews.json').read_text())
+          review = json.loads(Path('/tmp/copilot-event-review.json').read_text())
           comments = json.loads(Path('/tmp/comments.json').read_text())
-          copilot = [item for item in reviews if item.get('user', {}).get('login') in {'copilot-pull-request-reviewer', 'copilot-pull-request-reviewer[bot]'}]
-          if not copilot:
-              raise SystemExit('no Copilot review event exists for this pull request')
-          latest = copilot[-1]
           line_comments = [
               {'id': str(item['id']), 'source': 'line', 'actionable': True}
               for item in comments
-              if item.get('pull_request_review_id') == latest.get('id')
+              if item.get('pull_request_review_id') == review.get('id')
           ]
-          body = (latest.get('body') or '').lower()
+          body = (review.get('body') or '').lower()
           summary = []
           if body and 'no issues found' not in body and '[aep-clean]' not in body:
-              summary.append({'id': f"summary:{latest['id']}", 'source': 'summary', 'actionable': True})
+              summary.append({'id': f"summary:{review['id']}", 'source': 'summary', 'actionable': True})
           payload = {
-              'reviewId': latest.get('id'),
-              'headSha': latest.get('commit_id'),
-              'submittedAt': latest.get('submitted_at'),
-              'state': latest.get('state'),
+              'reviewId': review.get('id'),
+              'headSha': review.get('commit_id'),
+              'submittedAt': review.get('submitted_at'),
+              'state': review.get('state'),
               'lineComments': line_comments,
               'summaryFindings': summary,
           }
