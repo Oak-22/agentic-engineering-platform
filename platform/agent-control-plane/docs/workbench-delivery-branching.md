@@ -285,12 +285,13 @@ enforcement surface.
 ## Remote enforcement on `main`
 
 The `main` branch ruleset requires a pull request and the
-`control-plane-guards` status check, produced by
-`.github/workflows/control-plane-guards.yml`. A delivery branch therefore
-reaches `main` only after the control-plane guards pass on its head commit and
-an accountable human reviews it. The same ruleset requests an automatic GitHub
-Copilot code review, which is advisory: it comments, and it neither approves
-the pull request nor satisfies the required check.
+`control-plane-guards` plus `aep-copilot-review` status checks, produced by
+`.github/workflows/control-plane-guards.yml` and
+`.github/workflows/aep-copilot-review.yml`. A delivery branch therefore
+reaches `main` only after the control-plane guards pass, an exact-head Copilot
+review is normalized, and an accountable human reviews it. Thread resolution
+is advisory; neither Copilot nor AEP approves, merges, closes, or bypasses a
+pull request.
 
 This is the enforcement layer the local guardrail above cannot provide. See
 [Control Plane Guards in CI](control-plane-guards-ci.md).
