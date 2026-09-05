@@ -7,7 +7,7 @@ date: 2026-08-26
 scope: platform
 affected_components:
   - platform/agent-control-plane
-  - platform/inference-telemetry-observatory
+  - platform/inference-telemetry-dashboard
 related_jira: [AEPI-100]
 related_confluence: []
 supersedes: []
@@ -22,15 +22,15 @@ augmenting the current runtime-adapter subagent definitions with a concrete
 multi-agent orchestration framework (LangGraph and/or CrewAI), so that AEP
 itself becomes an executable orchestration runtime rather than a set of
 role charters translated by hand into each runtime's native subagents; and
-building out `platform/inference-telemetry-observatory` toward the
+building out `platform/inference-telemetry-dashboard` toward the
 "production-grade" scope its README describes — streaming ingestion,
 warehousing, analytics APIs, dashboards, and evaluation.
 
 Comparing AEP's actual implementation (not its roadmap prose) against
 LangChain, LangGraph, and LangSmith surfaced a real risk: the intended shape
-of `inference-telemetry-observatory` — traces, nested runs, datasets,
+of `inference-telemetry-dashboard` — traces, nested runs, datasets,
 experiments, offline and online evaluation — is close to a duplicate of
-LangSmith's documented feature set, while `inference-telemetry-observatory`'s
+LangSmith's documented feature set, while `inference-telemetry-dashboard`'s
 implemented state is a single `InferenceEvent` record, a best-effort HTTP
 emitter, and a CLI-to-model adapter, tested against mocks. The gap between
 described scope and implemented scope was the actual redundancy risk, not
@@ -55,7 +55,7 @@ The forces to reconcile:
   nothing executes them as a durable, resumable workflow. That gap blocks
   using AEP itself, dogfooded, to orchestrate building a downstream
   application.
-- `inference-telemetry-observatory`'s implemented telemetry is real but
+- `inference-telemetry-dashboard`'s implemented telemetry is real but
   minimal, and its README scope is aspirational. Left as-is, the aspirational
   scope keeps inviting reimplementation of trace storage, evaluation
   datasets, and experiment comparison that LangSmith already provides.
@@ -79,7 +79,7 @@ Ownership boundaries:
 | Git/Jira/GitHub delivery semantics | `platform/agent-control-plane` |
 | Instruction provenance and runtime-specific installation | `platform/agent-control-plane` |
 | Engineering-domain trace enrichment (work item key, repo, branch, commit, PR, role, authority scope, instruction evidence, run/attempt id, delivery stage, verification result, human approval) | `platform/agent-control-plane`, emitted alongside LangGraph/LangSmith spans |
-| Cost and quality per governed engineering outcome; cross-runtime (Codex/Claude/Copilot) comparison | `platform/inference-telemetry-observatory` |
+| Cost and quality per governed engineering outcome; cross-runtime (Codex/Claude/Copilot) comparison | `platform/inference-telemetry-dashboard` |
 | Model/provider abstractions and tool-calling agent loops | Coding-runtime executors (Codex, Claude, or another supported runtime) — not AEP |
 
 Role charters remain framework-neutral; they describe responsibility, not
@@ -88,7 +88,7 @@ that dispatches a role's task to a concrete coding-runtime adapter (Codex,
 Claude, an API-backed agent, or a test/fake executor), so role meaning stays
 independent of both the orchestration framework and the executing runtime.
 
-`platform/inference-telemetry-observatory`'s existing implementation
+`platform/inference-telemetry-dashboard`'s existing implementation
 (`InferenceEvent`, the HTTP emitter, the CLI adapter, and its mock-backed
 tests) is retained, but reclassified as a contract fixture and local testing
 adapter rather than the beginning of a competing trace/evaluation product.
@@ -101,7 +101,7 @@ change; this ADR records the ownership decision that change will implement.
   per-runtime translation of role charters into subagent definitions,
   enabling AEP to actually execute — not merely describe — a governed
   delivery workflow.
-- `inference-telemetry-observatory` stops competing with LangSmith's roadmap.
+- `inference-telemetry-dashboard` stops competing with LangSmith's roadmap.
   Its README and implementation plan need a follow-up narrowing pass so the
   documented scope matches what the component actually owns after this
   decision.
@@ -152,7 +152,7 @@ now to "complete the product family" would introduce the redundancy this
 decision is meant to avoid; it remains available if a concrete executor
 later needs its abstractions.
 
-### Expand `inference-telemetry-observatory` toward its README's full scope
+### Expand `inference-telemetry-dashboard` toward its README's full scope
 
 Rejected. The README's streaming, warehouse, analytics-API, dashboard, and
 evaluation scope substantially overlaps LangSmith's documented, implemented

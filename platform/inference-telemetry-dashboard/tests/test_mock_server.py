@@ -6,7 +6,7 @@ import sys
 import threading
 import unittest
 
-from observatory.mock_server import create_server
+from dashboard.mock_server import create_server
 
 
 class MockServerIntegrationTest(unittest.TestCase):
@@ -34,7 +34,7 @@ class MockServerIntegrationTest(unittest.TestCase):
         )
 
         result = subprocess.run(
-            [sys.executable, "-m", "observatory.cli", "hello"],
+            [sys.executable, "-m", "dashboard.cli", "hello"],
             cwd=os.path.dirname(os.path.dirname(__file__)),
             env=environment,
             capture_output=True,

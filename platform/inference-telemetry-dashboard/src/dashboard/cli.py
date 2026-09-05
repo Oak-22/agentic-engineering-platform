@@ -9,7 +9,7 @@ from .telemetry import HttpTelemetryEmitter, NullTelemetryEmitter
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="observatory")
+    parser = argparse.ArgumentParser(prog="dashboard")
     parser.add_argument("prompt", help="Prompt to send to the configured model")
     return parser
 

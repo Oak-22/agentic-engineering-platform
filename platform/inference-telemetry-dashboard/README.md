@@ -1,4 +1,4 @@
-# AI Inference Telemetry & Economics Observatory
+# AI Inference Telemetry Dashboard
 
 Production-grade backend platform for collecting, modeling, and analyzing AI application telemetry to optimize token consumption, inference cost, latency, routing decisions, and agent execution across enterprise-scale LLM systems.
 
@@ -6,7 +6,7 @@ Production-grade backend platform for collecting, modeling, and analyzing AI app
 
 Large-scale AI applications introduce a new operational discipline beyond traditional observability. Every prompt, tool invocation, retrieval operation, and model selection carries measurable cost, latency, and quality tradeoffs.
 
-This project builds an end-to-end observability platform that transforms raw execution events into actionable operational intelligence, enabling engineering teams to continuously optimize AI workflows through data-driven analysis.
+This project builds an end-to-end observability platform that transforms raw execution events into usage, cost, and performance insights, enabling engineering teams to continuously optimize AI workflows through data-driven analysis.
 
 Rather than focusing on model development, the platform emphasizes the engineering systems surrounding production AI deployments.
 
@@ -70,7 +70,7 @@ Analytics APIs
 (FastAPI)
         │
         ▼
-Observatory Dashboard
+Dashboard
 ```
 
 ---
@@ -153,7 +153,7 @@ Observatory Dashboard
 
 - Prompt caching analytics
 - Context deduplication metrics
-- Token economics
+- Token usage and cost
 - RAG observability
 - Evaluation pipeline metrics
 

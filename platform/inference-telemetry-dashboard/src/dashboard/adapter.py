@@ -42,7 +42,7 @@ class InteractionAdapter:
         }
         headers = {
             "Content-Type": "application/json",
-            "X-Observatory-Request-ID": request_id,
+            "X-Dashboard-Request-ID": request_id,
         }
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"

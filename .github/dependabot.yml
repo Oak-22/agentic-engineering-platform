@@ -32,7 +32,7 @@ updates:
           - "patch"
 
   - package-ecosystem: "pip"
-    directory: "/platform/inference-telemetry-observatory"
+    directory: "/platform/inference-telemetry-dashboard"
     schedule:
       interval: "weekly"
       day: "monday"
