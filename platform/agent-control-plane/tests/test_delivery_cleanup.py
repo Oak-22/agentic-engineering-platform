@@ -508,6 +508,34 @@ class PrimaryWorkspaceIsolationTests(unittest.TestCase):
             MODULE.branch_exists(scenario.primary, scenario.feature_branch)
         )
 
+    def test_a_delivery_tip_that_moved_since_planning_is_not_force_deleted(self):
+        scenario, secondary = self.workbench_scenario()
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        # The branch is checked out in the worktree, so it moves from there.
+        (secondary / "late.txt").write_text("unreviewed\n", encoding="utf-8")
+        scenario.git(secondary, "add", "late.txt")
+        scenario.git(secondary, "commit", "-m", "Late work")
+
+        with self.assertRaisesRegex(MODULE.CleanupError, "moved since this cleanup"):
+            MODULE.delete_delivery_branch(plan)
+
+        self.assertTrue(
+            MODULE.branch_exists(scenario.primary, scenario.feature_branch)
+        )
+
+    def test_a_rename_is_recorded_at_the_path_that_would_be_written(self):
+        """`-z` reverses the rename field order, so the first path is the new one."""
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "mv", "tracked.txt", "renamed.txt")
+
+        paths = {
+            MODULE.entry_path(entry)
+            for entry in MODULE.status_entries(scenario.primary)
+        }
+
+        self.assertIn("renamed.txt", paths)
+        self.assertNotIn("tracked.txt", paths)
+
     def test_a_base_that_moved_since_planning_fails_the_ref_update(self):
         """The compare-and-swap is what makes a checkout-free advance safe."""
         scenario = self.scenario()
@@ -728,6 +756,53 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
 
         self.assertNotIn(branch, MODULE.local_delivery_branches(scenario.primary))
         self.assertEqual(loose.read_text(encoding="utf-8"), "preserve\n")
+
+    def test_a_candidate_that_moved_since_classification_is_not_deleted(self):
+        """Forcing the delete gives up Git's safety net, so the ref is re-read."""
+        scenario = self.scenario()
+        branch = "chore/PROJ-110-safe"
+        head_oid = scenario.create_branch(branch)
+        report = self.report(
+            scenario,
+            pull_requests=(self.merged_pr(110, branch, head_oid),),
+        )
+        scenario.git(scenario.primary, "switch", branch)
+        (scenario.primary / "late.txt").write_text("unreviewed\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "late.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Late work")
+        scenario.git(scenario.primary, "switch", "main")
+
+        with self.assertRaisesRegex(MODULE.CleanupError, "moved since it was classified"):
+            MODULE.execute_reconciliation(scenario.primary, report)
+
+        self.assertIn(branch, MODULE.local_delivery_branches(scenario.primary))
+
+    def test_no_branch_is_deleted_when_any_candidate_fails_reverification(self):
+        """A moved ref must not leave a half-finished reconciliation behind."""
+        scenario = self.scenario()
+        stable = "chore/PROJ-111-stable"
+        moved = "chore/PROJ-112-moved"
+        stable_oid = scenario.create_branch(stable)
+        moved_oid = scenario.create_branch(moved)
+        report = self.report(
+            scenario,
+            pull_requests=(
+                self.merged_pr(111, stable, stable_oid),
+                self.merged_pr(112, moved, moved_oid),
+            ),
+        )
+        scenario.git(scenario.primary, "switch", moved)
+        (scenario.primary / "late.txt").write_text("unreviewed\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "late.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Late work")
+        scenario.git(scenario.primary, "switch", "main")
+
+        with self.assertRaises(MODULE.CleanupError):
+            MODULE.execute_reconciliation(scenario.primary, report)
+
+        branches = MODULE.local_delivery_branches(scenario.primary)
+        self.assertIn(stable, branches)
+        self.assertIn(moved, branches)
 
     def test_a_branch_merged_into_main_is_deleted_from_the_workbench(self):
         """`git branch -d` would judge it against HEAD and refuse."""

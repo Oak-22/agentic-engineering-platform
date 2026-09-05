@@ -369,6 +369,16 @@ class StatusEntryParsingTests(unittest.TestCase):
         self.assertEqual(statuses["tracked.txt"], " M")
         self.assertEqual(statuses["loose.md"], MODULE.UNTRACKED_STATUS)
 
+    def test_a_rename_is_recorded_at_the_path_that_would_be_written(self):
+        """`-z` reverses the rename field order, so the first path is the new one."""
+        root = self.repository()
+        self.git(root, "mv", "tracked.txt", "renamed.txt")
+
+        paths = {MODULE.entry_path(entry) for entry in MODULE.status_entries(root)}
+
+        self.assertIn("renamed.txt", paths)
+        self.assertNotIn("tracked.txt", paths)
+
     def test_paths_written_between_names_only_what_differs(self):
         root = self.repository()
         self.git(root, "switch", "-c", "other")

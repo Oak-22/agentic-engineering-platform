@@ -571,12 +571,32 @@ def execute_reconciliation(
 
     There is no working-tree gate here because there is no working-tree
     write: deleting a ref and pruning metadata touch no file in the checkout,
-    so loose files in it are never at risk. Deletion is unconditional because
-    containment was already proven against `base_ref`; `git branch -d` would
-    re-check against `HEAD` instead and call a delivery merged into `main`
-    unmerged whenever the checkout sits on the workbench.
+    so loose files in it are never at risk.
+
+    `git branch -d` is not usable: it re-checks containment against `HEAD` and
+    would call a delivery merged into `main` unmerged whenever the checkout
+    sits on the workbench. Forcing the delete therefore gives up Git's own
+    safety net, so every candidate is re-verified here — tip unchanged since
+    it was classified, and still contained in the base — before any branch is
+    deleted. Verifying the whole set first keeps a moved ref from leaving a
+    half-finished reconciliation behind.
     """
-    for candidate in report.safe_to_delete:
+    deletable = report.safe_to_delete
+    for candidate in deletable:
+        tip = git(
+            workspace, "rev-parse", "--verify", f"refs/heads/{candidate.branch}"
+        ).stdout.strip()
+        if tip != candidate.head_oid:
+            raise CleanupError(
+                f"{candidate.branch} moved since it was classified "
+                f"({candidate.head_oid} to {tip}); nothing was deleted"
+            )
+        if not is_ancestor(workspace, tip, report.base_ref):
+            raise CleanupError(
+                f"{candidate.branch} is no longer contained in {report.base_ref}; "
+                "nothing was deleted"
+            )
+    for candidate in deletable:
         git(workspace, "branch", "-D", "--", candidate.branch)
     git(workspace, "worktree", "prune")
     remaining = local_delivery_branches(workspace)
@@ -875,9 +895,21 @@ def delete_delivery_branch(plan: CleanupPlan) -> None:
     checked here against the base itself. When it does not hold, the merge was
     a squash or a rebase, and the plan has already verified from pull-request
     evidence that the result reached the base.
+
+    Because the delete is forced either way, the ref is re-read first: a tip
+    that moved since planning no longer carries the history the plan proved
+    merged, and forcing it away would discard commits nothing has reviewed.
     """
     primary = plan.primary_workspace
     pull_request = plan.pull_request
+    tip = git(
+        primary, "rev-parse", "--verify", f"refs/heads/{pull_request.head_branch}"
+    ).stdout.strip()
+    if tip != pull_request.head_oid:
+        raise CleanupError(
+            f"{pull_request.head_branch} moved since this cleanup was planned "
+            f"({pull_request.head_oid} to {tip}); it was not deleted"
+        )
     if plan.head_contained_in_base and not is_ancestor(
         primary, pull_request.head_oid, pull_request.base_branch
     ):
