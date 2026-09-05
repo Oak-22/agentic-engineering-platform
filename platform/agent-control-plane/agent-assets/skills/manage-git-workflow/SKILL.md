@@ -198,7 +198,7 @@ Apply the narrowest matching authorization:
   returns the GitHub review-and-merge surface.
 - A request to clean up a named local delivery unit after merge authorizes
   switching a clean primary checkout away from its verified feature branch or
-  removing its verified secondary worktree, deleting the local feature branch,
+  removing its verified separate worktree, deleting the local feature branch,
   and pruning stale worktree metadata. It does not authorize deleting the
   primary checkout directory, a remote branch, or any other worktree.
 - Force pushes, history rewrites, ref deletion, and direct pushes to the
@@ -274,7 +274,7 @@ The script applies the following contract:
 2. Fetch the remote base and verify the recorded merge result is reachable
    from it.
 3. Resolve whether the feature branch is checked out in the primary checkout
-   or a secondary worktree through Git metadata. Do not infer the directory
+   or a separate worktree through Git metadata. Do not infer the directory
    from its name.
 4. For a delivery checkout that will be removed, require an empty status
    including untracked files, because removing the directory would destroy
@@ -288,7 +288,7 @@ The script applies the following contract:
    primary keeps its visible branch unless the cleanup must move it off a
    branch it is about to delete or onto `workbench/local` for a sync merge.
    Never delete the primary checkout directory.
-7. For a secondary worktree, remove that verified worktree without force.
+7. For a separate worktree, remove that verified worktree without force.
 8. Verify the local feature branch is contained in the base branch itself,
    never by relying on the checked-out branch, then delete it. After a squash
    or rebase merge containment does not hold; delete then only when the

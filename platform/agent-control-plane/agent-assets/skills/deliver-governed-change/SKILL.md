@@ -255,7 +255,7 @@ Delegate cleanup mechanics to `manage-git-workflow` and require it to:
    cleanup writes;
 4. advance the base by ref update, leaving the primary on the branch it
    started on unless the cleanup must move it, and remove the verified
-   secondary worktree, before deleting the local feature branch;
+   separate worktree, before deleting the local feature branch;
 5. verify squash merges from pull-request and target-branch evidence instead
    of branch ancestry alone;
 6. prune stale worktree metadata and report the remote branch's disposition;

@@ -210,7 +210,7 @@ Each gate requires the authority applicable to its system and impact:
 | Stage and commit | Commit request |
 | Push or open a pull request | Publication request |
 | Approve, request changes, or merge | Accountable human acting directly in GitHub; never agent authority |
-| Restore a primary checkout or remove a secondary worktree and branch | Local cleanup request naming the delivery unit or targets |
+| Restore a primary checkout or remove a separate worktree and branch | Local cleanup request naming the delivery unit or targets |
 | Delete a remote branch | Remote cleanup request naming the branch |
 
 Authority for one gate does not approve later gates.
@@ -237,9 +237,9 @@ For repository changes:
 3. Inspect existing branches, commits, pull requests, merges, and target-branch
    state before creating new artifacts.
 4. Create or select the Jira-keyed local branch required by the delivery unit
-   in the primary developer-visible checkout. Use a separate worktree only
-   when concurrency or unrelated user changes make switching unsafe, and
-   expose that visibility boundary before implementation.
+   in a separate worktree for longer, targeted development. Keep the primary
+   developer-visible checkout available for private `workbench/local` capture,
+   and expose that visibility boundary before implementation.
 5. Move only the bounded changes into the isolated delivery unit, verify them,
    and synchronize the branch and evidence to Jira.
 6. Set Jira status to the verified phase. Retrospective task creation alone

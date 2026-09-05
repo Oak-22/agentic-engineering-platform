@@ -38,7 +38,7 @@ merge target. Every delivery branch derives from current `main` at its start.
 
 - Treat the session's primary workspace root as the developer-visible checkout
   unless the developer explicitly identifies another open workspace.
-- Capture ad hoc work in the primary checkout. Open the separate worktree for
+- Capture ad hoc work in the primary checkout. Open a separate worktree for
   longer, targeted delivery so the IDE, tests, and agent observe the same
   files.
 - Before editing, report the active repository root and branch. Report them
@@ -49,7 +49,7 @@ merge target. Every delivery branch derives from current `main` at its start.
   editing there.
 - Stop when the developer expects primary-checkout visibility but cannot see
   the active worktree. Either return execution to the primary checkout or have
-  the developer intentionally open the separate worktree.
+  the developer intentionally open a separate worktree.
 
 ## Branch roles
 
