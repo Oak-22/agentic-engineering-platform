@@ -23,7 +23,6 @@ CLAUDE.md
 platform/agent-control-plane/agent-assets/instructions
 platform/agent-control-plane/agent-assets/hooks
 platform/agent-control-plane/agent-assets/execution-policies
-platform/agent-control-plane/agent-assets/role-charters
 platform/agent-control-plane/agent-assets/skills
 platform/agent-control-plane/adapters/runtimes
 platform/agent-control-plane/adapters/runtimes/codex/README.md
@@ -101,7 +100,6 @@ native_surface_roots="
 .agents
 .codex
 .claude
-.github/agents
 .github/hooks
 .github/instructions
 .github/prompts
@@ -126,8 +124,7 @@ for generated_projection_manifest in $generated_projection_manifests; do
       *runtimes/codex/generated-projections.txt:.agents/* \
         |*runtimes/codex/generated-projections.txt:.codex/* \
         |*runtimes/claude/generated-projections.txt:.claude/* \
-        |*runtimes/github-copilot/generated-projections.txt:.github/agents/* \
-        |*runtimes/github-copilot/generated-projections.txt:.github/hooks/* \
+          |*runtimes/github-copilot/generated-projections.txt:.github/hooks/* \
         |*runtimes/github-copilot/generated-projections.txt:.github/instructions/* \
         |*runtimes/github-copilot/generated-projections.txt:.github/prompts/* \
         |*runtimes/github-copilot/generated-projections.txt:.github/skills/*)
@@ -171,7 +168,6 @@ done | while IFS= read -r native_path; do
       |.claude/settings.local.json \
       |.claude/hooks/README.md \
       |.claude/skills/README.md \
-      |.github/agents/README.md \
       |.github/hooks/README.md \
       |.github/prompts/README.md \
       |.github/skills/README.md)

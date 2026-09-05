@@ -102,8 +102,10 @@ action regardless of which tools the transport exposes.
 Codex exposes the read and governed-delivery subset explicitly and omits
 `merge_pull_request`. Its approved delivery tools avoid redundant runtime
 prompts only after the AEP hook classifies their arguments. Claude may see the
-provider's wider surface, so the permission gate permits known reads, maps
-known mutations, and denies unclassified GitHub tools. Transport exposure is
+provider's wider surface, so the permission gate allows reads outright, maps
+named mutations onto semantic actions, and leaves anything else to the
+runtime's own permission flow — irreversible actions are enumerated as denies
+rather than inferred from absence. Transport exposure is
 never acceptance authority.
 
 Agent-autonomous operations cover draft creation, maintenance, current-base

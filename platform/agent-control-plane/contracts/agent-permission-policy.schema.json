@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agentic-engineering-platform.dev/schemas/agent-permission-policy.schema.json",
   "title": "Agent Permission Policy",
-  "description": "IAM-style permission-policy document binding one Agent Registry principal to Allow/Deny statements over namespaced actions and resources. Evaluated by scripts/agent_permission_gate.py using deny-overrides semantics.",
+  "description": "IAM-style permission-policy document binding one agent principal to Allow/Deny statements over namespaced actions and resources. Evaluated by scripts/agent_permission_gate.py using deny-overrides semantics.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -30,7 +30,7 @@
         "agentType": {
           "type": "string",
           "minLength": 1,
-          "description": "Agent Registry slug from the 'Registered agent types' table, e.g. 'generalist-engineering-agent', 'architecture-agent', 'documentation-agent'."
+          "description": "Agent principal slug. One policy ships today, 'generalist-engineering-agent', which every runtime identity resolves to."
         },
         "instanceId": {
           "type": [
@@ -95,7 +95,7 @@
           "properties": {
             "requiresHumanApproval": {
               "type": "boolean",
-              "description": "When true on an Allow statement, the gate emits an ask decision (Claude Code) or a deny-with-reason decision (Codex, where ask fails open) instead of a silent pass."
+              "description": "When true on an Allow statement, the gate emits an ask decision (Claude Code) or a deny-with-reason decision (Codex, where ask fails open). When false or absent, the gate emits an affirmative allow, which skips the runtime's interactive permission prompt while leaving its deny and ask rules in force."
             },
             "tier": {
               "type": "integer",

@@ -27,8 +27,25 @@ opinion on at all.
 The command matcher is a regex over raw command text, not parsed argv, and
 shares the false-positive/evasion limitation `governed_task_preflight.py`
 documents for the same reason: hardening it against deliberate evasion is a
-separate, later change. MCP tool names are matched against the explicit
-GitHub and Jira mutation maps below.
+separate, later change.
+
+Destination MCP tool names are classified by consequence rather than by
+membership in a name allowlist (AEPI-132). Three outcomes are possible:
+
+- an explicitly mapped operation resolves to a semantic action the policy
+  decides on;
+- a verb-prefixed read resolves to `<destination>:tool:read`, which the
+  policy allows affirmatively so the call does not prompt;
+- anything else returns no opinion, and the runtime's own permission flow
+  decides.
+
+The earlier arrangement was the inverse: an unmapped destination tool became
+`<destination>:tool:unclassified` and was denied. That inverted the gate
+relative to consequence — it denied reads such as `getTransitionsForJiraIssue`
+while leaving Confluence writes entirely unclassified — and it required a gate
+change every time a connected MCP server added or renamed a tool. The set of
+genuinely irreversible actions does not grow at that rate, so those are
+enumerated instead.
 """
 
 from __future__ import annotations
@@ -45,29 +62,14 @@ PERMISSIONS_DIR = Path(__file__).resolve().parent.parent / "agent-assets" / "exe
 DEFAULT_AGENT_TYPE = "generalist-engineering-agent"
 REPO_NAME = "agentic-engineering-platform"
 
-# AEPI-94 gave every Developer Agent Group specialist a translated subagent
-# file per runtime (.claude/agents/, .codex/agents/, .github/agents/), each
-# setting its native identity field to the exact Agent Registry slug. So a
-# real specialist call's `agent_type` now equals a policy filename directly
-# (see resolve_agent_type) — no alias needed for those. This table exists
-# only to explicitly, fail-safely map each runtime's *built-in fallback*
-# identity — used when no custom subagent was named — to the default
-# principal, rather than leaving that mapping implicit. An agent_type absent
-# from both this table and the known-policy set still resolves to
-# DEFAULT_AGENT_TYPE (see resolve_agent_type); it never default-permits.
-AGENT_TYPE_ALIASES: dict[str, str] = {
-    # Claude Code built-in subagent_type fallbacks
-    "general-purpose": DEFAULT_AGENT_TYPE,
-    "Explore": DEFAULT_AGENT_TYPE,
-    "Plan": DEFAULT_AGENT_TYPE,
-    "claude": DEFAULT_AGENT_TYPE,
-    "statusline-setup": DEFAULT_AGENT_TYPE,
-    "claude-code-guide": DEFAULT_AGENT_TYPE,
-    # Codex built-in agent fallbacks
-    "default": DEFAULT_AGENT_TYPE,
-    "worker": DEFAULT_AGENT_TYPE,
-    "explorer": DEFAULT_AGENT_TYPE,
-}
+# AEPI-132 collapsed the six specialist principals into this one. Role
+# separation never produced a separation of duties — a specialist subagent is
+# the same model, in the same session, adopting a role it chose for itself —
+# so the boundary that matters is enforced here and by the independent
+# Copilot review on the pull request, not by which name the runtime used to
+# spawn a subagent. `resolve_agent_type` therefore maps every runtime
+# identity, built-in or custom, onto the single generalist policy unless a
+# policy document with that exact name exists; it never default-permits.
 
 GIT_PUSH_PATTERN = re.compile(r"\bgit\s+push\b")
 GIT_PUSH_FORCE_PATTERN = re.compile(r"\bgit\s+push\b[^|;&\n]*(?:--force-with-lease\b|--force\b|(?<!\S)-f(?!\S))")
@@ -105,28 +107,41 @@ GITHUB_MCP_ACTIONS = {
     "add_reply_to_pull_request_comment": "github:pull_request:review-thread:reply",
     "pull_request_review_write": "github:pull_request:review:comment",
     "merge_pull_request": "github:pull_request:merge",
+    # Remote-content writes bypass the local governed publication path
+    # entirely, so they carry the same consequence as a push and are named
+    # rather than left to the read/no-opinion split below.
+    "create_or_update_file": "github:repository:content:write",
+    "push_files": "github:repository:content:write",
+    "delete_file": "github:repository:content:delete",
+    "create_branch": "github:branch:create",
+    "delete_repository": "github:repository:delete",
 }
-GITHUB_MCP_READ_TOOLS = frozenset(
-    {
-        "get_me",
-        "get_file_contents",
-        "get_commit",
-        "list_commits",
-        "list_pull_requests",
-        "search_pull_requests",
-        "pull_request_read",
-        "actions_get",
-        "actions_list",
-        "get_job_logs",
-    }
-)
 JIRA_MCP_ACTIONS = {
     "createjiraissue": "jira:issue:create",
     "editjiraissue": "jira:issue:update",
     "transitionjiraissue": "jira:issue:transition",
     "createissuelink": "jira:issue:link",
+    "addcommenttojiraissue": "jira:issue:comment",
+    "addworklogtojiraissue": "jira:issue:worklog",
 }
-JIRA_MCP_READ_TOOLS = frozenset({"searchjiraissuesusingjql", "getjiraissue"})
+CONFLUENCE_MCP_ACTIONS = {
+    "createconfluencepage": "confluence:page:create",
+    "updateconfluencepage": "confluence:page:update",
+    "createconfluencefootercomment": "confluence:comment:create",
+    "createconfluenceinlinecomment": "confluence:comment:create",
+}
+
+#: A destination tool whose operation opens with one of these verbs reads
+#: rather than writes. Recognizing reads by shape rather than by name is what
+#: lets a connected server add or rename a read tool without a gate change.
+#: No word boundary is required after the verb: the Codex Rovo connector
+#: lowercases and flattens its operations (`atlassian_rovo_getjiraissue`), so
+#: requiring one would classify half the Jira read surface as unrecognized.
+#: The cost is that a mutation named like a read would read as one — which is
+#: why every named mutation is matched first, before this test runs.
+MCP_READ_VERB_PATTERN = re.compile(
+    r"^(?:get|list|search|fetch|read|lookup|find|view)"
+)
 
 MAIN_BRANCH_NAMES = frozenset({"main", "master"})
 
@@ -251,108 +266,168 @@ def recognize_action(command: str, root: Path) -> ActionMatch | None:
     return None
 
 
-def is_github_mcp_tool(tool_name: object) -> bool:
-    """Return whether a runtime tool name addresses the configured GitHub MCP."""
+def mcp_destination(tool_name: object) -> str | None:
+    """Which governed destination a runtime tool name addresses, if any.
+
+    Confluence is checked before the generic Atlassian match so that an
+    `mcp__atlassian__updateConfluencePage` call — which the earlier
+    Jira-only test never saw at all — lands on the Confluence namespace
+    rather than falling through unclassified.
+    """
     if not isinstance(tool_name, str):
-        return False
+        return None
     lowered = tool_name.lower()
-    return "github" in lowered
-
-
-def is_jira_mcp_tool(tool_name: object) -> bool:
-    """Return whether a runtime tool name addresses a Jira MCP surface."""
-    if not isinstance(tool_name, str):
-        return False
-    lowered = re.sub(r"[^a-z0-9]", "", tool_name.lower())
-    known_suffixes = (*JIRA_MCP_ACTIONS, *JIRA_MCP_READ_TOOLS)
-    return "jira" in lowered or any(lowered.endswith(item) for item in known_suffixes)
+    for token in ("github", "confluence", "jira", "atlassian"):
+        if token in lowered:
+            return token
+    normalized = re.sub(r"[^a-z0-9]", "", lowered)
+    known = (*JIRA_MCP_ACTIONS, *CONFLUENCE_MCP_ACTIONS)
+    if any(normalized.endswith(operation) for operation in known):
+        return "jira" if normalized.endswith(tuple(JIRA_MCP_ACTIONS)) else "confluence"
+    return None
 
 
 def is_governed_mcp_tool(tool_name: object) -> bool:
-    return is_github_mcp_tool(tool_name) or is_jira_mcp_tool(tool_name)
+    return mcp_destination(tool_name) is not None
+
+
+def mcp_operation(tool_name: str) -> str:
+    """The bare operation segment of an `mcp__<server>__<tool>` name."""
+    return tool_name.rsplit("__", 1)[-1]
+
+
+def is_mcp_read_operation(operation: str) -> bool:
+    """Whether an operation name reads rather than writes.
+
+    Tested at every `_` boundary, not only at the start, because a server may
+    flatten its namespace into the tool name: the Codex Rovo connector exposes
+    `getJiraIssue` as `atlassian_rovo_getjiraissue`. Only a leading read verb
+    counts at each boundary, so a mutation that merely contains a read word
+    (`add_reply_to_pull_request_comment`, `create_or_update_file`) is not
+    mistaken for one — and for every destination the named-mutation map is
+    consulted before this test runs.
+    """
+    if operation.endswith("_read"):
+        return True
+    candidate = operation
+    while candidate:
+        if MCP_READ_VERB_PATTERN.match(candidate):
+            return True
+        _, separator, candidate = candidate.partition("_")
+        if not separator:
+            return False
+    return False
+
+
+def _github_resource(tool_input: dict) -> str:
+    repository = tool_input.get("repository")
+    if isinstance(repository, dict):
+        owner = repository.get("owner")
+        name = repository.get("name") or repository.get("repo")
+        repository = f"{owner}/{name}" if owner and name else None
+    elif not isinstance(repository, str):
+        owner = tool_input.get("owner")
+        name = tool_input.get("repo") or tool_input.get("name")
+        repository = f"{owner}/{name}" if owner and name else None
+    return f"github:{repository}:*" if repository else f"github:{REPO_NAME}:*"
+
+
+def _refine_github_action(action: str, operation: str, tool_input: dict) -> str:
+    if operation == "create_pull_request" and tool_input.get("draft") is not True:
+        return "github:pull_request:create-ready"
+    if operation == "update_pull_request":
+        if tool_input.get("base") is not None:
+            return "github:pull_request:retarget"
+        state = str(tool_input.get("state", "")).lower()
+        if state == "closed":
+            return "github:pull_request:close"
+        if state == "open":
+            return "github:pull_request:reopen"
+        if tool_input.get("reviewers") is not None:
+            return "github:pull_request:reviewer:update"
+        if tool_input.get("draft") is False:
+            return "github:pull_request:ready"
+    if operation == "pull_request_review_write":
+        method = str(tool_input.get("method", "")).lower()
+        event = str(tool_input.get("event", "")).upper()
+        if method == "resolve_thread":
+            return "github:pull_request:review-thread:resolve"
+        if method == "unresolve_thread":
+            return "github:pull_request:review-thread:unresolve"
+        if event == "APPROVE":
+            return "github:pull_request:approve"
+        if event == "REQUEST_CHANGES":
+            return "github:pull_request:request-changes"
+    return action
 
 
 def recognize_mcp_action(tool_name: object, tool_input: dict) -> ActionMatch | None:
-    """Map destination MCP mutations onto a semantic action namespace."""
-    if is_github_mcp_tool(tool_name):
-        operation = str(tool_name).lower().rsplit("__", 1)[-1]
-        if operation in GITHUB_MCP_READ_TOOLS:
-            return None
-        action = GITHUB_MCP_ACTIONS.get(operation)
-        if action is None:
-            return ActionMatch(
-                "github:tool:unclassified", f"github:{REPO_NAME}:*"
-            )
-        if operation == "create_pull_request" and tool_input.get("draft") is not True:
-            action = "github:pull_request:create-ready"
-        elif operation == "update_pull_request":
-            if tool_input.get("base") is not None:
-                action = "github:pull_request:retarget"
-            elif str(tool_input.get("state", "")).lower() == "closed":
-                action = "github:pull_request:close"
-            elif str(tool_input.get("state", "")).lower() == "open":
-                action = "github:pull_request:reopen"
-            elif tool_input.get("reviewers") is not None:
-                action = "github:pull_request:reviewer:update"
-            elif tool_input.get("draft") is False:
-                action = "github:pull_request:ready"
-        elif operation == "pull_request_review_write":
-            method = str(tool_input.get("method", "")).lower()
-            event = str(tool_input.get("event", "")).upper()
-            if method == "resolve_thread":
-                action = "github:pull_request:review-thread:resolve"
-            elif method == "unresolve_thread":
-                action = "github:pull_request:review-thread:unresolve"
-            elif event == "APPROVE":
-                action = "github:pull_request:approve"
-            elif event == "REQUEST_CHANGES":
-                action = "github:pull_request:request-changes"
-        repository = tool_input.get("repository")
-        if isinstance(repository, dict):
-            owner = repository.get("owner")
-            name = repository.get("name") or repository.get("repo")
-            repository = f"{owner}/{name}" if owner and name else None
-        elif not isinstance(repository, str):
-            owner = tool_input.get("owner")
-            name = tool_input.get("repo") or tool_input.get("name")
-            repository = f"{owner}/{name}" if owner and name else None
-        resource = f"github:{repository}:*" if repository else f"github:{REPO_NAME}:*"
-        return ActionMatch(action, resource)
+    """Classify a destination MCP call by consequence.
 
-    if is_jira_mcp_tool(tool_name):
-        normalized = re.sub(r"[^a-z0-9]", "", str(tool_name).lower())
-        if any(normalized.endswith(operation) for operation in JIRA_MCP_READ_TOOLS):
-            return None
-        if not any(normalized.endswith(operation) for operation in JIRA_MCP_ACTIONS):
-            return ActionMatch("jira:tool:unclassified", "jira:*")
-        operation = next(
-            operation for operation in JIRA_MCP_ACTIONS if normalized.endswith(operation)
+    Returns a named mutation action, a `<destination>:tool:read` action, or
+    None. None means this gate has no opinion and the runtime's own
+    permission flow decides — the deliberate inversion of the earlier
+    `<destination>:tool:unclassified` deny (AEPI-132).
+    """
+    destination = mcp_destination(tool_name)
+    if destination is None:
+        return None
+    operation = mcp_operation(str(tool_name))
+
+    if destination == "github":
+        action = GITHUB_MCP_ACTIONS.get(operation)
+        if action is not None:
+            return ActionMatch(
+                _refine_github_action(action, operation, tool_input),
+                _github_resource(tool_input),
+            )
+        if is_mcp_read_operation(operation):
+            return ActionMatch("github:tool:read", "github:*")
+        return None
+
+    normalized = re.sub(r"[^a-z0-9]", "", operation.lower())
+
+    for actions, namespace in ((CONFLUENCE_MCP_ACTIONS, "confluence"), (JIRA_MCP_ACTIONS, "jira")):
+        matched = next(
+            (item for item in actions if normalized.endswith(item)), None
         )
-        action = JIRA_MCP_ACTIONS[operation]
-        issue_key = (
+        if matched is None:
+            continue
+        action = actions[matched]
+        if namespace == "confluence":
+            space = tool_input.get("spaceKey") or tool_input.get("spaceId") or "*"
+            page = tool_input.get("pageId") or tool_input.get("id") or "*"
+            return ActionMatch(action, f"confluence:{space}:page/{page}")
+        issue = (
             tool_input.get("issueIdOrKey")
             or tool_input.get("issueKey")
             or tool_input.get("issue_key")
+            or "*"
         )
-        project_key = tool_input.get("projectKey") or tool_input.get("project_key")
-        project = str(project_key or "*")
-        issue = str(issue_key or "*")
+        project = tool_input.get("projectKey") or tool_input.get("project_key") or "*"
         return ActionMatch(action, f"jira:{project}:issue/{issue}")
+
+    if is_mcp_read_operation(operation):
+        return ActionMatch(f"{destination}:tool:read", f"{destination}:*")
     return None
 
 
 def resolve_agent_type(event: dict) -> str:
+    """Resolve the principal for one event, never default-permitting.
+
+    Exactly one policy document ships today, so every runtime identity —
+    built-in fallback, custom subagent, or an unrecognized string — resolves
+    to it. The `load_policy` probe is kept so that adding a policy document
+    remains sufficient to introduce a principal, rather than also requiring
+    an alias-table edit.
+    """
     raw = event.get("agent_type")
     if not raw:
         return DEFAULT_AGENT_TYPE
     raw = str(raw)
     if load_policy(raw) is not None:
-        # A registered Agent Registry slug with its own policy document —
-        # a translated subagent file (.claude/agents/, .codex/agents/,
-        # .github/agents/) set its native identity field to this exact
-        # string (AEPI-94). Identity passthrough, no alias needed.
         return raw
-    return AGENT_TYPE_ALIASES.get(raw, DEFAULT_AGENT_TYPE)
+    return DEFAULT_AGENT_TYPE
 
 
 def load_policy(agent_type: str) -> dict | None:
@@ -412,6 +487,24 @@ def ask_decision(reason: str, runtime: str = "claude") -> dict:
     return _decision(runtime, "ask", reason)
 
 
+def allow_decision(reason: str, runtime: str = "claude") -> dict:
+    """Affirmatively authorize a call the policy already allows outright.
+
+    Claude Code treats `allow` as "skip the interactive permission prompt"
+    while still applying deny and ask rules on top, so this cannot be used to
+    escape a deny. Emitting it is a governance decision, not a cosmetic one:
+    the earlier silent fall-through kept the operator as a backstop, and an
+    affirmative allow removes that backstop for exactly the actions a policy
+    statement names. Only an `Allow` verdict — a statement that matched with
+    no `requiresHumanApproval` condition — reaches here; an action no
+    statement addresses still falls through silently.
+
+    Safe to emit on Codex: an unrecognized decision there fails open, which
+    is the same outcome the allow expresses.
+    """
+    return _decision(runtime, "allow", reason)
+
+
 def hook_response(
     tool_input: dict,
     event: dict,
@@ -462,9 +555,15 @@ def hook_response(
             # continues the tool call, which is worse than no gate at all.
             return deny_decision(reason, runtime)
         return ask_decision(reason, runtime)
-    # verdict is "Allow" or None (unaddressed by this principal's policy):
-    # fall through silently to the existing tier-based default in
-    # governed-repository-change.md.
+    if verdict == "Allow":
+        return allow_decision(
+            f"{match.action} on {match.resource} is allowed without approval "
+            f"under policy {policy.get('policyId', agent_type)}.",
+            runtime,
+        )
+    # verdict is None: no statement addressed this action, so fall through
+    # silently to the existing tier-based default in
+    # governed-repository-change.md and the runtime's own permission flow.
     return None
 
 
@@ -473,9 +572,9 @@ def run_as_hook(stdin_payload: str, cwd: Path, runtime: str) -> int:
 
     Silent (prints nothing, exits 0) for malformed input, an unrelated tool
     call, a command outside a Git worktree, or any command this gate has no
-    opinion on. The JSON on stdout decides the outcome for a matched, gated
-    command or destination MCP mutation; exit code carries no meaning in this
-    mode.
+    opinion on. The JSON on stdout decides the outcome for a matched command
+    or destination MCP call — allow, ask, or deny; exit code carries no
+    meaning in this mode.
     """
     try:
         event = json.loads(stdin_payload)
@@ -483,8 +582,8 @@ def run_as_hook(stdin_payload: str, cwd: Path, runtime: str) -> int:
         return 0
 
     # Claude Code and Codex both confirm "Bash" as the shell tool's name.
-    # GitHub MCP mutation tools are admitted explicitly so they can share the
-    # semantic GitHub permission namespace with the optional `gh` fallback.
+    # Destination MCP tools are admitted explicitly so they can share the
+    # semantic permission namespace with the optional `gh` fallback.
     # Copilot's equivalent tool name is unverified as of AEPI-94, so its filter
     # remains permissive and command/tool presence below does the gating.
     tool_name = event.get("tool_name")
