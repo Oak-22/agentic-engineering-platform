@@ -1,4 +1,4 @@
-# Developer Learning Retrieval Service — Design Direction
+# Developer Learning — Design Direction
 
 This note defines the design direction for a planned platform service. It is an
 architectural proposal, not a description of an implemented runtime.
@@ -149,12 +149,12 @@ The platform provides the structural prerequisites for this service:
   instructions, skill packages, colocated workflow references, and role charters
 - `.agents/`, `.claude/`, and `.github/` expose those assets through
   runtime-native discovery adapters and enforcement surfaces
-- `platform/inference-telemetry-observatory/` supplies workflow signals and
+- `platform/inference-telemetry-dashboard/` supplies workflow signals and
   receives aggregate recall statistics
 - `docs/` holds higher-level rationale and design notes
 
 The instruction control plane governs the interaction and the telemetry
-observatory supplies workflow signals. This service coordinates those inputs
+dashboard supplies workflow signals. This service coordinates those inputs
 into short recurring retrieval sessions, and holds the durable learning material
 it produces in the stores described above.
 

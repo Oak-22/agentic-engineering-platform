@@ -50,7 +50,7 @@ branch.
 ### Delivery branch
 
 A short-lived, intent-categorized branch created from current `main` for one
-bounded Jira outcome:
+clearly scoped Jira task:
 
 ```text
 <category>/<JIRA-ISSUE-KEY>-<outcome-slug>

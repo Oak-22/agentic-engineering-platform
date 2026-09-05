@@ -76,18 +76,18 @@ Deliver this as four ordered Jira units. Each branch starts from updated
 - Do not fabricate the corrected experiment dataset. Create it only after the
   rollout-JSONL experiment runs.
 - Classification: `refactor`.
-- Acceptance: observatory code and tests run without frozen evidence; every
+- Acceptance: dashboard code and tests run without frozen evidence; every
   report identifies an immutable dataset or clearly states that results are
   not yet available.
 
 ### 4. Reclassify reports and complete the repository audit
 
-- Move the runtime-efficiency DOCX artifacts from observatory product
+- Move the runtime-efficiency DOCX artifacts from dashboard product
   documentation into a cross-runtime efficiency experiment under `evidence/`.
 - Retain the naive report as a labeled pilot interpretation and the
   experiment-setup report as the current design artifact.
 - Exclude the Word lock file.
-- Keep the three generic observatory SVGs with the telemetry pillar because
+- Keep the three generic dashboard SVGs with the telemetry pillar because
   they explain reusable product architecture.
 - Audit all pillars for concrete Jira keys, account identifiers, local paths,
   connector wiring, generated outputs, and captured runtime data.
@@ -109,7 +109,7 @@ Deliver this as four ordered Jira units. Each branch starts from updated
 - New evidence interface: frozen telemetry dataset manifests with checksummed
   file inventories and explicit redaction metadata.
 - Validate all new and moved JSON against their schemas.
-- Run Agent Control Plane and Telemetry Observatory test suites.
+- Run Agent Control Plane and Telemetry Dashboard test suites.
 - Run agent-discovery, Markdown-link, JSON-format, and portability-boundary
   checks.
 - Test that arbitrary Jira keys such as `PROJ-123` and `TEAM-42` remain

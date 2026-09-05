@@ -99,7 +99,7 @@ such as a field recording the vendor's own agent sessions. Those record
 activity in the vendor's runtime, not this platform's. Execution evidence is
 owned by
 [`agent-run-attempt.schema.json`](../../contracts/agent-run-attempt.schema.json)
-and the telemetry observatory.
+and the telemetry dashboard.
 
 Leave such fields out of the portable contract and out of this mapping, and do
 not make them required: nothing outside the vendor's runtime can populate

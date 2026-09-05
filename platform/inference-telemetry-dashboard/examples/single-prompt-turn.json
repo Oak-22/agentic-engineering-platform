@@ -44,7 +44,7 @@
     {
       "sequence": 5,
       "type": "artifact.created",
-      "artifact": "platform/inference-telemetry-observatory/examples/single-prompt-turn.json",
+      "artifact": "platform/inference-telemetry-dashboard/examples/single-prompt-turn.json",
       "occurredAt": "2026-07-24T18:19:18Z"
     }
   ],

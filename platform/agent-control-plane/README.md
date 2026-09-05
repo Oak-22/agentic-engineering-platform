@@ -1,7 +1,7 @@
 # Agent Control Plane
 
 A repo-portable architecture for governing AI-assisted engineering
-behavior through layered instructions, runtime adapters, provenance logs,
+behavior through layered instructions, runtime adapters, source and change logs,
 selective context loading, and auditable task execution.
 
 ## Purpose
@@ -214,7 +214,7 @@ inspectable, and increasing reuse of proven engineering practices.
 - [`../../.codex/`](../../.codex/)
   Codex-native project configuration and lifecycle hooks.
 - [`../../.claude/`](../../.claude/)
-  Claude Code-native installation surface.
+  Claude Code-native setup files.
 - [`../../.github/instructions/`](../../.github/instructions/)
   Path-specific GitHub Copilot adapters.
 - [`../../.github/agents/`](../../.github/agents/)
@@ -243,7 +243,7 @@ inspectable, and increasing reuse of proven engineering practices.
 
 Repository-discovered files must be installed relative to the adopting
 repository's Git or workspace root. Keep entrypoints and runtime-native
-installation surfaces light: they may contain provider-required locators,
+setup files and directories light: they may contain provider-required locators,
 selectors, links, generated projections, and explicitly approved native
 configuration, but they do not own portable behavior. Store canonical skill
 packages, shared instructions, and role charters under `agent-assets/`; store
@@ -266,7 +266,7 @@ surface:
 3. Add canonical skill packages and other reusable content under
    `agent-assets/`.
 4. Add `.agents/`, `.codex/`, `.claude/`, and agent-related `.github/`
-   installation surfaces only for supported runtimes.
+   setup files and directories only for supported runtimes.
 5. Keep provider-specific hook registration, permissions, and enforcement
    configuration runtime-native while keeping portable intent under
    `agent-assets/`.

@@ -10,7 +10,7 @@ filesystems and repository hierarchy while giving humans and agents a
 shared, reviewable representation of structural context.
 
 The tool lives under shared tooling rather than any one platform pillar. The
-Agent Control Plane, Inference Telemetry Observatory, and Developer Learning
+Agent Control Plane, Inference Telemetry Dashboard, and Developer Learning
 Retrieval may consume its maps and annotations, but the visualizer remains
 independently useful for onboarding, architecture review, prompt grounding,
 and personal technical ramp-up.

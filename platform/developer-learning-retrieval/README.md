@@ -1,11 +1,12 @@
-# Developer Learning Retrieval Service
+# Developer Learning
 
 Status: **Planned — design only**
 
-This service will turn real AI-assisted engineering activity into short,
-targeted retrieval-practice sessions. Its primary interaction is a daily
-five-to-ten-minute developer quiz conducted through Codex or another
-compatible agent surface.
+This planned service will use real local development telemetry, including
+commits, debugging sessions, and agent runs, to create a daily five-to-ten-minute
+review quiz through Codex or another supported agent. Questions will draw on
+the developer's actual work and practice recalling concepts from memory
+(retrieval practice).
 
 ## Intended Responsibilities
 
@@ -24,10 +25,10 @@ compatible agent surface.
 flowchart TB
   Activity["`**AI-assisted engineering activity**
   *commits · debugging · agent runs · notes*`"]
-  Observatory["`**Telemetry observatory**
+  Dashboard["`**Telemetry dashboard**
   *normalize · correlate · attach provenance*`"]
   Signals[("`**Learning-signal store**`")]
-  Retrieval["`**Retrieval service**
+  Retrieval["`**Developer Learning**
   *select concepts · generate grounded prompts*
   *spaced-repetition scheduling*`"]
   Session["`**Daily 5–10 minute recall session**
@@ -38,12 +39,12 @@ flowchart TB
   Promotion["`**Promotion ladder**
   *personal → repo → domain → global*
   *gated by reuse, review, and signoff*`"]
-  Artifacts["`**Artifact-typed control plane**
-  *instructions · skills · hooks*`"]
+  Artifacts["`**Agent instructions, skills, and hooks**
+  *shared rules and reusable actions*`"]
   Enterprise["`**Enterprise knowledge systems**
   *planned contract · optional integration*`"]
 
-  Activity --> Observatory --> Signals --> Retrieval --> Session
+  Activity --> Dashboard --> Signals --> Retrieval --> Session
   Session -->|"confidence · misconceptions · outcomes"| Personal
   Personal --> Promotion
   Promotion --> Artifacts
@@ -65,7 +66,7 @@ flowchart TB
   classDef personal fill:#f2f2f0,stroke:#7a7a72,stroke-width:1.6px,color:#33332e,stroke-dasharray: 1 4;
 
   class Activity built;
-  class Observatory ingest;
+  class Dashboard ingest;
   class Signals store;
   class Retrieval,Session,Enterprise planned;
   class Promotion,Artifacts knowledge;
