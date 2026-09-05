@@ -23,7 +23,7 @@ primary IDE checkout                         separate delivery worktree
                                            \
   feature/PROJ-102                        selected B ─ PR ─┘
 
-  visible workspaces: workbench/local (primary) + Jira-keyed delivery worktree
+  visible workspaces: workbench/local (primary) + Jira-keyed delivery worktrees
 ```
 
 The primary checkout holds `workbench/local` for ad hoc changes caused by
