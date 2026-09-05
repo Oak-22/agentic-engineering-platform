@@ -63,8 +63,8 @@ GENERALIST_POLICY = {
     ],
 }
 
-SPECIALIST_POLICY = {
-    "policyId": "pol_architecture-agent",
+RESTRICTIVE_POLICY = {
+    "policyId": "pol_restrictive-principal",
     "statements": [
         {"sid": "DenyPush", "effect": "Deny", "action": ["git:push"], "resource": ["*"]},
         {
@@ -208,18 +208,51 @@ class RecognizeActionTests(unittest.TestCase):
     def test_non_destination_mcp_tool_is_not_recognized(self):
         self.assertIsNone(MODULE.recognize_mcp_action("mcp__other__write", {}))
 
-    def test_known_destination_reads_are_not_gated(self):
+    def test_destination_reads_are_classified_as_reads(self):
+        for tool, action in (
+            ("mcp__github__pull_request_read", "github:tool:read"),
+            ("mcp__github__get_file_contents", "github:tool:read"),
+            ("mcp__codex_apps__atlassian_rovo_getjiraissue", "jira:tool:read"),
+            # The two reads AEPI-131 lost to the old name allowlist.
+            ("mcp__atlassian__getTransitionsForJiraIssue", "jira:tool:read"),
+            ("mcp__atlassian__getJiraIssueTypeMetaWithFields", "jira:tool:read"),
+            ("mcp__atlassian__getConfluencePage", "confluence:tool:read"),
+            ("mcp__atlassian__search", "atlassian:tool:read"),
+        ):
+            with self.subTest(tool=tool):
+                self.assertEqual(MODULE.recognize_mcp_action(tool, {}).action, action)
+
+    def test_unknown_destination_tools_pass_without_an_opinion(self):
+        # AEPI-132 inverted this: an unmapped destination tool is usable
+        # without a gate change, so a connected server can add or rename one.
         for tool in (
-            "mcp__github__pull_request_read",
-            "mcp__codex_apps__atlassian_rovo_getjiraissue",
+            "mcp__github__new_write_tool",
+            "mcp__atlassian__newJiraMutation",
         ):
             with self.subTest(tool=tool):
                 self.assertIsNone(MODULE.recognize_mcp_action(tool, {}))
 
-    def test_unknown_destination_tools_fail_closed(self):
+    def test_confluence_writes_are_classified_rather_than_invisible(self):
+        match = MODULE.recognize_mcp_action(
+            "mcp__atlassian__updateConfluencePage", {"spaceKey": "AEP", "pageId": "42"}
+        )
+        self.assertEqual(match.action, "confluence:page:update")
+        self.assertEqual(match.resource, "confluence:AEP:page/42")
+
+    def test_jira_comment_is_a_named_mutation(self):
+        match = MODULE.recognize_mcp_action(
+            "mcp__atlassian__addCommentToJiraIssue", {"issueIdOrKey": "AEPI-132"}
+        )
+        self.assertEqual(match.action, "jira:issue:comment")
+        self.assertEqual(match.resource, "jira:*:issue/AEPI-132")
+
+    def test_remote_content_writes_bypassing_publication_are_named(self):
         for tool, action in (
-            ("mcp__github__new_write_tool", "github:tool:unclassified"),
-            ("mcp__atlassian__newJiraMutation", "jira:tool:unclassified"),
+            ("mcp__github__create_or_update_file", "github:repository:content:write"),
+            ("mcp__github__push_files", "github:repository:content:write"),
+            ("mcp__github__delete_file", "github:repository:content:delete"),
+            ("mcp__github__create_branch", "github:branch:create"),
+            ("mcp__github__delete_repository", "github:repository:delete"),
         ):
             with self.subTest(tool=tool):
                 self.assertEqual(MODULE.recognize_mcp_action(tool, {}).action, action)
@@ -290,28 +323,36 @@ class ResolveAgentTypeTests(unittest.TestCase):
             MODULE.DEFAULT_AGENT_TYPE,
         )
 
-    def test_resolves_a_mapped_alias(self):
-        with mock.patch.dict(MODULE.AGENT_TYPE_ALIASES, {"architecture": "architecture-agent"}):
-            self.assertEqual(
-                MODULE.resolve_agent_type({"agent_type": "architecture"}),
-                "architecture-agent",
-            )
-
-    def test_identity_passthrough_for_a_real_translated_specialist(self):
-        # AEPI-94: a Claude/Codex/Copilot subagent file whose native identity
-        # field is set to a real Agent Registry slug should resolve to that
-        # slug directly, with no alias table entry required. Exercises the
-        # real permissions directory on disk (AEPI-92), not a mock.
-        for slug in (
+    def test_every_runtime_subagent_identity_resolves_to_the_one_policy(self):
+        # AEPI-132: the six specialist principals are gone, so a runtime's
+        # built-in fallback identity, a former specialist slug, and a custom
+        # name all resolve to the single generalist policy. Exercises the
+        # real permissions directory on disk, not a mock.
+        for identity in (
+            "general-purpose",
+            "Explore",
+            "default",
             "architecture-agent",
-            "implementation-agent",
-            "evaluation-agent",
             "security-agent",
-            "documentation-agent",
-            "release-operations-agent",
+            "some-custom-subagent",
         ):
-            with self.subTest(slug=slug):
-                self.assertEqual(MODULE.resolve_agent_type({"agent_type": slug}), slug)
+            with self.subTest(identity=identity):
+                self.assertEqual(
+                    MODULE.resolve_agent_type({"agent_type": identity}),
+                    MODULE.DEFAULT_AGENT_TYPE,
+                )
+
+    def test_identity_passthrough_when_a_policy_document_exists(self):
+        self.assertEqual(
+            MODULE.resolve_agent_type({"agent_type": "generalist-engineering-agent"}),
+            "generalist-engineering-agent",
+        )
+
+    def test_exactly_one_policy_document_ships(self):
+        self.assertEqual(
+            sorted(path.name for path in MODULE.PERMISSIONS_DIR.glob("*.policy.json")),
+            ["generalist-engineering-agent.policy.json"],
+        )
 
     def test_unrecognized_agent_type_still_defaults_never_default_permits(self):
         self.assertEqual(
@@ -339,15 +380,15 @@ class EvaluatePolicyTests(unittest.TestCase):
         match = MODULE.ActionMatch("git:push", "git:agentic-engineering-platform:branch/feature/x")
         self.assertEqual(MODULE.evaluate_policy(policy, match), "Deny")
 
-    def test_specialist_denies_push_outright(self):
+    def test_restrictive_policy_denies_push_outright(self):
         match = MODULE.ActionMatch("git:push", "git:agentic-engineering-platform:branch/feature/x")
-        self.assertEqual(MODULE.evaluate_policy(SPECIALIST_POLICY, match), "Deny")
+        self.assertEqual(MODULE.evaluate_policy(RESTRICTIVE_POLICY, match), "Deny")
 
-    def test_specialist_denies_github_mcp_write(self):
+    def test_restrictive_policy_denies_github_mcp_write(self):
         match = MODULE.ActionMatch(
             "github:pull_request:create", "github:Oak-22/agentic-engineering-platform:*"
         )
-        self.assertEqual(MODULE.evaluate_policy(SPECIALIST_POLICY, match), "Deny")
+        self.assertEqual(MODULE.evaluate_policy(RESTRICTIVE_POLICY, match), "Deny")
 
     def test_real_generalist_policy_allows_governed_delivery_without_approval(self):
         for action in (
@@ -406,15 +447,87 @@ class EvaluatePolicyTests(unittest.TestCase):
             MODULE.evaluate_policy(REAL_GENERALIST_POLICY, match), "AllowApproval"
         )
 
-    def test_real_generalist_policy_denies_unclassified_destination_tools(self):
-        for action in ("github:tool:unclassified", "jira:tool:unclassified"):
+    def test_real_generalist_policy_allows_destination_reads_outright(self):
+        for action, resource in (
+            ("github:tool:read", "github:*"),
+            ("jira:tool:read", "jira:*"),
+            ("confluence:tool:read", "confluence:*"),
+            ("atlassian:tool:read", "atlassian:*"),
+        ):
             with self.subTest(action=action):
                 self.assertEqual(
                     MODULE.evaluate_policy(
-                        REAL_GENERALIST_POLICY, MODULE.ActionMatch(action, "*")
+                        REAL_GENERALIST_POLICY, MODULE.ActionMatch(action, resource)
                     ),
+                    "Allow",
+                )
+
+    def test_real_generalist_policy_gates_confluence_and_content_writes(self):
+        for action, resource in (
+            ("confluence:page:create", "confluence:AEP:page/*"),
+            ("confluence:page:update", "confluence:AEP:page/1"),
+            ("github:repository:content:write", "github:agentic-engineering-platform:*"),
+            ("github:repository:content:delete", "github:agentic-engineering-platform:*"),
+            ("github:branch:create", "github:agentic-engineering-platform:*"),
+        ):
+            with self.subTest(action=action):
+                self.assertEqual(
+                    MODULE.evaluate_policy(
+                        REAL_GENERALIST_POLICY, MODULE.ActionMatch(action, resource)
+                    ),
+                    "AllowApproval",
+                )
+
+    def test_real_generalist_policy_denies_repository_deletion(self):
+        self.assertEqual(
+            MODULE.evaluate_policy(
+                REAL_GENERALIST_POLICY,
+                MODULE.ActionMatch("github:repository:delete", "github:*"),
+            ),
+            "Deny",
+        )
+
+    def test_a_deny_survives_a_broader_allow_over_the_same_action(self):
+        # The inversion widens what "not denied" covers, so deny-overrides has
+        # to hold even when an Allow statement is written broadly enough to
+        # reach a human-acceptance action.
+        policy = {
+            "policyId": "pol_broad-allow",
+            "statements": [
+                {
+                    "sid": "AllowEverythingOnThisRepository",
+                    "effect": "Allow",
+                    "action": [
+                        "github:pull_request:merge",
+                        "github:pull_request:approve",
+                        "github:tool:read",
+                    ],
+                    "resource": ["*"],
+                    "condition": {"requiresHumanApproval": False},
+                },
+                {
+                    "sid": "DenyHumanAcceptanceActions",
+                    "effect": "Deny",
+                    "action": [
+                        "github:pull_request:merge",
+                        "github:pull_request:approve",
+                    ],
+                    "resource": ["*"],
+                },
+            ],
+        }
+        for action in ("github:pull_request:merge", "github:pull_request:approve"):
+            with self.subTest(action=action):
+                self.assertEqual(
+                    MODULE.evaluate_policy(policy, MODULE.ActionMatch(action, "github:*")),
                     "Deny",
                 )
+        self.assertEqual(
+            MODULE.evaluate_policy(
+                policy, MODULE.ActionMatch("github:tool:read", "github:*")
+            ),
+            "Allow",
+        )
 
 
 class HookResponseTests(unittest.TestCase):
@@ -449,15 +562,14 @@ class HookResponseTests(unittest.TestCase):
         loader.assert_called_once_with(MODULE.DEFAULT_AGENT_TYPE)
         self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "ask")
 
-    def test_specialist_deny_cannot_be_bypassed_by_a_spawned_subagent_event(self):
-        with mock.patch.dict(MODULE.AGENT_TYPE_ALIASES, {"architecture": "architecture-agent"}):
-            with mock.patch.object(MODULE, "load_policy", return_value=SPECIALIST_POLICY):
-                result = MODULE.hook_response(
-                    {"command": "git push origin feature/x"},
-                    {"agent_id": "sub-1", "agent_type": "architecture"},
-                    Path("/repo"),
-                    "claude",
-                )
+    def test_a_spawned_subagent_event_gets_the_same_principal_decision(self):
+        with mock.patch.object(MODULE, "load_policy", return_value=RESTRICTIVE_POLICY):
+            result = MODULE.hook_response(
+                {"command": "git push origin feature/x"},
+                {"agent_id": "sub-1", "agent_type": "architecture"},
+                Path("/repo"),
+                "claude",
+            )
         self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny")
 
     def test_ask_on_claude_becomes_deny_on_codex(self):
@@ -490,8 +602,8 @@ class HookResponseTests(unittest.TestCase):
             )
         self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "ask")
 
-    def test_github_mcp_write_is_denied_for_specialist(self):
-        with mock.patch.object(MODULE, "load_policy", return_value=SPECIALIST_POLICY):
+    def test_github_mcp_write_is_denied_by_a_restrictive_policy(self):
+        with mock.patch.object(MODULE, "load_policy", return_value=RESTRICTIVE_POLICY):
             result = MODULE.hook_response(
                 {"owner": "Oak-22", "repo": "agentic-engineering-platform", "draft": True},
                 {"agent_type": "architecture-agent"},
@@ -512,7 +624,7 @@ class HookResponseTests(unittest.TestCase):
             )
         self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "ask")
 
-    def test_real_generalist_governed_publish_and_pr_create_do_not_prompt_codex(self):
+    def test_real_generalist_governed_publish_and_pr_create_emit_an_allow(self):
         with mock.patch.object(MODULE, "load_policy", return_value=REAL_GENERALIST_POLICY):
             publish = MODULE.hook_response(
                 {
@@ -530,8 +642,12 @@ class HookResponseTests(unittest.TestCase):
                 "codex",
                 "mcp__github__create_pull_request",
             )
-        self.assertIsNone(publish)
-        self.assertIsNone(create)
+        # AEPI-132: an Allow verdict now emits an affirmative allow instead
+        # of no opinion, so the runtime skips its own permission prompt.
+        for result in (publish, create):
+            self.assertEqual(
+                result["hookSpecificOutput"]["permissionDecision"], "allow"
+            )
 
     def test_real_generalist_merge_is_denied_for_every_runtime(self):
         with mock.patch.object(MODULE, "load_policy", return_value=REAL_GENERALIST_POLICY):
@@ -546,6 +662,136 @@ class HookResponseTests(unittest.TestCase):
                     )
                     payload = result if runtime == "copilot" else result["hookSpecificOutput"]
                     self.assertEqual(payload["permissionDecision"], "deny")
+
+
+class GovernedDeliveryUnderTheRealPolicyTests(unittest.TestCase):
+    """AEPI-132 acceptance: what an ordinary governed delivery actually sees."""
+
+    def setUp(self):
+        patcher = mock.patch.object(
+            MODULE, "load_policy", return_value=REAL_GENERALIST_POLICY
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        branch = mock.patch.object(
+            MODULE, "current_branch", return_value="refactor/AEPI-132-x"
+        )
+        branch.start()
+        self.addCleanup(branch.stop)
+
+    def decide(self, tool_input, tool_name="Bash", runtime="claude"):
+        result = MODULE.hook_response(tool_input, {}, Path("/repo"), runtime, tool_name)
+        if result is None:
+            return None
+        return result if runtime == "copilot" else result["hookSpecificOutput"]
+
+    def test_the_reads_aepi_131_lost_now_succeed_without_a_prompt(self):
+        for tool in (
+            "mcp__atlassian__getTransitionsForJiraIssue",
+            "mcp__atlassian__getJiraIssueTypeMetaWithFields",
+            "mcp__github__pull_request_read",
+        ):
+            with self.subTest(tool=tool):
+                decision = self.decide({"issueIdOrKey": "AEPI-132"}, tool)
+                self.assertEqual(decision["permissionDecision"], "allow")
+
+    def test_writing_the_delivery_record_to_the_issue_now_succeeds(self):
+        decision = self.decide(
+            {"issueIdOrKey": "AEPI-132"}, "mcp__atlassian__addCommentToJiraIssue"
+        )
+        self.assertEqual(decision["permissionDecision"], "allow")
+
+    def test_confluence_write_is_gated_rather_than_ungoverned(self):
+        decision = self.decide({"pageId": "42"}, "mcp__atlassian__updateConfluencePage")
+        self.assertEqual(decision["permissionDecision"], "ask")
+        self.assertIn("confluence:page:update", decision["permissionDecisionReason"])
+
+    def test_human_acceptance_actions_stay_denied(self):
+        approve = {"method": "submit_pending", "event": "APPROVE"}
+        request_changes = {"method": "submit_pending", "event": "REQUEST_CHANGES"}
+        for tool_input, tool in (
+            ({}, "mcp__github__merge_pull_request"),
+            (approve, "mcp__github__pull_request_review_write"),
+            (request_changes, "mcp__github__pull_request_review_write"),
+            ({"state": "closed"}, "mcp__github__update_pull_request"),
+            ({"state": "open"}, "mcp__github__update_pull_request"),
+            ({"base": "release"}, "mcp__github__update_pull_request"),
+            ({"draft": False}, "mcp__github__create_pull_request"),
+        ):
+            with self.subTest(tool=tool, tool_input=tool_input):
+                decision = self.decide(tool_input, tool)
+                self.assertEqual(decision["permissionDecision"], "deny")
+
+    def test_shell_equivalents_of_those_actions_stay_denied(self):
+        for command in (
+            "gh pr merge 82",
+            "gh pr review 82 --approve",
+            "gh pr review 82 --request-changes",
+            "gh pr close 82",
+            "gh pr edit 82 --base release",
+        ):
+            with self.subTest(command=command):
+                decision = self.decide({"command": command})
+                self.assertEqual(decision["permissionDecision"], "deny")
+
+    def test_history_rewriting_push_stays_globally_denied(self):
+        rewriting = "git " + "push"
+        for flag in ("--force", "--force-with-lease", "-f"):
+            command = f"{rewriting} {flag} origin refactor/AEPI-132-x"
+            with self.subTest(command=command):
+                decision = self.decide({"command": command})
+                self.assertEqual(decision["permissionDecision"], "deny")
+
+    def test_branch_delete_and_direct_push_stay_human_gated(self):
+        for command in (
+            "git branch -D refactor/AEPI-132-x",
+            "git " + "push origin refactor/AEPI-132-x",
+        ):
+            with self.subTest(command=command):
+                decision = self.decide({"command": command})
+                self.assertEqual(decision["permissionDecision"], "ask")
+
+    def test_every_remaining_prompt_names_the_statement_that_caused_it(self):
+        for tool_input, tool in (
+            ({"command": "git " + "push origin refactor/AEPI-132-x"}, "Bash"),
+            ({"command": "git branch -D refactor/AEPI-132-x"}, "Bash"),
+            ({"pageId": "42"}, "mcp__atlassian__updateConfluencePage"),
+            ({}, "mcp__github__push_files"),
+        ):
+            with self.subTest(tool=tool):
+                decision = self.decide(tool_input, tool)
+                self.assertEqual(decision["permissionDecision"], "ask")
+                self.assertIn(
+                    "requires human approval", decision["permissionDecisionReason"]
+                )
+                self.assertIn(
+                    REAL_GENERALIST_POLICY["policyId"],
+                    decision["permissionDecisionReason"],
+                )
+
+    def test_the_governed_delivery_path_never_prompts(self):
+        publish = (
+            "python3 platform/agent-control-plane/scripts/"
+            "publish_delivery_branch.py --execute"
+        )
+        repository = {"owner": "Oak-22", "repo": "agentic-engineering-platform"}
+        for tool_input, tool in (
+            ({"command": publish}, "Bash"),
+            ({**repository, "draft": True}, "mcp__github__create_pull_request"),
+            ({**repository, "draft": False}, "mcp__github__update_pull_request"),
+            ({"issueIdOrKey": "AEPI-132"}, "mcp__atlassian__transitionJiraIssue"),
+            ({"issueIdOrKey": "AEPI-132"}, "mcp__atlassian__addCommentToJiraIssue"),
+            ({"issueIdOrKey": "AEPI-132"}, "mcp__atlassian__getJiraIssue"),
+        ):
+            with self.subTest(tool=tool):
+                decision = self.decide(tool_input, tool)
+                self.assertEqual(decision["permissionDecision"], "allow")
+
+    def test_a_call_the_gate_does_not_recognize_is_left_to_the_runtime(self):
+        # Not an allow: the gate stays silent so the runtime's own permission
+        # flow, and the committed `permissions.allow` list, decide.
+        self.assertIsNone(self.decide({"command": "git status --short"}))
+        self.assertIsNone(self.decide({}, "mcp__github__brand_new_tool"))
 
 
 class HostilePathMatrixTests(unittest.TestCase):

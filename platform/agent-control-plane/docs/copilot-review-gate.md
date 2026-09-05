@@ -16,6 +16,27 @@ An unclassified comment-only review is a failure, not evidence of cleanliness.
 A duplicate finding identifier merges toward the more severe reading, both for
 actionability and for disposition, so a suppressed copy cannot waive a dispute.
 
+## Where separation of duties comes from
+
+The reviewer on the pull request is what separates duties in this repository.
+An agent cannot cause a Copilot review to pass; the gate reads a verdict
+produced outside the agent's session and outside its authority, and the branch
+rule reads the resulting check. Agent role separation never had that property.
+A specialist subagent is the same model, in the same session, adopting a role
+it selected for itself, so it cannot check the generalist's work from outside
+the generalist's authority. AEPI-132 removed the six specialist role charters
+and their per-runtime translations for that reason and kept one generalist
+policy.
+
+That is a claim about authority, not about statistical independence. Copilot
+code review reads the pull request's own head-branch instructions, skills, and
+configured tools, so producer and reviewer share context and can share blind
+spots. The open proposal in
+[`future/copilot-independent-reviewer-boundary.md`](../../../future/copilot-independent-reviewer-boundary.md)
+holds the unanswered questions about what a stronger boundary would require;
+until it is decided, describe the gate as an external review the agent cannot
+grant itself, not as independent verification.
+
 ## Why the gate is triggered by the pull request
 
 The gate waits rather than reacting to the review event, because two GitHub

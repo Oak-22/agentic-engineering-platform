@@ -7,15 +7,24 @@
   },
   "statements": [
     {
-      "sid": "DenyUnclassifiedDestinationTools",
-      "effect": "Deny",
+      "sid": "AllowDestinationReads",
+      "effect": "Allow",
       "action": [
-        "github:tool:unclassified",
-        "jira:tool:unclassified"
+        "github:tool:read",
+        "jira:tool:read",
+        "confluence:tool:read",
+        "atlassian:tool:read"
       ],
       "resource": [
-        "*"
-      ]
+        "github:*",
+        "jira:*",
+        "confluence:*",
+        "atlassian:*"
+      ],
+      "condition": {
+        "requiresHumanApproval": false,
+        "tier": 1
+      }
     },
     {
       "sid": "AllowGovernedDeliveryGit",
@@ -128,7 +137,9 @@
         "jira:issue:create",
         "jira:issue:update",
         "jira:issue:transition",
-        "jira:issue:link"
+        "jira:issue:link",
+        "jira:issue:comment",
+        "jira:issue:worklog"
       ],
       "resource": [
         "jira:AEPI:issue/*",
@@ -151,6 +162,48 @@
       "condition": {
         "requiresHumanApproval": true,
         "tier": 4
+      }
+    },
+    {
+      "sid": "GateConfluenceKnowledgeMutation",
+      "effect": "Allow",
+      "action": [
+        "confluence:page:create",
+        "confluence:page:update",
+        "confluence:comment:create"
+      ],
+      "resource": [
+        "confluence:*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 3
+      }
+    },
+    {
+      "sid": "DenyIrreversibleDestinationActions",
+      "effect": "Deny",
+      "action": [
+        "github:repository:delete"
+      ],
+      "resource": [
+        "*"
+      ]
+    },
+    {
+      "sid": "GateDirectRepositoryContentWrite",
+      "effect": "Allow",
+      "action": [
+        "github:repository:content:write",
+        "github:repository:content:delete",
+        "github:branch:create"
+      ],
+      "resource": [
+        "*"
+      ],
+      "condition": {
+        "requiresHumanApproval": true,
+        "tier": 3
       }
     }
   ]

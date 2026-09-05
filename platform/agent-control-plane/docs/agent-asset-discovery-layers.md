@@ -6,8 +6,8 @@ This diagram shows how agent guidance moves through four layers:
 2. **Runtime surfaces** — provider-specific discovery locations such as
    `.codex/`, `.claude/`, and `.github/`.
 3. **Provider adapters** — runtime mappings and renderers.
-4. **Canonical agent assets** — reusable instructions, skills, hooks,
-   policies, and role charters.
+4. **Canonical agent assets** — reusable instructions, skills, hooks, and
+   policies.
 
 The first two layers stay lightweight. The canonical assets contain the
 substantive reusable behavior.
@@ -55,7 +55,7 @@ flowchart TB
             K["skills/"]
             H["hooks/"]
             P["execution-policies/"]
-            R["role-charters/"]
+            M["mcp-servers/"]
         end
     end
 
@@ -78,7 +78,7 @@ flowchart TB
     ROOT --> K
     ROOT --> H
     ROOT --> P
-    ROOT --> R
+    ROOT --> M
 
     style ES fill:transparent,stroke:transparent
     style DS fill:transparent,stroke:transparent
