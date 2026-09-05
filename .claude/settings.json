@@ -1,4 +1,30 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git fetch:*)",
+      "Bash(git branch --list:*)",
+      "Bash(git branch --show-current:*)",
+      "Bash(git worktree list:*)",
+      "Bash(git remote -v:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(python3 platform/agent-control-plane/scripts/governed_task_preflight.py:*)",
+      "Bash(python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py:*)",
+      "Bash(python3 platform/agent-control-plane/scripts/workbench_evidence.py:*)",
+      "Bash(python3 platform/agent-control-plane/scripts/evaluate_pull_request_readiness.py:*)",
+      "Bash(python3 platform/agent-control-plane/scripts/validate_asset_registries.py:*)",
+      "Bash(python3 platform/agent-control-plane/scripts/validate_contracts.py:*)",
+      "Bash(bash scripts/check-agent-discovery-layout.sh:*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -59,14 +85,62 @@
         ]
       },
       {
-        "matcher": "Bash|mcp__github__.*|mcp__.*atlassian.*|mcp__.*jira.*",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
+            "if": "Bash(git *)",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/governed_task_preflight.py\" --hook",
             "timeout": 10,
             "statusMessage": "Checking governed task isolation"
           },
+          {
+            "type": "command",
+            "if": "Bash(git *)",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime claude",
+            "timeout": 10,
+            "statusMessage": "Checking agent permission policy"
+          },
+          {
+            "type": "command",
+            "if": "Bash(gh *)",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime claude",
+            "timeout": 10,
+            "statusMessage": "Checking agent permission policy"
+          },
+          {
+            "type": "command",
+            "if": "Bash(python3 platform/agent-control-plane/scripts/publish_delivery_branch.py *)",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime claude",
+            "timeout": 10,
+            "statusMessage": "Checking agent permission policy"
+          },
+          {
+            "type": "command",
+            "if": "Bash(platform/agent-control-plane/scripts/publish_delivery_branch.py *)",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime claude",
+            "timeout": 10,
+            "statusMessage": "Checking agent permission policy"
+          },
+          {
+            "type": "command",
+            "if": "Bash(python3 platform/agent-control-plane/agent-assets/skills/manage-git-workflow/scripts/delivery_cleanup.py *)",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime claude",
+            "timeout": 10,
+            "statusMessage": "Checking agent permission policy"
+          },
+          {
+            "type": "command",
+            "if": "Bash(python3 .agents/skills/manage-git-workflow/scripts/delivery_cleanup.py *)",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime claude",
+            "timeout": 10,
+            "statusMessage": "Checking agent permission policy"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__github__.*|mcp__.*atlassian.*|mcp__.*jira.*",
+        "hooks": [
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/platform/agent-control-plane/scripts/agent_permission_gate.py\" --hook --runtime claude",
