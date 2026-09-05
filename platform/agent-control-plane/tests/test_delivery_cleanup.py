@@ -251,7 +251,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
             scenario.primary, scenario.pull_request
         )
 
-        self.assertEqual(plan.deletion_flag, "-d")
+        self.assertTrue(plan.head_contained_in_base)
         MODULE.execute_cleanup(plan)
 
         self.assertFalse(
@@ -265,7 +265,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
             scenario.primary, scenario.pull_request
         )
 
-        self.assertEqual(plan.deletion_flag, "-D")
+        self.assertFalse(plan.head_contained_in_base)
         MODULE.execute_cleanup(plan)
 
         self.assertFalse(
@@ -409,6 +409,119 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         )
 
         self.assertEqual(result, "already-up-to-date")
+
+
+class PrimaryWorkspaceIsolationTests(unittest.TestCase):
+    """Cleaning a delivery beside the repository is not the primary's business."""
+
+    def scenario(self, *, squash: bool = False):
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        return RepositoryScenario(Path(temporary_directory.name), squash=squash)
+
+    def workbench_scenario(self):
+        """A delivery in a secondary worktree, primary parked on the workbench."""
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        secondary = scenario.root / "secondary"
+        scenario.git(
+            scenario.primary,
+            "worktree",
+            "add",
+            str(secondary),
+            scenario.feature_branch,
+        )
+        return scenario, secondary
+
+    def test_a_loose_file_in_the_primary_does_not_block_cleanup(self):
+        scenario, _ = self.workbench_scenario()
+        loose = scenario.primary / "capture-note.md"
+        loose.write_text("workbench capture\n", encoding="utf-8")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+
+        self.assertEqual(plan.primary_conflicts, ())
+
+        MODULE.execute_cleanup(plan)
+
+        self.assertFalse(
+            MODULE.branch_exists(scenario.primary, scenario.feature_branch)
+        )
+        self.assertEqual(loose.read_text(encoding="utf-8"), "workbench capture\n")
+
+    def test_an_untracked_file_the_cleanup_would_overwrite_blocks_and_is_named(self):
+        scenario, _ = self.workbench_scenario()
+        # feature.txt arrives with the workbench sync, onto an untracked copy.
+        (scenario.primary / "feature.txt").write_text("mine\n", encoding="utf-8")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+
+        self.assertIn("?? feature.txt", plan.primary_conflicts)
+        with self.assertRaisesRegex(MODULE.CleanupError, "paths this cleanup would"):
+            MODULE.execute_cleanup(plan)
+        self.assertTrue(
+            MODULE.branch_exists(scenario.primary, scenario.feature_branch)
+        )
+
+    def test_the_base_advances_by_ref_update_without_a_checkout(self):
+        """Advancing a branch nobody has checked out needs no working tree."""
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main")
+        scenario.git(scenario.primary, "reset", "--hard", "main~1")
+        scenario.git(scenario.primary, "update-ref", "refs/heads/main", "HEAD")
+        before = scenario.git(
+            scenario.primary, "rev-parse", "HEAD"
+        ).stdout.strip()
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        self.assertEqual(plan.base_advance, MODULE.BASE_REF_UPDATE)
+        MODULE.advance_base(plan)
+
+        self.assertEqual(
+            scenario.rev_parse("main"), scenario.rev_parse("origin/main")
+        )
+        self.assertEqual(
+            scenario.git(scenario.primary, "rev-parse", "HEAD").stdout.strip(), before
+        )
+        self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
+
+    def test_cleanup_leaves_the_primary_on_the_branch_it_started_on(self):
+        scenario, _ = self.workbench_scenario()
+        scenario.git(scenario.primary, "merge", "--ff-only", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+
+        self.assertFalse(plan.switch_required)
+        MODULE.execute_cleanup(plan)
+
+        self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
+
+    def test_deletion_is_verified_against_the_base_not_the_checked_out_branch(self):
+        """From the workbench, `git branch -d` calls a merged delivery unmerged."""
+        scenario, _ = self.workbench_scenario()
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        self.assertTrue(plan.head_contained_in_base)
+        MODULE.execute_cleanup(plan)
+
+        self.assertFalse(
+            MODULE.branch_exists(scenario.primary, scenario.feature_branch)
+        )
+
+    def test_a_base_that_moved_since_planning_fails_the_ref_update(self):
+        """The compare-and-swap is what makes a checkout-free advance safe."""
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main")
+        current = scenario.rev_parse("main")
+        stale = scenario.rev_parse("main~1")
+        scenario.git(scenario.primary, "update-ref", "refs/heads/main", stale)
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        self.assertEqual(plan.base_oid_at_plan, stale)
+        scenario.git(scenario.primary, "update-ref", "refs/heads/main", current)
+
+        with self.assertRaisesRegex(MODULE.CleanupError, "moved since"):
+            MODULE.advance_base(plan)
 
 
 class StaleRepositoryScenario:
@@ -599,22 +712,38 @@ class ReconcileLocalDeliveriesTests(unittest.TestCase):
         self.assertNotIn(safe_branch, branches)
         self.assertIn(manual_branch, branches)
 
-    def test_execution_rejects_dirty_workspace(self):
+    def test_a_loose_file_does_not_block_reconciliation_and_survives_it(self):
+        """Deleting a ref and pruning metadata write nothing into the checkout."""
         scenario = self.scenario()
-        branch = "release/PROJ-108-safe"
+        branch = "chore/PROJ-108-safe"
         head_oid = scenario.create_branch(branch)
         report = self.report(
             scenario,
             pull_requests=(self.merged_pr(108, branch, head_oid),),
         )
-        (scenario.primary / "untracked.txt").write_text(
-            "preserve\n", encoding="utf-8"
+        loose = scenario.primary / "untracked.txt"
+        loose.write_text("preserve\n", encoding="utf-8")
+
+        MODULE.execute_reconciliation(scenario.primary, report)
+
+        self.assertNotIn(branch, MODULE.local_delivery_branches(scenario.primary))
+        self.assertEqual(loose.read_text(encoding="utf-8"), "preserve\n")
+
+    def test_a_branch_merged_into_main_is_deleted_from_the_workbench(self):
+        """`git branch -d` would judge it against HEAD and refuse."""
+        scenario = self.scenario()
+        branch = "chore/PROJ-109-safe"
+        head_oid = scenario.create_branch(branch)
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main")
+        report = self.report(
+            scenario,
+            pull_requests=(self.merged_pr(109, branch, head_oid),),
         )
 
-        with self.assertRaisesRegex(MODULE.CleanupError, "workspace is dirty"):
-            MODULE.execute_reconciliation(scenario.primary, report)
+        MODULE.execute_reconciliation(scenario.primary, report)
 
-        self.assertIn(branch, MODULE.local_delivery_branches(scenario.primary))
+        self.assertNotIn(branch, MODULE.local_delivery_branches(scenario.primary))
+        self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
 
 
 class CliModeTests(unittest.TestCase):
@@ -691,11 +820,17 @@ class CliModeTests(unittest.TestCase):
             target_worktree=None,
             initial_primary_branch="workbench/local",
             return_branch="workbench/local",
-            deletion_flag="-D",
+            head_contained_in_base=False,
             remote_branch_exists=True,
             workbench_sync_needed=False,
+            base_advance=MODULE.BASE_REF_UPDATE,
+            base_oid_at_plan="0123456",
+            switch_required=False,
+            primary_conflicts=(),
         )
         payload = json.loads(MODULE.cleanup_plan_as_json(plan, executed=True))
+        self.assertEqual(payload["baseAdvance"], MODULE.BASE_REF_UPDATE)
+        self.assertFalse(payload["primarySwitched"])
         self.assertEqual(payload["outcome"], "cleaned")
         self.assertEqual(payload["localCleanup"], "completed")
         self.assertFalse(payload["remoteDeletionAttempted"])

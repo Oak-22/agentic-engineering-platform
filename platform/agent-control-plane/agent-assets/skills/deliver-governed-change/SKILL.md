@@ -251,11 +251,12 @@ Delegate cleanup mechanics to `manage-git-workflow` and require it to:
 1. resolve the Jira key, pull request, feature branch, target branch, and
    primary or secondary checkout as one delivery unit;
 2. verify the pull request is merged and the target contains its merge result;
-3. verify the active checkout is clean and its `HEAD` matches the published
-   feature tip;
-4. restore the primary checkout to its clean workbench (or `main` fallback),
-   or remove the verified secondary worktree, before deleting the local feature
-   branch;
+3. verify the delivery checkout is clean and its `HEAD` matches the published
+   feature tip, and that the primary holds no uncommitted change on a path the
+   cleanup writes;
+4. advance the base by ref update, leaving the primary on the branch it
+   started on unless the cleanup must move it, and remove the verified
+   secondary worktree, before deleting the local feature branch;
 5. verify squash merges from pull-request and target-branch evidence instead
    of branch ancestry alone;
 6. prune stale worktree metadata and report the remote branch's disposition;

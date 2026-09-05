@@ -1,7 +1,9 @@
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -37,15 +39,46 @@ class GovernedTaskPreflightTests(unittest.TestCase):
     def test_clean_default_branch_passes(self):
         self.assertEqual(MODULE.blockers_for(self.state()), [])
 
-    def test_dirty_worktree_blocks_and_lists_changes(self):
-        blockers = MODULE.blockers_for(
-            self.state(dirty_entries=(" M tracked.txt", "?? untracked.txt"))
-        )
+    def test_tracked_modifications_block_and_are_listed(self):
+        blockers = MODULE.blockers_for(self.state(dirty_entries=(" M tracked.txt",)))
 
         self.assertEqual(len(blockers), 1)
-        self.assertIn("working tree has uncommitted changes", blockers[0])
+        self.assertIn("would carry across or overwrite", blockers[0])
         self.assertIn(" M tracked.txt", blockers[0])
-        self.assertIn("?? untracked.txt", blockers[0])
+
+    def test_a_loose_untracked_file_does_not_block_on_its_own(self):
+        """The workbench pattern expects capture notes between deliveries."""
+        state = self.state(dirty_entries=("?? future/note.md",))
+
+        self.assertEqual(MODULE.blockers_for(state), [])
+
+    def test_an_untracked_file_the_operation_would_overwrite_blocks(self):
+        state = self.state(
+            dirty_entries=("?? future/note.md",),
+            at_risk_paths=("future/note.md",),
+        )
+
+        blockers = MODULE.blockers_for(state)
+
+        self.assertEqual(len(blockers), 1)
+        self.assertIn("?? future/note.md", blockers[0])
+
+    def test_a_preserved_untracked_file_is_reported_rather_than_ignored(self):
+        state = self.state(dirty_entries=("?? future/note.md",))
+
+        warnings = MODULE.warnings_for(state)
+
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("will be preserved", warnings[0])
+        self.assertIn("?? future/note.md", warnings[0])
+
+    def test_a_tracked_modification_blocks_even_off_the_at_risk_list(self):
+        """A modified tracked file is unfinished delivery work, not capture."""
+        state = self.state(
+            dirty_entries=(" M elsewhere.txt",), at_risk_paths=("other.txt",)
+        )
+
+        self.assertEqual(len(MODULE.blockers_for(state)), 1)
 
     def test_open_governed_pull_requests_block_together(self):
         pull_requests = (
@@ -284,6 +317,99 @@ class BranchCreationMatcherTests(unittest.TestCase):
         self.assertFalse(MODULE.targets_branch_creation("ls -la"))
 
 
+class StatusEntryParsingTests(unittest.TestCase):
+    """The gate names paths, so it has to read them exactly as Git holds them."""
+
+    def repository(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        self.git(root, "init", "--initial-branch=main")
+        self.git(root, "config", "user.name", "Preflight Test")
+        self.git(root, "config", "user.email", "preflight@example.invalid")
+        (root / "tracked.txt").write_text("one\n", encoding="utf-8")
+        self.git(root, "add", "tracked.txt")
+        self.git(root, "commit", "-m", "Initial")
+        return root
+
+    @staticmethod
+    def git(cwd: Path, *arguments: str):
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_a_clean_tree_has_no_entries(self):
+        self.assertEqual(MODULE.status_entries(self.repository()), ())
+
+    def test_a_path_with_a_space_is_read_whole(self):
+        """The quoted human-readable form would name a file that does not exist."""
+        root = self.repository()
+        (root / "loose note.md").write_text("capture\n", encoding="utf-8")
+
+        entries = MODULE.status_entries(root)
+
+        self.assertEqual(entries, ("?? loose note.md",))
+        self.assertEqual(MODULE.entry_path(entries[0]), "loose note.md")
+
+    def test_a_modification_and_an_untracked_file_are_told_apart(self):
+        root = self.repository()
+        (root / "tracked.txt").write_text("two\n", encoding="utf-8")
+        (root / "loose.md").write_text("capture\n", encoding="utf-8")
+
+        statuses = {
+            MODULE.entry_path(entry): MODULE.entry_status(entry)
+            for entry in MODULE.status_entries(root)
+        }
+
+        self.assertEqual(statuses["tracked.txt"], " M")
+        self.assertEqual(statuses["loose.md"], MODULE.UNTRACKED_STATUS)
+
+    def test_paths_written_between_names_only_what_differs(self):
+        root = self.repository()
+        self.git(root, "switch", "-c", "other")
+        (root / "added.txt").write_text("new\n", encoding="utf-8")
+        self.git(root, "add", "added.txt")
+        self.git(root, "commit", "-m", "Add")
+
+        self.assertEqual(
+            MODULE.paths_written_between(root, "main", "other"), frozenset({"added.txt"})
+        )
+
+    def test_an_unresolvable_revision_is_a_controlled_error(self):
+        with self.assertRaises(MODULE.InspectionError):
+            MODULE.paths_written_between(self.repository(), "main", "no-such-ref")
+
+
+class StartPointTests(unittest.TestCase):
+    """A start point is what makes branch creation able to overwrite a file."""
+
+    def test_a_branch_created_from_head_names_no_start_point(self):
+        self.assertIsNone(
+            MODULE.branch_creation_start_point("git switch -c fix/PROJ-1-x")
+        )
+
+    def test_an_explicit_start_point_is_read(self):
+        self.assertEqual(
+            MODULE.branch_creation_start_point(
+                "git switch -c fix/PROJ-1-x origin/main"
+            ),
+            "origin/main",
+        )
+
+    def test_a_trailing_option_is_not_mistaken_for_a_start_point(self):
+        self.assertIsNone(
+            MODULE.branch_creation_start_point("git checkout -b fix/PROJ-1-x --track")
+        )
+
+    def test_a_command_that_creates_no_branch_names_nothing(self):
+        self.assertIsNone(MODULE.branch_creation_start_point("git worktree add ../x"))
+
+
 class HookResponseTests(unittest.TestCase):
     def test_none_for_a_command_that_is_not_branch_creation(self):
         with mock.patch.object(MODULE, "inspect_repository") as inspect:
@@ -314,7 +440,7 @@ class HookResponseTests(unittest.TestCase):
 
         reason = decision["hookSpecificOutput"]["permissionDecisionReason"]
         self.assertIn("prepare_delivery_branch.py", reason)
-        self.assertIn("uncommitted changes", reason)
+        self.assertIn("would carry across or overwrite", reason)
 
     def test_none_when_no_blockers_apply(self):
         clean_state = MODULE.RepositoryState(
@@ -356,7 +482,10 @@ class HookResponseTests(unittest.TestCase):
             )
         self.assertEqual(result["hookSpecificOutput"]["hookEventName"], "PreToolUse")
         self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny")
-        self.assertIn("uncommitted changes", result["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertIn(
+            "would carry across or overwrite",
+            result["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
     def test_denies_when_repository_state_cannot_be_verified(self):
         with mock.patch.object(

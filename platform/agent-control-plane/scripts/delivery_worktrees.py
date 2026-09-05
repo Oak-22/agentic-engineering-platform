@@ -13,11 +13,13 @@ path, and surfaces file overlap between concurrent deliveries before they
 reach integration. Divergence between active branches is expected; what must
 not happen is divergence nobody can attribute.
 
-Git and editors such as VS Code own ordinary worktree provisioning. This tool
-claims an existing linked worktree only after verifying its Jira-keyed branch,
-path, clean HEAD, current-main baseline, and unique owner. An optional
-``provision`` command remains for terminal-only workflows, but it is a Git
-convenience rather than the platform's canonical entry path.
+Git creates the branch and the linked worktree; editors such as VS Code open,
+detect, and display them. This tool claims an existing linked worktree only
+after verifying its Jira-keyed branch, path, clean working tree, integration
+baseline, and unique owner. `--adopt` admits a worktree that already carries
+commits, recording that its claim began mid-flight. An optional ``provision``
+command remains for terminal-only workflows, but it is a Git convenience
+rather than the platform's canonical entry path.
 """
 
 from __future__ import annotations
@@ -60,6 +62,7 @@ class Ownership:
     base_commit: str
     agent: str
     created_at: str
+    adopted: bool = False
 
 
 @dataclass(frozen=True)
@@ -344,6 +347,7 @@ def load_ownership(path: Path) -> tuple[Ownership, ...]:
             base_commit=str(item["baseCommit"]),
             agent=str(item["agent"]),
             created_at=str(item["createdAt"]),
+            adopted=bool(item.get("adopted", False)),
         )
         for item in entries
     )
@@ -351,7 +355,7 @@ def load_ownership(path: Path) -> tuple[Ownership, ...]:
 
 def save_ownership(path: Path, records: Sequence[Ownership]) -> None:
     payload = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "worktrees": [
             {
                 "branch": record.branch,
@@ -360,6 +364,7 @@ def save_ownership(path: Path, records: Sequence[Ownership]) -> None:
                 "baseCommit": record.base_commit,
                 "agent": record.agent,
                 "createdAt": record.created_at,
+                "adopted": record.adopted,
             }
             for record in sorted(records, key=lambda item: item.branch)
         ],
@@ -436,19 +441,44 @@ def branch_exists(root: Path, branch: str) -> bool:
 def verified_main(root: Path) -> str:
     """Return the exact current integration baseline or refuse the claim.
 
-    The preparation operation owns the repository-wide checks. Reusing its
-    plan keeps claims aligned with ordinary delivery branches without letting
-    this command switch the primary checkout or create a branch.
+    Decided from refs alone. Claiming records governance for a worktree that
+    already exists; refusing it because a *different* worktree holds loose
+    files would leave that delivery ungoverned over a condition it does not
+    control. The primary checkout is expected to carry capture work as its
+    normal steady state, so its working tree is none of this operation's
+    business.
+
+    A baseline merely behind `origin/main` is refused rather than used, with
+    the ref-update recovery named. Accepting it would admit a worktree cut
+    from an older integration point without saying so, which is the condition
+    a verified baseline exists to rule out.
     """
     prepare = _sibling("prepare_delivery_branch")
-    blocked = prepare.blocking(prepare.plan(root, fetch=True))
-    if blocked:
+    preflight = _sibling("governed_task_preflight")
+    fetched = _git(root, "fetch", "origin", check=False)
+    if fetched.returncode != 0:
+        raise WorktreeError(
+            "could not fetch origin, and a claim will not trust a stale "
+            "remote-tracking ref: "
+            + (fetched.stderr.strip() or "unknown fetch failure")
+        )
+    decision = prepare.baseline_decision(*preflight.main_divergence(root))
+    if decision.action != prepare.OK:
         raise WorktreeError(
             "the integration baseline is not ready, so the worktree cannot be "
-            "claimed:\n"
-            + "\n".join(f"  {item.stage}: {item.detail}" for item in blocked)
+            f"claimed: {decision.detail}\n"
+            "  Advance it without touching any working tree: "
+            "git fetch origin main:main"
         )
     return prepare.resolve(root, "main")
+
+
+def shared_base(root: Path, branch: str) -> str | None:
+    """The commit a branch and `main` last had in common, or None."""
+    result = _git(root, "merge-base", branch, "main", check=False)
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
 
 
 def dirty_entries(worktree: Path) -> tuple[str, ...]:
@@ -482,8 +512,14 @@ def validate_existing_worktree(
     worktrees: Mapping[str, tuple[str | None, str]],
     baseline: str,
     dirty: Sequence[str],
-) -> str:
-    """Verify that a native worktree is safe to enter governed delivery."""
+    *,
+    adopt: bool = False,
+    merge_base: str | None = None,
+) -> tuple[str, str]:
+    """Verify that a native worktree is safe to enter governed delivery.
+
+    Returns the worktree HEAD and the base commit to record against it.
+    """
     live = worktrees.get(str(target))
     if live is None:
         raise WorktreeError(
@@ -504,12 +540,23 @@ def validate_existing_worktree(
             "begins so native worktree actions cannot bypass governed delivery:\n"
             + listed
         )
-    if head != baseline:
+    if head == baseline:
+        return head, head
+    if not adopt:
         raise WorktreeError(
             f"{branch} starts at {head}, not verified current main {baseline}. "
-            "Create a clean Jira-keyed worktree from current main before claiming it."
+            "Create a clean Jira-keyed worktree from current main before "
+            "claiming it, or adopt this one as it stands with --adopt."
         )
-    return head
+    if merge_base is None:
+        raise WorktreeError(
+            f"{branch} shares no history with main, so there is no integration "
+            "point to record as its base. It is not a delivery of this repository."
+        )
+    # Adoption records where the delivery actually started, not where it is
+    # now. A base commit that is not an ancestor of the branch would make
+    # every later comparison against it meaningless.
+    return head, merge_base
 
 
 def claim(
@@ -518,9 +565,17 @@ def claim(
     agent: str,
     requested_path: Path,
     *,
+    adopt: bool = False,
     now: str | None = None,
 ) -> Ownership:
-    """Record governance for an existing Git- or VS Code-created worktree."""
+    """Record governance for an existing Git- or VS Code-created worktree.
+
+    `adopt` brings a worktree that already carries commits under governance —
+    a delivery recovered after a blocked one, say. Refusing those would leave
+    the only alternative ungoverned, which is worse than recording that the
+    claim began mid-flight; the record says so, and the base commit is the
+    point the branch actually left `main`.
+    """
     key = jira_key_of(branch)
     prepare = _sibling("prepare_delivery_branch")
     error = prepare.validate_branch_name(branch)
@@ -536,8 +591,14 @@ def claim(
             "VS Code, then claim it."
         )
     baseline = verified_main(root)
-    head = validate_existing_worktree(
-        branch, target, worktrees, baseline, dirty_entries(target)
+    head, base = validate_existing_worktree(
+        branch,
+        target,
+        worktrees,
+        baseline,
+        dirty_entries(target),
+        adopt=adopt,
+        merge_base=shared_base(root, branch) if adopt else None,
     )
 
     record_path = ownership_path(root)
@@ -550,9 +611,10 @@ def claim(
             branch=branch,
             jira_key=key,
             worktree_path=str(target),
-            base_commit=head,
+            base_commit=base,
             agent=agent,
             created_at=now or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            adopted=base != head,
         )
         save_ownership(record_path, [*existing, record])
     return record
@@ -730,6 +792,33 @@ def overlap_report(root: Path) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
 # --------------------------------------------------------------------------
 
 
+def unregistered_remedy(branch: str | None) -> tuple[str, ...]:
+    """What a reader can actually do about a worktree with no owner.
+
+    Three cases reach `unregistered`, and only one of them is a mistake. A
+    detached or unkeyed worktree cannot be claimed at all — an editor that
+    opens a worktree for its own agent session names the branch after the
+    session, not after a work item, so no claim will ever match it. Saying
+    only "no ownership record" leaves a reader running those sessions to
+    guess which case they are in.
+    """
+    if branch is None:
+        return (
+            "It is detached, and a governed delivery is owned by a branch.",
+            "Check out a Jira-keyed delivery branch in it, then claim it.",
+        )
+    if not JIRA_KEY_PATTERN.match(branch):
+        return (
+            f"{branch} carries no Jira issue key, so it can never be claimed.",
+            "Worktrees an editor opens for its own agent session land here.",
+            "Give the session a Jira-keyed delivery worktree and claim that.",
+        )
+    return (
+        "Claim it to bring it under governance; add --adopt if it already",
+        "carries commits of its own.",
+    )
+
+
 def render_status(reconciled: Sequence[Reconciled]) -> str:
     if not reconciled:
         return "No delivery worktrees are registered."
@@ -741,6 +830,12 @@ def render_status(reconciled: Sequence[Reconciled]) -> str:
                 f"    worktree: {item.worktree_path}\n"
                 f"    base:     {item.ownership.base_commit}\n"
                 f"    owner:    {item.ownership.agent} since {item.ownership.created_at}"
+                + (
+                    "\n    adopted:  claimed mid-flight; base is where the branch "
+                    "left main, not its start"
+                    if item.ownership.adopted
+                    else ""
+                )
                 + (
                     f"\n    behind:   {item.behind_main} commit(s) behind main; "
                     "run refresh before integration"
@@ -759,7 +854,10 @@ def render_status(reconciled: Sequence[Reconciled]) -> str:
             lines.append(
                 f"  [unregistered] {item.branch or 'detached'}\n"
                 f"    worktree: {item.worktree_path} exists with no ownership record, "
-                "so no agent can be held to it."
+                "so no agent can be held to it.\n"
+                + "\n".join(
+                    f"    {line}" for line in unregistered_remedy(item.branch)
+                )
             )
     return "\n".join(lines)
 
@@ -781,6 +879,7 @@ def ownership_json(record: Ownership) -> dict[str, str]:
         "baseCommit": record.base_commit,
         "agent": record.agent,
         "createdAt": record.created_at,
+        "adopted": record.adopted,
     }
 
 
@@ -807,6 +906,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     claiming.add_argument(
         "--path", type=Path, required=True, help="existing linked worktree directory"
+    )
+    claiming.add_argument(
+        "--adopt",
+        action="store_true",
+        help="claim a clean worktree that already carries commits of its own",
     )
 
     provisioning = commands.add_parser(
@@ -850,11 +954,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         if args.command == "claim":
-            record = claim(root, args.branch, args.agent, args.path)
+            record = claim(root, args.branch, args.agent, args.path, adopt=args.adopt)
             print(
                 as_json(ownership_json(record))
                 if args.format == "json"
-                else f"Claimed existing {record.branch} for {record.agent}\n"
+                else f"{'Adopted' if record.adopted else 'Claimed'} existing "
+                f"{record.branch} for {record.agent}\n"
                 f"  worktree: {record.worktree_path}\n"
                 f"  base:     {record.base_commit}"
             )

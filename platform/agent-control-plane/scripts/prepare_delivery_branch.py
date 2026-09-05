@@ -159,16 +159,25 @@ def workbench_decision(exists: bool, behind: int) -> Decision:
     )
 
 
-def worktree_decision(dirty_entries: Sequence[str]) -> Decision:
-    if dirty_entries:
-        listed = "\n".join(f"    {entry}" for entry in dirty_entries)
+def worktree_decision(obstructing_entries: Sequence[str]) -> Decision:
+    """Whether uncommitted work stands between here and the new branch.
+
+    Takes the entries already narrowed to the ones this preparation would
+    carry across or overwrite, not every loose file. The workbench pattern
+    expects capture notes to sit in the primary checkout between deliveries,
+    and Git preserves an untracked file across a switch or a merge unless an
+    incoming tracked file would land on its exact path.
+    """
+    if obstructing_entries:
+        listed = "\n".join(f"    {entry}" for entry in obstructing_entries)
         return Decision(
             "working tree",
             BLOCKED,
-            "the working tree has uncommitted changes, so branches cannot be "
-            "switched safely. Commit or deliberately resolve them first:\n" + listed,
+            "uncommitted changes sit on paths this preparation would write, so "
+            "branches cannot be switched safely. Commit or deliberately resolve "
+            "them first:\n" + listed,
         )
-    return Decision("working tree", OK, "clean")
+    return Decision("working tree", OK, "nothing uncommitted is in the way")
 
 
 def evidence_decision(unresolved_count: int, summary: str) -> Decision:
@@ -225,6 +234,29 @@ def resolve(root: Path, revision: str) -> str:
     return result.stdout.strip()
 
 
+def written_paths(
+    root: Path, baseline: Decision, workbench: Decision, *, tracked: bool
+) -> frozenset[str]:
+    """Every working-tree path this preparation would write.
+
+    Three writes are possible: fast-forwarding `main`, merging it into the
+    workbench, and switching to the new branch. Each rewrites only the paths
+    that differ across the move it makes, so their union is the whole hazard.
+    """
+    preflight = _sibling("governed_task_preflight")
+    integration = (
+        f"{REMOTE}/{INTEGRATION_BRANCH}"
+        if tracked and not baseline.blocks
+        else INTEGRATION_BRANCH
+    )
+    at_risk = preflight.paths_written_between(root, "HEAD", integration)
+    if baseline.action == FAST_FORWARD:
+        at_risk |= preflight.paths_written_between(root, INTEGRATION_BRANCH, integration)
+    if workbench.action == SYNC:
+        at_risk |= preflight.paths_written_between(root, WORKBENCH_BRANCH, integration)
+    return at_risk
+
+
 def plan(root: Path, *, fetch: bool) -> tuple[Decision, ...]:
     """Inspect the repository and decide every stage without mutating it."""
     preflight = _sibling("governed_task_preflight")
@@ -243,20 +275,26 @@ def plan(root: Path, *, fetch: bool) -> tuple[Decision, ...]:
                 ),
             )
 
-    status = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
-    decisions = [
-        worktree_decision(tuple(line for line in status.stdout.splitlines() if line))
-    ]
-
     tracked, ahead, behind = preflight.main_divergence(root)
-    decisions.append(baseline_decision(tracked, ahead, behind))
+    baseline = baseline_decision(tracked, ahead, behind)
 
     workbench_exists = preflight.local_branch_exists(root, WORKBENCH_BRANCH)
-    decisions.append(
-        workbench_decision(
-            workbench_exists, preflight.workbench_commits_behind_main(root)
-        )
+    workbench = workbench_decision(
+        workbench_exists, preflight.workbench_commits_behind_main(root)
     )
+
+    # The working-tree stage is decided last and reported first: which files
+    # are at risk depends on where the other stages are about to move.
+    decisions = [
+        worktree_decision(
+            preflight.blocking_entries(
+                preflight.status_entries(root),
+                sorted(written_paths(root, baseline, workbench, tracked=tracked)),
+            )
+        ),
+        baseline,
+        workbench,
+    ]
 
     # Evidence is only meaningful once the workbench holds all of main, and
     # only costs anything when there is a workbench at all.

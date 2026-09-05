@@ -274,29 +274,37 @@ The script applies the following contract:
 3. Resolve whether the feature branch is checked out in the primary checkout
    or a secondary worktree through Git metadata. Do not infer the directory
    from its name.
-4. Require an empty status, including untracked files, and verify `HEAD`
-   matches the pull request's published head identifier.
-5. For the primary checkout, switch to local `main` and update it by
-   fast-forward, then return the visible checkout to an existing clean
-   `workbench/local` branch or leave `main` checked out when no workbench
-   exists. Never delete the primary checkout directory.
-6. For a secondary worktree, remove that verified worktree without force.
-7. Delete the local feature branch normally when Git recognizes it as merged.
-   After a squash merge, force-delete only when the pull-request, head, merge,
-   and target-branch checks above all succeeded.
-8. Prune stale worktree metadata and re-read the worktree and branch lists.
-9. When step 5 returned to `workbench/local`, sync it with the newly
-   fast-forwarded base rather than leaving it to drift: fast-forward it when
+4. For a delivery checkout that will be removed, require an empty status
+   including untracked files, because removing the directory would destroy
+   them. Verify `HEAD` matches the pull request's published head identifier.
+5. For the primary checkout, name the paths this cleanup would write and
+   refuse only on uncommitted changes sitting on one of them. Loose capture
+   files elsewhere are preserved and do not block: the workbench pattern
+   expects them there between deliveries.
+6. Advance local `main` by ref update, which needs no working tree, unless the
+   primary already has it checked out — then fast-forward it in place. The
+   primary keeps its visible branch unless the cleanup must move it off a
+   branch it is about to delete or onto `workbench/local` for a sync merge.
+   Never delete the primary checkout directory.
+7. For a secondary worktree, remove that verified worktree without force.
+8. Verify the local feature branch is contained in the base branch itself,
+   never by relying on the checked-out branch, then delete it. After a squash
+   or rebase merge containment does not hold; delete then only when the
+   pull-request, head, merge, and target-branch checks above all succeeded.
+9. Prune stale worktree metadata and re-read the worktree and branch lists.
+10. When the primary sits on `workbench/local`, sync it with the newly
+   advanced base rather than leaving it to drift: fast-forward it when
    possible, otherwise merge; never resolve a conflicting merge automatically.
    The plan reports whether the sync ran, and, if it hit a conflict, aborts
    the merge and reports that `workbench/local` still needs a manual
    `git merge <base>` — the base branch and feature-branch cleanup already
    completed correctly regardless of this outcome.
-10. Report whether GitHub already deleted the remote branch. Delete it only
+11. Report whether GitHub already deleted the remote branch. Delete it only
     when remote cleanup was explicitly authorized.
 
 Stop without deletion when the pull request is open or unknown, the target
-does not contain the merge result, the active checkout is dirty, its branch or
+does not contain the merge result, the delivery checkout is dirty, the primary
+holds uncommitted changes on a path this cleanup writes, the active branch or
 `HEAD` does not match the pull request, primary-versus-secondary ownership is
 unclear, or more than one target remains plausible.
 
