@@ -271,28 +271,41 @@ class GithubFallbackRoutingTests(unittest.TestCase):
             classes, {"agent-autonomous", "human-authorized-agent", "human-only"}
         )
 
-    def test_specialists_remain_denied_from_every_delivery_mutation(self):
+    def test_one_policy_governs_delivery_and_still_denies_acceptance(self):
+        # AEPI-132 replaced the six specialist policies with this one, so the
+        # invariant to hold is no longer "specialists deny everything" but
+        # "exactly one principal exists and it cannot accept its own work".
         policy_dir = CONTROL_PLANE / "agent-assets" / "execution-policies" / "permissions"
-        actions = (
-            ("git:delivery:publish", "git:agentic-engineering-platform:branch/feature/AEPI-1-x"),
-            ("github:pull_request:create", "github:Oak-22/agentic-engineering-platform:*"),
-            ("github:pull_request:review-thread:resolve", "github:Oak-22/agentic-engineering-platform:*"),
-            ("github:pull_request:merge", "github:Oak-22/agentic-engineering-platform:*"),
-            ("jira:issue:update", "jira:*:issue/AEPI-1"),
+        self.assertEqual(
+            sorted(path.name for path in policy_dir.glob("*.policy.json")),
+            ["generalist-engineering-agent.policy.json"],
         )
-        for path in sorted(policy_dir.glob("*.policy.json")):
-            if path.name == "generalist-engineering-agent.policy.json":
-                continue
-            policy = json.loads(path.read_text())
-            for action, resource in actions:
-                with self.subTest(policy=path.name, action=action):
-                    self.assertEqual(
-                        permission_gate.evaluate_policy(
-                            policy, permission_gate.ActionMatch(action, resource)
-                        ),
-                        "Deny",
-                    )
-
+        policy = json.loads(
+            (policy_dir / "generalist-engineering-agent.policy.json").read_text()
+        )
+        repository = "github:Oak-22/agentic-engineering-platform:*"
+        for action, resource, expected in (
+            (
+                "git:delivery:publish",
+                "git:agentic-engineering-platform:branch/feature/AEPI-1-x",
+                "Allow",
+            ),
+            ("github:pull_request:create", repository, "Allow"),
+            ("github:pull_request:review-thread:resolve", repository, "Allow"),
+            ("jira:issue:update", "jira:*:issue/AEPI-1", "Allow"),
+            ("github:pull_request:merge", repository, "Deny"),
+            ("github:pull_request:approve", repository, "Deny"),
+            ("github:pull_request:create-ready", repository, "Deny"),
+            ("github:pull_request:close", repository, "Deny"),
+            ("github:pull_request:retarget", repository, "Deny"),
+        ):
+            with self.subTest(action=action):
+                self.assertEqual(
+                    permission_gate.evaluate_policy(
+                        policy, permission_gate.ActionMatch(action, resource)
+                    ),
+                    expected,
+                )
 
 class JiraRuntimeScopeTests(unittest.TestCase):
     def setUp(self):

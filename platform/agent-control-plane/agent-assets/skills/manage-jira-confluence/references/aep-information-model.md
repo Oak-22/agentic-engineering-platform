@@ -17,7 +17,7 @@ than in a dedicated discovery surface; promote them to more specific issue
 types as scope and evidence firm up.
 
 Per [ADR-0001](../../../../../../docs/architecture/adr/0001-separate-implementation-knowledge-from-organizational-governance.md),
-Confluence does not own implementation architecture, ADRs, role charters that
+Confluence does not own implementation architecture, ADRs, execution policies that
 control runtime behavior, technical runbooks, or execution evidence — those
 live in Git, where they change with the code. Create or update a Confluence
 page only when the content is cross-repository, organizational, independently

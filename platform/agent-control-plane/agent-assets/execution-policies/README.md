@@ -10,10 +10,13 @@ actions. The permission gate applies them to both the official GitHub MCP
 tools and the optional `gh` shell fallback, so changing transport does not
 change the authorization boundary.
 
-The known GitHub and Jira read surfaces pass without a mutation decision.
-Destination MCP tools outside the explicit read and mutation maps fail closed
-as `github:tool:unclassified` or `jira:tool:unclassified`; provider tool-surface
-growth cannot silently create new write authority.
+Destination MCP calls are classified by consequence rather than by
+membership in a name allowlist. A verb-prefixed read resolves to
+`<destination>:tool:read` and is allowed outright; a named mutation resolves to
+its semantic action; anything else returns no gate opinion and falls to the
+runtime's own permission flow. Irreversible and human-acceptance actions are
+enumerated as denies, so provider tool-surface growth adds usable tools without
+adding authority the policy has not named.
 
 JSON Schemas that validate these portable policies belong in
 [`../../contracts/`](../../contracts/). Provider capability mappings,
@@ -31,12 +34,12 @@ of silently weakening them.
   for repository and linked external-system (Jira, Confluence, GitHub
   configuration) mutation. Implemented for by `deliver-governed-change`,
   `manage-git-workflow`, and `manage-jira-confluence`.
-- [`permissions/`](permissions/) — one IAM-style permission-policy document
-  per Agent Registry agent type, validated against
+- [`permissions/`](permissions/) — the single IAM-style permission-policy
+  document every runtime identity resolves to, validated against
   [`../../contracts/agent-permission-policy.schema.json`](../../contracts/agent-permission-policy.schema.json).
-  Adds the principal axis this tier policy does not cover: which agent
-  identity may perform an action, not only how reversible the action is.
-  Enforced by
+  Adds the action-and-resource axis this tier policy does not cover: which
+  action may be performed on which resource, not only how reversible the action
+  is. Enforced by
   [`../../scripts/agent_permission_gate.py`](../../scripts/agent_permission_gate.py).
 
 ## Placement guidance

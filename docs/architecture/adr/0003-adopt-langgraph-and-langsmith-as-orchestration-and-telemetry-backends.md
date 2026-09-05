@@ -10,6 +10,7 @@ affected_components:
   - platform/inference-telemetry-dashboard
 related_jira: [AEPI-100]
 related_confluence: []
+amended: 2026-09-05
 supersedes: []
 ---
 
@@ -159,3 +160,19 @@ evaluation scope substantially overlaps LangSmith's documented, implemented
 product. Pursuing it natively would consume effort duplicating a product
 that already exists, instead of on AEP's differentiated governance and
 delivery semantics.
+
+## Amendment — 2026-09-05
+
+Narrows the premise; the decision itself is unchanged and still `proposed`.
+
+AEPI-132 removed role charters as an asset type. The six specialist charters
+and their hand-translated per-runtime subagent definitions are deleted, and one
+generalist execution policy governs every runtime identity. Read every mention
+of role charters above as historical: the per-runtime translation cost this
+record cites as a motivation for delegating orchestration is no longer being
+paid, because the assets that incurred it no longer exist.
+
+The separation of duties those roles were assumed to provide comes from the
+Copilot review on the pull request instead — a verdict the agent cannot grant
+itself — as described in
+[the ordered Copilot review gate](../../../platform/agent-control-plane/docs/copilot-review-gate.md#where-separation-of-duties-comes-from).
