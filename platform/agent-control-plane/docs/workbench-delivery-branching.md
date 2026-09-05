@@ -43,13 +43,13 @@ merge target. Every delivery branch derives from current `main` at its start.
   files.
 - Before editing, report the active repository root and branch. Report them
   again whenever either changes.
-- Never silently redirect implementation to a secondary worktree. If the
+- Never silently redirect implementation to a separate worktree. If the
   active execution directory differs from the primary workspace, disclose the
   exact path, branch, purpose, and expected visibility difference before
   editing there.
 - Stop when the developer expects primary-checkout visibility but cannot see
   the active worktree. Either return execution to the primary checkout or have
-  the developer intentionally open the secondary worktree.
+  the developer intentionally open the separate worktree.
 
 ## Branch roles
 
@@ -122,7 +122,7 @@ For every separate worktree:
    that the primary Explorer will not show intermediate edits;
 4. repeat the path and branch when reporting intermediate results;
 5. do not transfer unrelated changes between worktrees; and
-6. remove only the secondary worktree after its merge is verified and local
+6. remove only the separate worktree after its merge is verified and local
    cleanup is authorized.
 
 Do not create a separate worktree merely to keep `main` visibly frozen. Stop

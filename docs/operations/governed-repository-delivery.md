@@ -29,9 +29,9 @@ understand -> generate many changes -> shape -> coordinate -> review -> integrat
 
 For work whose scope is already clear, the conventional Jira task to branch to
 pull-request path remains the shortest route. For work whose boundaries emerge
-the workbench buffers evolving intent from the integration branch so the developer
-can checkpoint, separate,
-and order changes before they become independently reviewable merges. Together,
+during exploration or agent execution, the workbench buffers evolving intent
+from the integration branch so the developer can checkpoint, separate, and
+order changes before they become independently reviewable merges. Together,
 these two entry paths preserve familiar developer workflows while adding a
 shaping surface for change velocity that human memory and informal coordination
 can no longer safely absorb.
