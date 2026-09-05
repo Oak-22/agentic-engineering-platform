@@ -162,7 +162,7 @@ traceability easy to inspect and does not serve as a numerical quality target.
   without another confirmation when the active request already authorizes
   local cleanup.
 - Resolve the Jira key, pull request, feature branch, target branch, and active
-  primary or secondary checkout before deleting anything.
+  primary or separate worktree before deleting anything.
 - Confirm the pull request is merged and its merge result is reachable from
   the updated target branch.
 - Confirm the checkout has no tracked, untracked, staged, or conflicted changes

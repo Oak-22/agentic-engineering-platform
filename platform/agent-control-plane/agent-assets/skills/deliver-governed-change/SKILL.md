@@ -248,7 +248,7 @@ deleting a remote branch.
 Delegate cleanup mechanics to `manage-git-workflow` and require it to:
 
 1. resolve the Jira key, pull request, feature branch, target branch, and
-   primary or secondary checkout as one delivery unit;
+   primary or separate worktree as one delivery unit;
 2. verify the pull request is merged and the target contains its merge result;
 3. verify the delivery checkout is clean and its `HEAD` matches the published
    feature tip, and that the primary holds no uncommitted change on a path the

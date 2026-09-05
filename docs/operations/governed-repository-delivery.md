@@ -5,9 +5,10 @@
 Use private `workbench/local` for ad hoc changes caused by frequent context
 switching during AI-assisted software engineering. Use a Jira-keyed delivery
 branch in a separate worktree for longer, targeted development, created from
-current `main`. When an outcome is already bounded, the delivery branch may be
-created directly from `main`. Shape coherent workbench outcomes and transfer
-them, in dependency order, to delivery branches. Reviewed pull requests
+current `main`. When an outcome is already bounded, skip workbench shaping and
+create the delivery branch directly from current `main`. Shape coherent
+workbench outcomes and transfer them, in dependency order, to delivery
+branches. Reviewed pull requests
 advance `main`; the workbench does not.
 
 ## Why this exists

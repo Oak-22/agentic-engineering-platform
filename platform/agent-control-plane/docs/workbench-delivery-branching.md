@@ -62,7 +62,7 @@ merge target. Every delivery branch derives from current `main` at its start.
   prove that it is the integration base. A clean ref can be the base without
   being the visible branch.
 
-### Private workbench: capture-and-stewardship stream
+### Private workbench: capture and shaping stream
 
 - Use the workbench for ad hoc changes when observations, experiments, context
   switches, or changes across files and modules may
