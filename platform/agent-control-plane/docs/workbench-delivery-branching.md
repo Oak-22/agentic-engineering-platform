@@ -2,17 +2,18 @@
 
 ## Purpose
 
-Make the private workbench a recommended, first-class path for ongoing agent
-co-programming while preserving the conventional direct-delivery path for
+Make the private workbench the path for ad hoc changes caused by frequent
+context switching while preserving the conventional direct-delivery path for
 bounded work. Keep repository history from outrunning the delivery model or
 the agent's edits from outrunning the developer's visible filesystem. Treat
 `main`, delivery branches, and the optional workbench as different Git roles
-while using one primary checkout by default.
+while keeping ad hoc work in the primary checkout and longer, targeted
+development in separate worktrees cut from current `main`.
 
 ```text
-one primary IDE checkout
+primary IDE checkout                         separate delivery worktree
 
-  workbench/local       A ─ B ─ C ─ D       recommended agent capture and shaping
+  workbench/local       A ─ B ─ C ─ D       ad hoc capture and shaping
                           \   \     /
                            selected evidence
                                   │
@@ -22,30 +23,33 @@ one primary IDE checkout
                                            \
   feature/PROJ-102                        selected B ─ PR ─┘
 
-  visible branch: main or workbench/local ⇄ Jira-keyed delivery branch
+  visible workspaces: workbench/local (primary) + Jira-keyed delivery worktrees
 ```
 
-The IDE and agent operate on the same primary checkout and switch its visible
-branch as work changes. Bounded work may proceed directly from current `main`
-to its delivery branch. When used, the workbench supplies selected evidence;
-it is not a delivery branch's ancestry base or merge target. Every delivery
-branch derives from current `main` at its start.
+The primary checkout holds `workbench/local` for ad hoc changes caused by
+frequent context switching. Longer, targeted development uses separate
+worktrees whose branches are cut from current `main`. The IDE and agent
+operate on the same explicitly identified worktree. Bounded work may proceed
+directly from current `main` to its delivery branch. When used, the workbench
+supplies selected evidence; it is not a delivery branch's ancestry base or
+merge target. Every delivery branch derives from current `main` at its start.
 
 ## Visibility invariant
 
 - Treat the session's primary workspace root as the developer-visible checkout
   unless the developer explicitly identifies another open workspace.
-- Perform ordinary capture and delivery in that checkout so the IDE Explorer,
-  terminal, tests, and agent all observe the same files.
+- Capture ad hoc work in the primary checkout. Open a separate worktree for
+  longer, targeted delivery so the IDE, tests, and agent observe the same
+  files.
 - Before editing, report the active repository root and branch. Report them
   again whenever either changes.
-- Never silently redirect implementation to a secondary worktree. If the
+- Never silently redirect implementation to a separate worktree. If the
   active execution directory differs from the primary workspace, disclose the
   exact path, branch, purpose, and expected visibility difference before
   editing there.
 - Stop when the developer expects primary-checkout visibility but cannot see
   the active worktree. Either return execution to the primary checkout or have
-  the developer intentionally open the secondary worktree.
+  the developer intentionally open a separate worktree.
 
 ## Branch roles
 
@@ -58,10 +62,10 @@ branch derives from current `main` at its start.
   prove that it is the integration base. A clean ref can be the base without
   being the visible branch.
 
-### Private workbench: capture-and-stewardship stream
+### Private workbench: capture and shaping stream
 
-- Prefer the workbench for ongoing agent co-programming when observations,
-  experiments, context switches, or changes across files and modules may
+- Use the workbench for ad hoc changes when observations, experiments, context
+  switches, or changes across files and modules may
   alter the eventual delivery boundaries. When a Jira outcome is already
   bounded and this shaping buffer adds no value, create its delivery branch
   directly from current `main`.
@@ -85,8 +89,8 @@ branch derives from current `main` at its start.
   from the work item's governed `Class` field: `feature`, `fix`, `refactor`,
   `chore`, or `docs`. Use the full issue key and keep actor or runtime identity
   in structured provenance rather than the branch name.
-- Switch the primary checkout to the delivery branch before implementation so
-  the IDE immediately reflects the selected delivery unit.
+- For longer, targeted development, use a separate worktree on the delivery
+  branch and open it in the IDE before implementation.
 - Use `shape-repository-change` to partition workbench commits, files, or hunks
   into independently reviewable outcomes.
 - Transfer only the selected evidence. A full commit may be cherry-picked when
@@ -99,10 +103,10 @@ branch derives from current `main` at its start.
   commits are capture checkpoints, while delivery commits describe the final
   implementation structure.
 
-## Secondary worktree exceptions
+## Separate worktrees
 
-Use another worktree only when one checkout cannot safely represent the active
-work, such as:
+Use a separate worktree for longer, targeted development, keeping the primary
+`workbench/local` checkout available for ad hoc work. Other reasons include:
 
 - concurrent agents that must not write into the same filesystem;
 - genuinely parallel delivery units that must remain independently runnable;
@@ -110,7 +114,7 @@ work, such as:
   stable checkout; or
 - unrelated or user-authored changes that make branch switching unsafe.
 
-For every exception:
+For every separate worktree:
 
 1. assign one owner and one purpose to the worktree;
 2. disclose its absolute path and branch before editing;
@@ -118,10 +122,10 @@ For every exception:
    that the primary Explorer will not show intermediate edits;
 4. repeat the path and branch when reporting intermediate results;
 5. do not transfer unrelated changes between worktrees; and
-6. remove only the secondary worktree after its merge is verified and local
+6. remove only the separate worktree after its merge is verified and local
    cleanup is authorized.
 
-Do not create a secondary worktree merely to keep `main` visibly frozen. Stop
+Do not create a separate worktree merely to keep `main` visibly frozen. Stop
 when concurrent agents claim the same path, ownership is unclear, the target
 worktree is dirty with unrelated work, or the developer cannot establish which
 filesystem view is authoritative.

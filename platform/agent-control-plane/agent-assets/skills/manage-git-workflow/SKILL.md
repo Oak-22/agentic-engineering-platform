@@ -60,17 +60,20 @@ dependencies, or stacked branches are in scope.
   explicit scope and acceptance criteria and shaping adds no value, create its
   delivery branch directly from current `main`.
 - Use `shape-repository-change` to partition workbench evidence before
-  delivery. Switch that same primary checkout to an ordinary Jira-keyed branch
-  created from current `main`, then transfer only the selected commits, files,
-  or hunks. `main` remains the base even when it is not checked out.
+  delivery. For longer, targeted development, use a separate worktree on a
+  Jira-keyed branch created from current `main`, then transfer only the
+  selected commits, files, or hunks. `main` remains the base even when it is
+  not checked out.
 - Deliver foundational semantic changes first. Create dependent branches from
   updated `main` after their prerequisites merge; branches that share only the
   merged prerequisite may then proceed independently.
-- Use a secondary worktree only for concurrent agents, genuinely parallel
-  delivery, stable long-running processes, or unsafe branch switching caused
-  by unrelated work. Before editing there, disclose its exact path, branch,
-  owner, purpose, and IDE-visibility consequence. Never silently redirect work
-  away from the primary checkout.
+- Use a separate worktree for longer, targeted development, keeping private
+  `workbench/local` available for ad hoc changes during context switching.
+  Separate worktrees also support concurrent agents, parallel delivery, stable
+  long-running processes, or unsafe branch switching caused by unrelated work.
+  Before editing there, disclose its exact path, branch, owner, purpose, and
+  IDE-visibility consequence. Never silently redirect work away from the
+  primary checkout.
 - Prefer merging a prerequisite first and deriving dependent work from the
   updated `main`. Use a stacked branch only when the dependency, temporary
   base, merge order, and later retargeting work are explicit.
@@ -195,7 +198,7 @@ Apply the narrowest matching authorization:
   returns the GitHub review-and-merge surface.
 - A request to clean up a named local delivery unit after merge authorizes
   switching a clean primary checkout away from its verified feature branch or
-  removing its verified secondary worktree, deleting the local feature branch,
+  removing its verified separate worktree, deleting the local feature branch,
   and pruning stale worktree metadata. It does not authorize deleting the
   primary checkout directory, a remote branch, or any other worktree.
 - Force pushes, history rewrites, ref deletion, and direct pushes to the
@@ -237,10 +240,9 @@ request. If the user expands or narrows the request, apply the newest scope.
 - Preserve generated or cache files created by verification unless they are
   known disposable outputs within the requested scope; do not stage them
   merely because a check created them.
-- Prefer branch switching in the primary checkout. Use a separate worktree
-  only when concurrency, a stable long-running process, or unrelated local
-  changes make branch switching unsafe, and surface the resulting visibility
-  split before implementation.
+- Use a separate worktree for longer, targeted development, and surface the
+  resulting visibility split before implementation. Keep private
+  `workbench/local` available for ad hoc changes during context switching.
 - Re-read remote or pull-request state after writes.
 - Treat merge, force push, rebase of published history, and branch deletion as
   distinct operations with distinct authority.
@@ -272,7 +274,7 @@ The script applies the following contract:
 2. Fetch the remote base and verify the recorded merge result is reachable
    from it.
 3. Resolve whether the feature branch is checked out in the primary checkout
-   or a secondary worktree through Git metadata. Do not infer the directory
+   or a separate worktree through Git metadata. Do not infer the directory
    from its name.
 4. For a delivery checkout that will be removed, require an empty status
    including untracked files, because removing the directory would destroy
@@ -286,7 +288,7 @@ The script applies the following contract:
    primary keeps its visible branch unless the cleanup must move it off a
    branch it is about to delete or onto `workbench/local` for a sync merge.
    Never delete the primary checkout directory.
-7. For a secondary worktree, remove that verified worktree without force.
+7. For a separate worktree, remove that verified worktree without force.
 8. Verify the local feature branch is contained in the base branch itself,
    never by relying on the checked-out branch, then delete it. After a squash
    or rebase merge containment does not hold; delete then only when the

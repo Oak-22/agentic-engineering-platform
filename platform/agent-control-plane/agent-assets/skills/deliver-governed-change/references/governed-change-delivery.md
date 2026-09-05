@@ -65,14 +65,14 @@ traceability easy to inspect and does not serve as a numerical quality target.
 
 - For repository changes, inspect repository, branch, worktree, remotes,
   tracking state, and existing pull requests.
-- Treat the session's primary workspace root as the developer-visible checkout
-  unless the developer explicitly identifies another open workspace. Perform
-  ordinary branch switching and implementation there so the IDE and agent see
-  the same files.
+- Keep the session's primary workspace root available for private
+  `workbench/local` capture. For longer, targeted development, use a separate
+  worktree on the Jira-keyed delivery branch and disclose its path, branch, and
+  visibility boundary so the IDE and agent see the same files.
 - Keep `main` as the clean integration base. When the outcome was discovered
   on a private workbench, use `shape-repository-change` to select its evidence,
   create the ordinary delivery branch from current `main`, and transfer only
-  the selected commits, files, or hunks in that primary checkout. Do not use
+  the selected commits, files, or hunks into its separate worktree. Do not use
   the workbench as the delivery branch's ancestry base.
 - Before creating or switching to a new Jira-keyed branch or worktree, run
   `python3 platform/agent-control-plane/scripts/governed_task_preflight.py`
@@ -91,11 +91,12 @@ traceability easy to inspect and does not serve as a numerical quality target.
 - Prefer sequencing dependencies through merged `main`. Record the dependency,
   temporary base, merge order, and required retargeting before deliberately
   stacking a branch; stop when the dependency direction is ambiguous.
-- Use a secondary worktree only for concurrent agents, genuinely parallel
-  delivery, stable long-running processes, or unrelated changes that make
-  switching unsafe. Before editing there, report its exact path, branch,
-  ownership, purpose, and IDE-visibility consequence. Stop on ambiguous
-  ownership or an unintended mismatch with the developer's visible checkout.
+- Use a separate worktree for longer, targeted development, as well as
+  concurrent agents, genuinely parallel delivery, stable long-running
+  processes, or unrelated changes that make switching unsafe. Before editing
+  there, report its exact path, branch, ownership, purpose, and IDE-visibility
+  consequence. Stop on ambiguous ownership or an unintended mismatch with the
+  developer's visible checkout.
 - For external configuration changes, identify the target site, project,
   space, repository, organization, rule, or setting without creating an empty
   Git branch.
@@ -161,7 +162,7 @@ traceability easy to inspect and does not serve as a numerical quality target.
   without another confirmation when the active request already authorizes
   local cleanup.
 - Resolve the Jira key, pull request, feature branch, target branch, and active
-  primary or secondary checkout before deleting anything.
+  primary or separate worktree before deleting anything.
 - Confirm the pull request is merged and its merge result is reachable from
   the updated target branch.
 - Confirm the checkout has no tracked, untracked, staged, or conflicted changes
@@ -209,7 +210,7 @@ Each gate requires the authority applicable to its system and impact:
 | Stage and commit | Commit request |
 | Push or open a pull request | Publication request |
 | Approve, request changes, or merge | Accountable human acting directly in GitHub; never agent authority |
-| Restore a primary checkout or remove a secondary worktree and branch | Local cleanup request naming the delivery unit or targets |
+| Restore a primary checkout or remove a separate worktree and branch | Local cleanup request naming the delivery unit or targets |
 | Delete a remote branch | Remote cleanup request naming the branch |
 
 Authority for one gate does not approve later gates.
@@ -236,9 +237,9 @@ For repository changes:
 3. Inspect existing branches, commits, pull requests, merges, and target-branch
    state before creating new artifacts.
 4. Create or select the Jira-keyed local branch required by the delivery unit
-   in the primary developer-visible checkout. Use a separate worktree only
-   when concurrency or unrelated user changes make switching unsafe, and
-   expose that visibility boundary before implementation.
+   in a separate worktree for longer, targeted development. Keep the primary
+   developer-visible checkout available for private `workbench/local` capture,
+   and expose that visibility boundary before implementation.
 5. Move only the bounded changes into the isolated delivery unit, verify them,
    and synchronize the branch and evidence to Jira.
 6. Set Jira status to the verified phase. Retrospective task creation alone
