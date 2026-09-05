@@ -146,7 +146,8 @@ to what the author nominated and to anonymized aggregates.
 The platform provides the structural prerequisites for this service:
 
 - `platform/agent-control-plane/agent-assets/` defines canonical reusable
-  instructions, skill packages, colocated workflow references, and role charters
+  instructions, skill packages, colocated workflow references, and execution
+  policies
 - `.agents/`, `.claude/`, and `.github/` expose those assets through
   runtime-native discovery adapters and enforcement surfaces
 - `platform/inference-telemetry-observatory/` supplies workflow signals and

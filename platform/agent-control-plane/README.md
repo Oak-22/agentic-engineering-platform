@@ -26,7 +26,6 @@ The control plane organizes agent customization from governing intent through
 runtime operation:
 
 ```text
-Responsibility → assumed roles / role charters
 Authority      → execution policies
 Behavior       → instructions
 Procedure      → skills
@@ -205,8 +204,8 @@ inspectable, and increasing reuse of proven engineering practices.
 - [`../../.github/copilot-instructions.md`](../../.github/copilot-instructions.md)
   Root GitHub Copilot routing adapter.
 - [`agent-assets/`](agent-assets/)
-  Canonical shared instructions, skill packages, hook definitions, execution
-  policies, and role charters.
+  Canonical shared instructions, skill packages, hook definitions, and
+  execution policies.
 - [`adapters/runtimes/`](adapters/runtimes/)
   Provider capability declarations, version support, and native renderers.
 - [`../../.agents/`](../../.agents/)
@@ -217,8 +216,6 @@ inspectable, and increasing reuse of proven engineering practices.
   Claude Code-native installation surface.
 - [`../../.github/instructions/`](../../.github/instructions/)
   Path-specific GitHub Copilot adapters.
-- [`../../.github/agents/`](../../.github/agents/)
-  GitHub Copilot agent adapters.
 - [`../../.github/prompts/`](../../.github/prompts/)
   GitHub Copilot prompt adapters.
 - [`../../.github/skills/`](../../.github/skills/)
@@ -246,8 +243,8 @@ repository's Git or workspace root. Keep entrypoints and runtime-native
 installation surfaces light: they may contain provider-required locators,
 selectors, links, generated projections, and explicitly approved native
 configuration, but they do not own portable behavior. Store canonical skill
-packages, shared instructions, and role charters under `agent-assets/`; store
-canonical hooks and execution policies there as they are implemented. Expose
+packages, shared instructions, hooks, and execution policies under
+`agent-assets/`. Expose
 those assets through each runtime's native root-level paths and provider
 adapter.
 

@@ -1,8 +1,8 @@
 # Shared Agent Assets
 
 This directory owns reusable shared instructions, canonical Agent Skill
-packages, and model-neutral role charters. Repository-root runtime discovery
-paths link to these assets.
+packages, hook definitions, execution policies, and MCP server declarations.
+Repository-root runtime discovery paths link to these assets.
 
 ## Asset boundaries
 
@@ -14,8 +14,6 @@ paths link to these assets.
   portable hook resources.
 - `execution-policies/` contains provider-neutral bounded-execution policy
   instances.
-- `role-charters/` contains runtime-neutral responsibilities, boundaries, and
-  accountability definitions for specialized agents.
 - `mcp-servers/` contains provider-neutral MCP server definitions — tool and
   resource connectors an agent may use.
 
@@ -30,8 +28,8 @@ assets:
 - Agent-related `.github/` paths provide GitHub Copilot discovery adapters.
 
 Adapters contain only discovery metadata and runtime-specific configuration.
-Canonical shared instructions, skill packages, hook definitions, execution
-policies, and role charters remain here. Runtime-specific discovery,
+Canonical shared instructions, skill packages, hook definitions, and
+execution policies remain here. Runtime-specific discovery,
 permissions, hooks, and enforcement configuration stay in their runtime-native
 installation surface or are rendered by `../adapters/runtimes/`.
 

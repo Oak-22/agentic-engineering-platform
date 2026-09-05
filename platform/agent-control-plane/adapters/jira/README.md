@@ -28,8 +28,8 @@ Jira field IDs or work-item state.
 The mapping marks delivery operations `agent-autonomous` only inside an
 explicit governed-delivery lifecycle. The generalist coordinator may maintain
 the bounded AEPI work item through review and, after verifying GitHub's human
-merge, Done. Ordinary implementation requests remain local, and specialist
-policies still deny Jira mutation.
+merge, Done. Ordinary implementation requests remain local: they do not
+activate the governed-delivery lifecycle that authorizes these mutations.
 
 [`manage-jira-confluence`](../../agent-assets/skills/manage-jira-confluence/SKILL.md)
 owns Jira reads, writes, transitions, links, and verification. The delivery

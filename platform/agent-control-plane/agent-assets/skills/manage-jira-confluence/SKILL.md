@@ -38,7 +38,7 @@ This skill owns Jira/Rovo and Jira UI operations; GitHub and local Git belong to
    - Confluence: content that is cross-repository, organizational,
      independently governed, or meant for a non-code contributor — see
      [ADR-0001](../../../../../docs/architecture/adr/0001-separate-implementation-knowledge-from-organizational-governance.md).
-     Everything else (implementation architecture, ADRs, role charters that
+     Everything else (implementation architecture, ADRs, execution policies that
      control runtime behavior, technical runbooks, execution evidence) stays
      in Git.
 4. Plan the smallest coherent mutation set. Preserve existing artifacts and
@@ -59,7 +59,7 @@ This skill owns Jira/Rovo and Jira UI operations; GitHub and local Git belong to
   cross-repository, organizational, independently governed, or meant for a
   non-code contributor. This is the default gate, not an exception — most
   durable engineering knowledge does not clear it.
-- Keep implementation architecture, ADRs, role charters that control runtime
+- Keep implementation architecture, ADRs, execution policies that control runtime
   behavior, technical runbooks, and execution evidence in Git, per
   [ADR-0001](../../../../../docs/architecture/adr/0001-separate-implementation-knowledge-from-organizational-governance.md).
   Link to it from Jira or Confluence instead of copying it.
@@ -78,8 +78,7 @@ An explicit `deliver-governed-change` invocation authorizes the generalist
 coordinator to create and update its bounded delivery work item, link native
 delivery evidence, move it into review, and—only after independently verifying
 GitHub's human merge—transition it to Done. Ordinary implementation requests
-do not activate these mutations, and specialist policies continue to deny
-them.
+do not activate these mutations.
 
 ### Read and diagnose
 

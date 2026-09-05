@@ -42,11 +42,15 @@ surface a runtime's incident history has already ruled out.
 | `deliver-governed-change` | all surfaces through the owning skill | coordinates the lifecycle; it does not create a second transport |
 | `manage-git-workflow` | local Git, git-over-SSH, GitHub MCP, and the evidenced `gh` fallback | owns branches, commits, bounded publication, pull-request preparation, review remediation, and cleanup; merge remains human |
 | `manage-jira-confluence` | Jira/Rovo, optional direct Atlassian MCP, and the Jira UI fallback | owns work-item state, planning fields, links, transitions, and verification |
-| implementation/documentation agents | local repository files and local verification | do not publish GitHub or mutate Jira unless the governing delivery gate and policy allow it |
-| release-operations agent | read-only delivery evidence by default | does not push, merge, or delete refs; a human release gate remains separate |
 
-The role charters and permission policies are the identity-specific controls;
-this document is the cross-system map they implement.
+One generalist agent policy governs every runtime identity. Separation of
+duties comes from the Copilot review on the pull request, whose verdict the
+agent cannot grant itself, not from splitting the agent into specialist roles
+inside one session — see
+[the ordered Copilot review gate](../../platform/agent-control-plane/docs/copilot-review-gate.md#where-separation-of-duties-comes-from).
+
+The permission policy is the action-and-resource control; this document is the
+cross-system map it implements.
 
 ## GitHub communication
 

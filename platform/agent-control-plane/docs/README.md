@@ -53,8 +53,8 @@ machine-local overlay.
 - Keep runtime-discovered entrypoints and runtime-native installation surfaces
   at root `AGENTS.md`, `.agents/`, `.codex/`, `.claude/`, and the agent-related
   `.github/` paths.
-- Keep canonical skill packages, shared instructions, hook definitions,
-  execution policies, and role charters under `../agent-assets/`.
+- Keep canonical skill packages, shared instructions, hook definitions, and
+  execution policies under `../agent-assets/`.
 - Keep provider capability/version mappings and renderers under
   `../adapters/runtimes/`.
 - Keep reusable control-plane implementation artifacts under

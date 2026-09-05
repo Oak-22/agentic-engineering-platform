@@ -30,12 +30,10 @@ product repositories remain independently governed consumers.
 - `.agents/`, `.codex/`, `.claude/`, and the agent-related `.github/` paths are
   thin runtime-native installation surfaces for Codex, Claude Code, and
   GitHub Copilot. They do not own canonical reusable behavior.
-- `.github/agents/`, `.github/prompts/`, `.github/skills/`, and
-  `.github/hooks/` contain provider-required GitHub Copilot definitions and
-  discovery adapters.
+- `.github/prompts/`, `.github/skills/`, and `.github/hooks/` contain
+  provider-required GitHub Copilot definitions and discovery adapters.
 - `platform/agent-control-plane/agent-assets/` owns canonical shared
-  instructions, skills, hook definitions, execution policies, and role
-  charters.
+  instructions, skills, hook definitions, and execution policies.
 - `platform/agent-control-plane/` owns the portable contracts, canonical agent
   assets, runtime and destination adapters, validation, and explanatory
   documentation behind those root entrypoints.

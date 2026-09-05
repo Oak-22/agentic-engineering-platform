@@ -29,7 +29,7 @@ actively being wired up.
   target provider only supports a subset.
 - Required scopes and the name of the credential or environment variable that
   supplies them — never the credential value itself.
-- The skill(s) or role charter(s) that depend on this server, so removing or
+- The skill(s) that depend on this server, so removing or
   changing it surfaces what else breaks.
 - Any elicitation, resource, or prompt capabilities a consuming agent should
   expect, if the server exposes more than tools.
