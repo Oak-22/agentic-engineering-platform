@@ -51,7 +51,7 @@ def create_server(host: str, port: int) -> ThreadingHTTPServer:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="observatory-mock",
+        prog="dashboard-mock",
         description="Run a local OpenAI-compatible mock model endpoint.",
     )
     parser.add_argument("--host", default="127.0.0.1")

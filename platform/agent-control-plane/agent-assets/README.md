@@ -19,7 +19,7 @@ Repository-root runtime discovery paths link to these assets.
 
 ## Adapter rule
 
-Runtime-native installation surfaces may import, link, or translate these
+Runtime-native setup files and directories may import, link, or translate these
 assets:
 
 - `.agents/` provides Codex skill discovery links.
@@ -31,7 +31,7 @@ Adapters contain only discovery metadata and runtime-specific configuration.
 Canonical shared instructions, skill packages, hook definitions, and
 execution policies remain here. Runtime-specific discovery,
 permissions, hooks, and enforcement configuration stay in their runtime-native
-installation surface or are rendered by `../adapters/runtimes/`.
+setup files or are rendered by `../adapters/runtimes/`.
 
 ## Control-plane hierarchy
 

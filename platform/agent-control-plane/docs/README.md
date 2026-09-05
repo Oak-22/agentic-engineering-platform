@@ -19,7 +19,7 @@ machine-local overlay.
 - [Agent Control Plane](diagrams/agent-control-plane.png)
   Visualizes how feedforward instructions, feedback checks, human
   review, and promotion loops interact.
-- [Developer Learning Retrieval Service](../../developer-learning-retrieval/docs/design.md)
+- [Developer Learning](../../developer-learning-retrieval/docs/design.md)
   Describes a future extension for turning engineering activity into
   learning and retrieval signals.
 - [Control Plane Guards in CI](control-plane-guards-ci.md)
@@ -50,7 +50,7 @@ machine-local overlay.
 
 ## Placement Rules
 
-- Keep runtime-discovered entrypoints and runtime-native installation surfaces
+- Keep runtime-discovered entrypoints and runtime-native setup files and directories
   at root `AGENTS.md`, `.agents/`, `.codex/`, `.claude/`, and the agent-related
   `.github/` paths.
 - Keep canonical skill packages, shared instructions, hook definitions, and

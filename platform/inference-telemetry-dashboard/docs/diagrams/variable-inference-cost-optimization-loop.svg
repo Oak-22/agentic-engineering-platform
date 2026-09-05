@@ -26,7 +26,7 @@
 
   <rect x="758" y="680" width="420" height="190" rx="22" class="card"/>
   <text x="968" y="721" text-anchor="middle" class="step">02 · EXPLAIN</text>
-  <text x="968" y="763" text-anchor="middle" class="name">Observatory Analysis</text>
+  <text x="968" y="763" text-anchor="middle" class="name">Dashboard Analysis</text>
   <text x="968" y="799" text-anchor="middle" class="body">Localized execution telemetry</text>
   <text x="968" y="827" text-anchor="middle" class="body">Models · projects · agents · runs · outcomes</text>
 

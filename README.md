@@ -16,7 +16,7 @@ The platform operates as a feedback loop across three peer components:
    multiple authoritative producers. The Agent Control Plane produces
    governance and instruction evidence, while runtime providers produce model,
    usage, latency, and trace telemetry; each producer retains ownership of its
-   native event semantics and provenance.
+   own event meanings and source history.
 3. **Developer Learning** converts validated execution signals into reinforced
    understanding and reusable improvements.
 
@@ -39,12 +39,10 @@ developer → Codex / Claude / Copilot
              governed agent behavior
 ```
 
-***Wherever a developer works through a supported agent, AEP can provide the
-ambient, event-driven policy layer.*** Developers continue working with Codex,
+***Wherever a developer works through a supported agent, AEP can apply shared rules automatically.*** Developers continue working with Codex,
 Claude, or Copilot through natural-language requests. Once AEP is installed,
 the runtime discovers repository guidance, the agent selects relevant skills,
-and hooks respond to lifecycle events. AEP commands remain an administrative
-surface for bootstrap, validation, diagnostics, and maintenance rather than the
+and hooks respond to lifecycle events. AEP commands support setup, validation, diagnostics, and maintenance rather than the
 normal product interface.
 
 ## Operator Commands
@@ -165,7 +163,7 @@ a governed Jira task before implementation.
 ## Governed Git Delivery Workflow
 
 The Agent Control Plane governs how agent-assisted repository work moves from
-evolving local intent into bounded Jira outcomes, reviewable Git branches, and
+evolving local intent into clearly scoped Jira tasks, reviewable Git branches, and
 accepted changes on `main`.
 
 For ongoing agent co-programming, `workbench/local` is the recommended,
@@ -198,7 +196,7 @@ agentic-engineering-platform/
 │   │   ├── agent-assets/              # Portable policies, instructions, skills
 │   │   ├── contracts/                 # Control-plane interfaces
 │   │   └── scripts/                   # Component validation and automation
-│   ├── inference-telemetry-observatory/ # Usage and execution observations
+│   ├── inference-telemetry-dashboard/ # Usage and execution observations
 │   └── developer-learning-retrieval/  # Learning signals from engineering work
 ├── evidence/                         # Applied human-AI workflow evidence
 │   └── human-ai-collaboration-case-studies/
@@ -220,11 +218,11 @@ agentic-engineering-platform/
 - [`platform/agent-control-plane/`](platform/agent-control-plane/) governs
   instruction discovery, runtime adapters, provenance, reusable skills,
   governed action routing, and auditable agent execution.
-- [`platform/inference-telemetry-observatory/`](platform/inference-telemetry-observatory/)
-  measures model usage, latency, token economics, and agent execution
+- [`platform/inference-telemetry-dashboard/`](platform/inference-telemetry-dashboard/)
+  measures model usage, latency, token usage and cost, and agent execution
   behavior.
 - [`platform/developer-learning-retrieval/`](platform/developer-learning-retrieval/)
-  converts engineering activity into retrieval-practice and learning signals.
+  uses local development telemetry to plan daily review quizzes based on real work.
 
 ### Supporting boundaries
 

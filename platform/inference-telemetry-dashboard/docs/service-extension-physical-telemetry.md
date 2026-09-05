@@ -2,7 +2,7 @@ Markdown
 # Agentic Engineering Platform: Physical Telemetry Extension Specification
 
 ## Executive Summary
-This document outlines the architectural extension for the **Inference Telemetry Observatory** component within the Agentic Engineering Platform. By bridging low-level hardware performance indicators with high-level agentic orchestration events, this system enables precise unit economics calculation, hardware-aware cognitive routing, and fine-grained latency bottleneck diagnosis.
+This document outlines the architectural extension for the **Inference Telemetry Dashboard** component within the Agentic Engineering Platform. By bridging low-level hardware performance indicators with high-level agentic orchestration events, this system enables precise unit economics calculation, hardware-aware cognitive routing, and fine-grained latency bottleneck diagnosis.
 
 ---
 
@@ -18,7 +18,7 @@ The extension introduces a sidecar collector daemon alongside the core inference
 Telemetry Context
 v
 +-----------------------------------------------------------------------------------+
-|                        INFERENCE TELEMETRY OBSERVATORY                            |
+|                        INFERENCE TELEMETRY DASHBOARD                            |
 |                                                                                   |
 |  +---------------------------+         +---------------------------------------+  |
 |  |   Logical Telemetry Logs  |         |     Physical Telemetry Collector      |  |
@@ -41,7 +41,7 @@ v
 
 ## 2. Metric Specifications
 
-The Physical Telemetry Observatory collects telemetry across four core domains, mapped directly to specific `agent_step_id` and `trace_id` contexts.
+The Physical Telemetry Dashboard collects telemetry across four core domains, mapped directly to specific `agent_step_id` and `trace_id` contexts.
 
 ### 2.1 Memory & Bandwidth Metrics
 * **Metrics Tracked:** SRAM/HBM utilization percentage, memory bus bandwidth usage, KV cache allocation memory pressure.

@@ -9,9 +9,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from unittest.mock import patch
 
-from observatory.adapter import InteractionAdapter
-from observatory.cli import main
-from observatory.telemetry import HttpTelemetryEmitter
+from dashboard.adapter import InteractionAdapter
+from dashboard.cli import main
+from dashboard.telemetry import HttpTelemetryEmitter
 
 
 class _FixtureHandler(BaseHTTPRequestHandler):
@@ -22,7 +22,7 @@ class _FixtureHandler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(length))
 
         if self.path == "/v1/chat/completions":
-            assert body["messages"][0]["content"] == "hello observatory"
+            assert body["messages"][0]["content"] == "hello dashboard"
             response = {
                 "model": "mock-model",
                 "choices": [{"message": {"role": "assistant", "content": "mock reply"}}],
@@ -76,7 +76,7 @@ class AdapterFlowTest(unittest.TestCase):
             telemetry_emitter=HttpTelemetryEmitter(f"{self.base_url}/telemetry"),
         )
 
-        result = adapter.ask("hello observatory")
+        result = adapter.ask("hello dashboard")
 
         self.assertEqual(result.content, "mock reply")
         self.assertEqual(len(_FixtureHandler.telemetry_events), 1)
@@ -100,7 +100,7 @@ class AdapterFlowTest(unittest.TestCase):
             ),
         )
 
-        result = adapter.ask("hello observatory")
+        result = adapter.ask("hello dashboard")
 
         self.assertEqual(result.content, "mock reply")
 
@@ -114,7 +114,7 @@ class AdapterFlowTest(unittest.TestCase):
 
         with (
             patch.dict("os.environ", environment, clear=True),
-            patch("sys.argv", ["observatory", "hello observatory"]),
+            patch("sys.argv", ["dashboard", "hello dashboard"]),
             redirect_stdout(output),
         ):
             main()

@@ -5,8 +5,8 @@ the Agentic Engineering Platform.
 
 - [`agent-control-plane/`](agent-control-plane/) governs instruction discovery,
   runtime adapters, provenance, governed actions, and auditable execution.
-- [`inference-telemetry-observatory/`](inference-telemetry-observatory/) measures
-  model usage, latency, token economics, and execution behavior.
+- [`inference-telemetry-dashboard/`](inference-telemetry-dashboard/) measures
+  model usage, latency, token usage and cost, and execution behavior.
 - [`developer-learning-retrieval/`](developer-learning-retrieval/) turns
   engineering activity into retrieval-practice and learning signals.
 

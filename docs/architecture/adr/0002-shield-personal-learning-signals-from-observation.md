@@ -7,7 +7,7 @@ date: 2026-08-18
 scope: component
 affected_components:
   - platform/developer-learning-retrieval
-  - platform/inference-telemetry-observatory
+  - platform/inference-telemetry-dashboard
 related_jira: []
 related_confluence: []
 supersedes: []

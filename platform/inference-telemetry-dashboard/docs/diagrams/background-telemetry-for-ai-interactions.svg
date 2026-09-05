@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1020" viewBox="0 0 1500 1020" role="img" aria-labelledby="title description">
   <title id="title">Background Telemetry for AI Interactions</title>
-  <desc id="description">Four user interaction surfaces send requests through a transparent interaction adapter. The adapter forwards normal traffic to the model API endpoint and silently emits telemetry to the local Observatory daemon, then PostgreSQL and Grafana.</desc>
+  <desc id="description">Four user interaction surfaces send requests through a transparent interaction adapter. The adapter forwards normal traffic to the model API endpoint and silently emits telemetry to the local Dashboard daemon, then PostgreSQL and Grafana.</desc>
   <defs>
     <marker id="arrow-request" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker>
     <marker id="arrow-response" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#059669"/></marker>
@@ -45,7 +45,7 @@
   <text x="830" y="379" text-anchor="middle" class="sub">transparent request / response pass-through</text>
 
   <rect x="1120" y="270" width="330" height="164" rx="18" class="solid" stroke="#7c3aed"/>
-  <text x="1285" y="326" text-anchor="middle" class="label">Local Observatory Daemon</text>
+  <text x="1285" y="326" text-anchor="middle" class="label">Local Dashboard Daemon</text>
   <text x="1285" y="357" text-anchor="middle" class="sub">normalize · enrich · buffer · batch</text>
   <text x="1285" y="385" text-anchor="middle" class="note">runs beside the interaction surface</text>
 
