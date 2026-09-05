@@ -112,19 +112,18 @@ how many units one invocation delivers.
    expectations. Then resolve the accountable owner and durable design
    location, classify the durable change authority, and select the delivery
    path.
-2. **Isolate:** switch the primary developer-visible checkout to a Jira-keyed
-   feature branch from current `main` when branch creation is authorized, then
-   transfer only shaped workbench evidence when applicable. Use a secondary
-   worktree only for an explicit concurrency or isolation exception and expose
-   its visibility boundary. Resolve external configuration targets without
-   creating empty Git artifacts. Use another branch base only for an explicit
-   dependency exception.
+2. **Isolate:** use a separate worktree on a Jira-keyed feature branch from
+   current `main` for longer, targeted development, then transfer only shaped
+   workbench evidence when applicable. Keep the private workbench available in
+   the primary checkout for ad hoc context-switching work. Expose the
+   worktree's visibility boundary. Resolve external configuration targets
+   without creating empty Git artifacts. Use another branch base only for an
+   explicit dependency exception.
 
-   Prefer `workbench/local` for ongoing agent co-programming when the work may
-   cross contexts, files, modules, or delivery boundaries. When the Jira
-   outcome is already bounded, the checkout is clean, and shaping adds no
-   value, proceed directly from current `main` to its Jira-keyed delivery
-   branch.
+   Use private `workbench/local` for ad hoc changes caused by frequent context
+   switching. When the Jira outcome is already bounded, the checkout is clean,
+   and shaping adds no value, proceed directly from current `main` to its
+   Jira-keyed delivery branch.
 
    When preflight reports uncommitted changes, the sanctioned resolution is the
    workbench-to-delivery transition, not a question back to the user: commit
@@ -214,10 +213,10 @@ For a repository change, the backfill includes:
    workflow's authority and cross-system reconstruction responsibilities.
 3. Inspect current Git and GitHub state for existing branches, commits, pull
    requests, or merge evidence before creating anything.
-4. Create or select the Jira-keyed local feature branch needed by the default
-   delivery relationship in the primary developer-visible checkout. Use a
-   separate worktree only when concurrency or unrelated user-authored changes
-   make branch switching unsafe, and disclose that visibility boundary.
+4. Create or select the Jira-keyed local feature branch needed by the delivery
+   relationship in a separate worktree for longer, targeted development. Keep
+   the primary developer-visible checkout available for private
+   `workbench/local` capture, and disclose the worktree visibility boundary.
 5. Transfer only the bounded change into the delivery unit, run the smallest
    relevant checks, and synchronize the branch and verification evidence back
    to Jira.

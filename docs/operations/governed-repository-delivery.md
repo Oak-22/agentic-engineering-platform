@@ -2,14 +2,13 @@
 
 ## Operating thesis
 
-Use `workbench/local` as the recommended, first-class capture-and-stewardship
-stream for ongoing agent co-programming, especially when work may cross
-contexts, files, modules, or delivery boundaries. It remains optional: use a
-Jira-keyed delivery branch created directly from current `main` when work
-already has a bounded outcome and acceptance criteria. Shape coherent outcomes
-from the workbench and transfer them, in dependency order, to Jira-keyed
-delivery branches. Reviewed pull requests advance `main`; the workbench does
-not.
+Use private `workbench/local` for ad hoc changes caused by frequent context
+switching during AI-assisted software engineering. Use a Jira-keyed delivery
+branch in a separate worktree for longer, targeted development, created from
+current `main`. When an outcome is already bounded, the delivery branch may be
+created directly from `main`. Shape coherent workbench outcomes and transfer
+them, in dependency order, to delivery branches. Reviewed pull requests
+advance `main`; the workbench does not.
 
 ## Why this exists
 
@@ -30,14 +29,14 @@ understand -> generate many changes -> shape -> coordinate -> review -> integrat
 
 For work whose scope is already clear, the conventional Jira task to branch to
 pull-request path remains the shortest route. For work whose boundaries emerge
-during exploration or agent execution, the recommended workbench buffers evolving
-intent from the integration branch so the developer can checkpoint, separate,
+the workbench buffers evolving intent from the integration branch so the developer
+can checkpoint, separate,
 and order changes before they become independently reviewable merges. Together,
 these two entry paths preserve familiar developer workflows while adding a
 shaping surface for change velocity that human memory and informal coordination
 can no longer safely absorb.
 
-Each repository that uses the recommended workbench retains its own;
+Each repository that uses the private workbench retains its own;
 cross-repository dependencies still require explicit coordination.
 
 ## Delivery fundamentals
@@ -65,9 +64,9 @@ and [continuous integration](https://dora.dev/capabilities/continuous-integratio
 | `<category>/<JIRA-ISSUE-KEY>-<slug>` | Bounded delivery state | One Jira outcome assembled for verification and review |
 | `main` | Reviewed integration state | Accepted outcomes merged through pull requests |
 
-Use the primary developer-visible checkout for the states active in that
-repository by switching its branch. A second worktree is an explicit
-concurrency or isolation exception, not the normal workflow.
+Keep the primary checkout on private `workbench/local` for ad hoc changes
+that arise from frequent context switching. Use separate worktrees with
+branches cut from current `main` for longer, targeted development.
 
 ## Entry paths
 
@@ -79,7 +78,7 @@ concurrency or isolation exception, not the normal workflow.
 4. Review and merge the pull request before starting a dependent branch from
    updated `main`.
 
-### Agent co-programming: recommended workbench
+### Agent co-programming: private workbench
 
 1. Capture each coherent idea as an atomic commit on `workbench/local`.
 2. Shape the accumulated evidence into independently valuable outcomes and
@@ -118,11 +117,11 @@ When the requested outcome is already bounded by a Jira task and acceptance
 criteria and a shaping buffer adds no value, create its Jira-keyed branch
 directly from current `main`.
 
-Prefer the private `workbench/local` branch for ongoing agent co-programming
-when work may cross contexts, files, modules, or delivery boundaries. Commit
-each coherent idea atomically there: one explainable change per commit. Treat
-those commits as capture evidence, not automatically as final delivery
-boundaries.
+Use the private `workbench/local` branch for ad hoc changes caused by frequent
+context switching. Commit each coherent idea atomically there: one explainable
+change per commit. Treat those commits as capture evidence, not automatically
+as final delivery boundaries. Use a separate worktree for longer, targeted
+development.
 
 For each shaped repository outcome, use the default relationship:
 

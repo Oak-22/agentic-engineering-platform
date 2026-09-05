@@ -65,14 +65,14 @@ traceability easy to inspect and does not serve as a numerical quality target.
 
 - For repository changes, inspect repository, branch, worktree, remotes,
   tracking state, and existing pull requests.
-- Treat the session's primary workspace root as the developer-visible checkout
-  unless the developer explicitly identifies another open workspace. Perform
-  ordinary branch switching and implementation there so the IDE and agent see
-  the same files.
+- Keep the session's primary workspace root available for private
+  `workbench/local` capture. For longer, targeted development, use a separate
+  worktree on the Jira-keyed delivery branch and disclose its path, branch, and
+  visibility boundary so the IDE and agent see the same files.
 - Keep `main` as the clean integration base. When the outcome was discovered
   on a private workbench, use `shape-repository-change` to select its evidence,
   create the ordinary delivery branch from current `main`, and transfer only
-  the selected commits, files, or hunks in that primary checkout. Do not use
+  the selected commits, files, or hunks into its separate worktree. Do not use
   the workbench as the delivery branch's ancestry base.
 - Before creating or switching to a new Jira-keyed branch or worktree, run
   `python3 platform/agent-control-plane/scripts/governed_task_preflight.py`
@@ -91,11 +91,12 @@ traceability easy to inspect and does not serve as a numerical quality target.
 - Prefer sequencing dependencies through merged `main`. Record the dependency,
   temporary base, merge order, and required retargeting before deliberately
   stacking a branch; stop when the dependency direction is ambiguous.
-- Use a secondary worktree only for concurrent agents, genuinely parallel
-  delivery, stable long-running processes, or unrelated changes that make
-  switching unsafe. Before editing there, report its exact path, branch,
-  ownership, purpose, and IDE-visibility consequence. Stop on ambiguous
-  ownership or an unintended mismatch with the developer's visible checkout.
+- Use a separate worktree for longer, targeted development, as well as
+  concurrent agents, genuinely parallel delivery, stable long-running
+  processes, or unrelated changes that make switching unsafe. Before editing
+  there, report its exact path, branch, ownership, purpose, and IDE-visibility
+  consequence. Stop on ambiguous ownership or an unintended mismatch with the
+  developer's visible checkout.
 - For external configuration changes, identify the target site, project,
   space, repository, organization, rule, or setting without creating an empty
   Git branch.

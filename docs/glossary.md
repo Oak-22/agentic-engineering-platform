@@ -41,11 +41,11 @@ for how runtime adapters fit the layer model.
 
 ### `workbench/local`
 
-A first-class private continuous capture-and-stewardship branch where evolving
-developer intent can be checkpointed, separated, and ordered before delivery.
-It is recommended for ongoing agent co-programming and optional for bounded
-Jira work, which may proceed directly from current `main` to its delivery
-branch.
+A private working branch for saving and organizing ad hoc changes that arise
+from frequent context switching during AI-assisted software engineering.
+Longer, targeted development uses separate worktrees with delivery branches
+cut from current `main`. Selected workbench changes can be transferred to
+those branches for review and delivery.
 
 ### Delivery branch
 
