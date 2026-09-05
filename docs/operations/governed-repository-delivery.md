@@ -74,7 +74,8 @@ branches cut from current `main` for longer, targeted development.
 
 1. Start from a Jira outcome with explicit scope and acceptance criteria.
 2. Create its Jira-keyed delivery branch from current `main`.
-3. Implement and verify the bounded outcome on that branch.
+3. Open the delivery branch in a separate worktree, then implement and verify
+   the bounded outcome there.
 4. Review and merge the pull request before starting a dependent branch from
    updated `main`.
 
