@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import threading
@@ -23,6 +24,7 @@ def ownership(
     base_commit="abc1234",
     agent="agent-a",
     created_at="2026-08-31T00:00:00+00:00",
+    adopted=False,
 ):
     return MODULE.Ownership(
         branch=branch,
@@ -31,6 +33,7 @@ def ownership(
         base_commit=base_commit,
         agent=agent,
         created_at=created_at,
+        adopted=adopted,
     )
 
 
@@ -396,7 +399,7 @@ class ExistingWorktreeClaimTests(unittest.TestCase):
     def test_a_matching_clean_worktree_is_valid(self):
         target = Path("/w/PROJ-1")
 
-        head = MODULE.validate_existing_worktree(
+        head, base = MODULE.validate_existing_worktree(
             self.branch,
             target,
             {str(target): (self.branch, self.baseline)},
@@ -405,6 +408,7 @@ class ExistingWorktreeClaimTests(unittest.TestCase):
         )
 
         self.assertEqual(head, self.baseline)
+        self.assertEqual(base, self.baseline)
 
     def test_a_missing_worktree_must_be_created_by_git_or_vscode_first(self):
         with self.assertRaises(MODULE.WorktreeError) as raised:
@@ -485,6 +489,57 @@ class ExistingWorktreeClaimTests(unittest.TestCase):
             )
 
         self.assertIn("verified current main", str(raised.exception))
+        self.assertIn("--adopt", str(raised.exception))
+
+    def test_an_in_flight_worktree_is_adopted_at_the_point_it_left_main(self):
+        """Refusing it would leave the only recovery path ungoverned."""
+        target = Path("/w/PROJ-1")
+
+        head, base = MODULE.validate_existing_worktree(
+            self.branch,
+            target,
+            {str(target): (self.branch, "inflight")},
+            self.baseline,
+            (),
+            adopt=True,
+            merge_base="older",
+        )
+
+        self.assertEqual(head, "inflight")
+        self.assertEqual(base, "older")
+
+    def test_adoption_still_refuses_a_branch_with_no_shared_history(self):
+        target = Path("/w/PROJ-1")
+
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.validate_existing_worktree(
+                self.branch,
+                target,
+                {str(target): (self.branch, "inflight")},
+                self.baseline,
+                (),
+                adopt=True,
+                merge_base=None,
+            )
+
+        self.assertIn("shares no history with main", str(raised.exception))
+
+    def test_adoption_still_refuses_an_uncommitted_change(self):
+        """Commits are attributable; uncommitted changes are not."""
+        target = Path("/w/PROJ-1")
+
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.validate_existing_worktree(
+                self.branch,
+                target,
+                {str(target): (self.branch, "inflight")},
+                self.baseline,
+                (" M dirty.txt",),
+                adopt=True,
+                merge_base="older",
+            )
+
+        self.assertIn("uncommitted changes", str(raised.exception))
 
     def test_claim_records_an_unregistered_worktree_without_provisioning(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -559,6 +614,71 @@ class ExistingWorktreeClaimTests(unittest.TestCase):
             worktrees,
             {str(linked.path): (self.branch, self.baseline)},
         )
+
+
+class BaselineIsolationTests(unittest.TestCase):
+    """A claim answers to refs, never to another worktree's working tree."""
+
+    def repository(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name) / "primary"
+        origin = Path(directory.name) / "origin.git"
+        self.git(Path(directory.name), "init", "--bare", "--initial-branch=main", str(origin))
+        self.git(Path(directory.name), "clone", str(origin), str(root))
+        self.git(root, "config", "user.name", "Worktree Test")
+        self.git(root, "config", "user.email", "worktree@example.invalid")
+        (root / "tracked.txt").write_text("main\n", encoding="utf-8")
+        self.git(root, "add", "tracked.txt")
+        self.git(root, "commit", "-m", "Initial")
+        self.git(root, "push", "--set-upstream", "origin", "main")
+        return root
+
+    @staticmethod
+    def git(cwd: Path, *arguments: str):
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_a_loose_file_in_the_primary_does_not_block_the_baseline(self):
+        """The primary is expected to carry capture work as its steady state."""
+        root = self.repository()
+        (root / "future").mkdir()
+        (root / "future" / "note.md").write_text("capture\n", encoding="utf-8")
+
+        self.assertEqual(
+            MODULE.verified_main(root),
+            self.git(root, "rev-parse", "main").stdout.strip(),
+        )
+
+    def test_a_modified_file_in_the_primary_does_not_block_the_baseline(self):
+        root = self.repository()
+        (root / "tracked.txt").write_text("edited\n", encoding="utf-8")
+
+        self.assertEqual(
+            MODULE.verified_main(root),
+            self.git(root, "rev-parse", "main").stdout.strip(),
+        )
+
+    def test_a_main_behind_its_remote_is_refused_rather_than_used(self):
+        """A stale baseline would reject the worktree the docs tell you to create."""
+        root = self.repository()
+        (root / "tracked.txt").write_text("second\n", encoding="utf-8")
+        self.git(root, "add", "tracked.txt")
+        self.git(root, "commit", "-m", "Second")
+        self.git(root, "push", "origin", "main")
+        self.git(root, "reset", "--hard", "HEAD~1")
+
+        with self.assertRaises(MODULE.WorktreeError) as raised:
+            MODULE.verified_main(root)
+
+        self.assertIn("behind", str(raised.exception))
+        self.assertIn("git fetch origin main:main", str(raised.exception))
 
 
 class ProvisioningBoundaryTests(unittest.TestCase):
@@ -749,7 +869,15 @@ class JsonOutputTests(unittest.TestCase):
 
         self.assertEqual(
             set(payload),
-            {"branch", "jiraKey", "worktreePath", "baseCommit", "agent", "createdAt"},
+            {
+                "branch",
+                "jiraKey",
+                "worktreePath",
+                "baseCommit",
+                "agent",
+                "createdAt",
+                "adopted",
+            },
         )
 
     def test_no_snake_case_key_leaks_into_the_output(self):
@@ -785,6 +913,41 @@ class StatusReportingTests(unittest.TestCase):
 
         self.assertIn("[unregistered]", text)
         self.assertIn("no ownership record", text)
+
+    def test_a_jira_keyed_unregistered_worktree_names_both_ways_in(self):
+        text = MODULE.render_status(
+            MODULE.reconcile((), {"/w/stray": ("feature/PROJ-9-x", "def")})
+        )
+
+        self.assertIn("Claim it", text)
+        self.assertIn("--adopt", text)
+
+    def test_an_agent_session_worktree_is_told_it_can_never_be_claimed(self):
+        """An editor names those after the session, so no claim will ever match."""
+        text = MODULE.render_status(
+            MODULE.reconcile((), {"/w/agent": ("copilot/swe-agent-1", "def")})
+        )
+
+        self.assertIn("no Jira issue key", text)
+        self.assertIn("never be claimed", text)
+        self.assertIn("agent session", text)
+
+    def test_a_detached_unregistered_worktree_is_told_it_needs_a_branch(self):
+        text = MODULE.render_status(MODULE.reconcile((), {"/w/detached": (None, "def")}))
+
+        self.assertIn("detached", text)
+        self.assertIn("owned by a branch", text)
+
+    def test_an_adopted_delivery_says_its_base_is_not_its_start(self):
+        text = MODULE.render_status(
+            MODULE.reconcile(
+                (ownership(adopted=True),),
+                {"/w/PROJ-1": ("feature/PROJ-1-thing", "abc1234")},
+            )
+        )
+
+        self.assertIn("adopted:", text)
+        self.assertIn("claimed mid-flight", text)
 
 
 if __name__ == "__main__":

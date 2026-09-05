@@ -129,34 +129,90 @@ filesystem view is authoritative.
 ### Parallel governed delivery
 
 Concurrent Jira deliveries are the one exception with tooling behind it. Git
-or VS Code owns creation, opening, detection, and display of linked worktrees.
-After native creation from current `main`, claim the existing worktree through
-`delivery_worktrees.py` so the Jira key, branch, worktree path, base commit, and
-owning agent are recorded and a second claim on either the branch or the
-directory is refused:
+owns creating the branch and the linked worktree. VS Code owns opening,
+detecting, and displaying them: its **Create Worktree** command prompts for an
+existing branch and a location, and its **Git: Open Worktree in New Window**
+and **Open Worktree in Current Window** commands open one. Creating the
+Jira-keyed branch is therefore Git's step, and the editor's role begins at the
+worktree that branch is already in.
 
 ```bash
+git fetch origin main:main
+git worktree add -b <category>/<JIRA-ISSUE-KEY>-<slug> <path> main
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
   claim <category>/<JIRA-ISSUE-KEY>-<slug> \
-  --path <existing-worktree-path> --agent <opaque-agent-id>
+  --path <path> --agent <opaque-agent-id>
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py overlap
 ```
 
+`git fetch origin main:main` advances local `main` by ref update, so it needs
+no checkout and rewrites no file in the primary. Git refuses that update while
+`main` is the checked-out branch somewhere, which the workbench pattern avoids
+by keeping the primary on `workbench/local` — see below. Claiming verifies the
+branch against that baseline, so a worktree cut from a stale `main` is
+refused.
+
 Claiming is the governance boundary, not provisioning. It accepts only an
-existing linked worktree on the named Jira-keyed branch, with a clean HEAD at
-verified current `main` and no prior owner for its branch or path. Native-created
-worktrees remain `unregistered` until claimed and cannot be treated as governed
-deliveries. The optional `provision` command exists for terminal-only
-convenience, but is not a platform capability required to use this workflow.
+existing linked worktree on the named Jira-keyed branch, with a clean working
+tree at verified current `main` and no prior owner for its branch or path. A
+worktree that already carries commits — one created to recover a blocked
+delivery, say — enters governance through `claim --adopt`, which records the
+point the branch left `main` as its base and marks the claim as begun
+mid-flight. Refusing those outright would leave the only recovery path
+ungoverned. Worktrees created outside this path remain `unregistered` until
+claimed and are not governed deliveries. The optional `provision` command
+exists for terminal-only convenience, but is not a platform capability
+required to use this workflow.
 
 A delivery that falls behind takes `main` in through `refresh`, which merges
 inside that delivery's own worktree and refuses while local `main` is itself
 stale. Integration stays serialized and independently verified per delivery;
-only execution is parallel. VS Code's **Migrate Worktree Changes** moves changes
-between workspaces; it does not prove the Jira branch, claim, baseline,
-publication, review, or integration state and is not a substitute for governed
-delivery.
+only execution is parallel. VS Code's **Migrate Worktree Changes** merges all
+changes from a worktree into your current workspace; it does not prove the
+Jira branch, claim, baseline, publication, review, or integration state and is
+not a substitute for governed delivery.
+
+#### One branch, one worktree
+
+Git prevents the same local branch from being checked out in more than one
+worktree at a time. Two consequences shape this workflow:
+
+- The primary checkout must not sit on `main` while a linked worktree needs
+  it, and must not sit on a delivery branch that a linked worktree holds. The
+  workbench pattern satisfies this by default: the primary stays on
+  `workbench/local`, which no delivery worktree ever checks out.
+- One delivery branch can live in exactly one worktree. `claim` refusing a
+  second claim on a branch records the ownership Git's own rule leaves
+  unattributed — Git knows the directory is taken, not who took it.
+
+#### Worktrees an editor opens for its own agent session
+
+VS Code creates worktrees for agent sessions to keep changes from parallel
+agent sessions separate. Those carry the session's branch, not a Jira-keyed
+delivery branch, so `claim` refuses them and `list` reports them as
+`unregistered` permanently. That refusal is correct — a delivery worktree is
+owned by a work item — and `list` names it rather than leaving a reader to
+infer it. To run an agent session under governance, create a Jira-keyed
+delivery worktree as above, claim it, and run the session in that worktree.
+
+#### Editor settings that touch claiming
+
+Two VS Code settings change what a claim sees:
+
+- `git.detectWorktrees` makes VS Code scan the repository for worktrees it did
+  not create and show them in the **Source Control Repositories** view
+  (`git.detectWorktreesLimit`, default 50, caps the scan). This is how a
+  worktree created at the terminal becomes visible; visibility is not
+  ownership, and it stays `unregistered` until claimed.
+- `git.worktreeIncludeFiles` takes glob patterns for files to copy into a new
+  worktree. A file is copied only when it matches a pattern *and* is listed in
+  `.gitignore`, so anything it copies is ignored by Git. `claim` reads
+  `git status --untracked-files=all` without `--ignored`, so copied files
+  never appear in its cleanliness check and never fail a claim. VS Code's own
+  guidance for agent worktrees — include only files the agent can safely
+  access — is the reason to keep machine-local state such as `.local-mirrors/`
+  off that list unless the delivery genuinely needs it.
 
 ### Switching windows is not switching branches
 
@@ -213,11 +269,14 @@ After a verified merge and authorized local cleanup:
    `platform/agent-control-plane/agent-assets/skills/manage-git-workflow/scripts/delivery_cleanup.py pr` from the
    disclosed primary workspace;
 2. require a clean delivery checkout whose `HEAD` matches the published pull
-   request head;
-3. fetch and fast-forward local `main` to the verified merge result;
-4. return the primary checkout to the existing clean `workbench/local` branch,
-   or leave `main` checked out when no workbench exists;
-5. delete and verify the absence of the merged local delivery branch; and
+   request head, and a primary checkout with no uncommitted change on a path
+   the cleanup writes;
+3. fetch and advance local `main` to the verified merge result by ref update,
+   or by fast-forward in place when the primary already has it checked out;
+4. leave the primary checkout on the branch it started on, moving it only off
+   a branch about to be deleted or onto `workbench/local` for a sync merge;
+5. delete the merged local delivery branch after verifying it is contained in
+   the base, and verify its absence; and
 6. remove a worktree directory only when it was an explicitly identified
    secondary-worktree exception.
 

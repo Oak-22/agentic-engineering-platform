@@ -398,12 +398,18 @@ Which agent owns which delivery worktree lives at
 `.local-mirrors/delivery-worktrees`.
 
 Each record carries the Jira key, branch, worktree path, base commit, owning
-agent, and claim time. Git or VS Code creates the linked worktree;
-`delivery_worktrees.py claim` verifies its clean Jira-keyed branch at current
-`main` and refuses a second claim on either the branch or the directory, so two
-agents cannot publish incompatible histories to one ref or overwrite each
-other's files. Its separate `provision` command is only an optional terminal
-convenience for creating and immediately claiming a new worktree.
+agent, claim time, and whether the claim was adopted mid-flight. Git creates
+the branch and the linked worktree, and VS Code opens, detects, and displays
+it; `delivery_worktrees.py claim` verifies its clean Jira-keyed branch at
+current `main` and refuses a second claim on either the branch or the
+directory, so two agents cannot publish incompatible histories to one ref or
+overwrite each other's files. Its separate `provision` command is only an
+optional terminal convenience for creating and immediately claiming a new
+worktree.
+
+A worktree VS Code creates for one of its own agent sessions never gets a
+record here. Those are named after the session rather than a work item, so no
+claim can match them and they stay `unregistered`.
 
 The record is machine-local because a worktree path is machine-local: an
 absolute directory on one developer's disk means nothing in another checkout,
@@ -417,7 +423,17 @@ trusted. A record whose directory has gone reports as `missing` and is not
 deleted: it is the only remaining trace that a delivery existed, and whether it
 was abandoned or cleaned up outside this tooling is a question for a person. A
 worktree with no record reports as `unregistered`, because nobody can be held
-to it; native creation alone never establishes governed delivery state.
+to it; creating a worktree never establishes governed delivery state on its
+own. Enabling VS Code's `git.detectWorktrees` makes such a worktree visible in
+the Source Control Repositories view, which changes what a reader can see and
+nothing about who owns it.
+
+Files copied in by `git.worktreeIncludeFiles` are invisible to this check by
+construction: VS Code copies a file only when it is also listed in
+`.gitignore`, and the claim reads `git status --untracked-files=all` without
+`--ignored`. A local `.local-mirrors/` copy therefore never fails a claim —
+whether it *should* be copied is the separate question VS Code's own guidance
+asks, that an agent worktree receive only files the agent can safely access.
 
 ## Resolving these paths
 

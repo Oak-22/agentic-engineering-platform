@@ -71,7 +71,8 @@ The preflight blocks task isolation when:
   branch cut from it would not start from the reviewed integration baseline;
 - `workbench/local` exists and is behind `main`, so its remaining changes
   cannot be told apart from main content it has not seen yet;
-- the working tree has staged, unstaged, untracked, or conflicted changes;
+- the working tree has staged, unstaged, or conflicted changes to tracked
+  files, or an untracked file sitting where the pending command would write;
 - an intent-categorized Jira-keyed pull request remains open;
 - a published feature branch has no pull request; or
 - the current merged delivery still has a remote feature branch requiring
@@ -84,6 +85,17 @@ tolerance threshold — one missing commit is the same defect as fifty, because 
 commit count is not a substitute for judging what the workbench still holds.
 A repository with no `workbench/local` is on the direct-delivery path and is
 never held to the workbench invariant.
+
+The working-tree blocker is scoped to what the pending command would actually
+do. A modified tracked file blocks wherever it is: carrying it across a branch
+is how one delivery's evidence ends up in another's. An untracked file is not
+delivery work, and Git preserves it across a switch or a merge unless an
+incoming tracked file would land on its exact path — so it blocks only when it
+is on that path. When the hook can read a start point from the command, the
+at-risk paths are the ones that differ between `HEAD` and that start point;
+creating a branch from `HEAD` writes nothing, so nothing is at risk. Loose
+files that are preserved are reported as a warning rather than passed over in
+silence.
 
 The command reports the exact remaining work and exits nonzero. It is read-only:
 it never commits, stashes, discards, merges, or deletes anything automatically.
@@ -117,7 +129,13 @@ python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
 Stages, in order:
 
 1. fetch `origin`, so the comparison is not made against a stale ref;
-2. require a clean working tree, since branches cannot be switched safely otherwise;
+2. require that nothing uncommitted sits on a path this preparation writes —
+   the union of the fast-forward, the workbench merge, and the switch to the
+   new branch. A modified tracked file blocks wherever it is, because it is
+   unfinished delivery work. An untracked file blocks only when an incoming
+   file would land on it; the workbench pattern expects loose capture notes in
+   the primary checkout between deliveries, and Git preserves them across both
+   a switch and a merge;
 3. verify local `main` against `origin/main`, fast-forwarding when that is safe
    and blocking when `main` is ahead or divergent;
 4. merge `main` into `workbench/local` when one exists and trails;
@@ -222,13 +240,13 @@ makes that a separate, explicit act that only runs after verification passes.
 
 ## Parallel delivery worktrees
 
-Let Git or VS Code create the linked worktree, then claim it for one concurrent
-Jira delivery so two agents cannot own the same branch or directory:
+Let Git create the branch and the linked worktree, then claim it for one
+concurrent Jira delivery so two agents cannot own the same branch or directory:
 
 ```bash
-# First create a clean worktree from the verified remote baseline with Git or VS Code.
-git fetch origin main
-git worktree add -b feature/PROJ-12-thing ../aep-PROJ-12 origin/main
+# Advance the baseline by ref update: no checkout, no file rewritten.
+git fetch origin main:main
+git worktree add -b feature/PROJ-12-thing ../aep-PROJ-12 main
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
   claim feature/PROJ-12-thing --path ../aep-PROJ-12 --agent agent-a
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py list
@@ -237,19 +255,38 @@ python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
   release feature/PROJ-12-thing --remove
 ```
 
+VS Code's **Create Worktree** command prompts for an existing branch and a
+location, so it opens a worktree on a branch rather than creating one. Cut the
+Jira-keyed branch with Git as above; the editor's part starts at opening,
+detecting, and displaying the result.
+
 Sharing one checkout makes concurrent work impossible: whichever agent switches
 branches last decides what the other sees, and neither can tell it happened.
 Separate worktrees remove that contention, but only if ownership is recorded —
-otherwise the collision moves from the branch to the directory. `claim` is the
+otherwise the collision moves from the branch to the directory. Git prevents
+the same local branch from being checked out twice, which stops the directory
+collision but records nothing about who owns which delivery. `claim` is the
 canonical governance entry point. It does not create, move, or open a worktree;
 it verifies that the supplied path is an existing linked worktree on the exact
 Jira-keyed branch, that the worktree is still clean and at verified current
 `main`, and that neither its branch nor path already has an owner.
 
-Claim immediately after native creation and before implementation. A worktree
-with changes or commits before its claim is rejected so Git or editor actions
-cannot silently bypass the governed baseline. Until a claim succeeds, `list`
-reports the native worktree as `unregistered` and it is not a governed delivery.
+The baseline is decided from refs alone. A loose file in the primary checkout
+never blocks a claim on a worktree beside it: the primary is expected to carry
+capture work as its steady state, and the claim inspects only the worktree it
+is about to govern. A local `main` behind `origin/main` is refused rather than
+used, because a stale baseline would reject the worktree these steps create.
+Advance it with `git fetch origin main:main`, which moves the ref without
+touching any working tree.
+
+Claim immediately after creation and before implementation. A worktree with
+uncommitted changes is rejected so Git or editor actions cannot silently
+bypass the governed baseline. A worktree that already carries *commits* — one
+created to recover a blocked delivery — is claimed with `--adopt`, which
+records the point the branch left `main` as its base and marks the record as
+adopted; refusing it would leave the only recovery path ungoverned. Until a
+claim succeeds, `list` reports the worktree as `unregistered` and it is not a
+governed delivery.
 
 For terminal-only operation, `provision` remains an optional convenience that
 creates a new worktree beside the repository (`<repo>.worktrees/<JIRA-KEY>`) at
@@ -284,10 +321,18 @@ A `missing` record is reported, never silently dropped: it is the only trace
 that the delivery existed, and which of the two happened is a question for a
 person.
 
-VS Code's **Migrate Worktree Changes** transfers changes into another workspace.
-It does not establish a Jira-keyed branch, verified baseline, ownership claim,
-publication record, or reviewed integration into `main`, so it is not a
-substitute for this delivery path.
+`unregistered` covers three cases, and `list` says which one it found: a
+Jira-keyed worktree that can be claimed (with `--adopt` when it already carries
+commits), a detached worktree that needs a branch first, and a worktree whose
+branch carries no Jira key and therefore can never be claimed. The last is
+where worktrees VS Code opens for its own agent sessions land — they are named
+after the session, not after a work item. Give such a session a Jira-keyed
+delivery worktree and claim that instead.
+
+VS Code's **Migrate Worktree Changes** merges all changes from a worktree into
+your current workspace. It does not establish a Jira-keyed branch, verified
+baseline, ownership claim, publication record, or reviewed integration into
+`main`, so it is not a substitute for this delivery path.
 
 `refresh` merges current `main` into one delivery branch, inside that
 delivery's own worktree:

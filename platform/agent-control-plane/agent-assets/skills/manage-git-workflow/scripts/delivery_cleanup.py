@@ -48,6 +48,11 @@ class Worktree:
     branch: str | None
 
 
+BASE_ALREADY_CURRENT = "already-current"
+BASE_REF_UPDATE = "ref-update"
+BASE_FAST_FORWARD_IN_PLACE = "fast-forward-in-place"
+
+
 @dataclass(frozen=True)
 class CleanupPlan:
     primary_workspace: Path
@@ -55,9 +60,13 @@ class CleanupPlan:
     target_worktree: Worktree | None
     initial_primary_branch: str
     return_branch: str
-    deletion_flag: str
+    head_contained_in_base: bool
     remote_branch_exists: bool
     workbench_sync_needed: bool
+    base_advance: str
+    base_oid_at_plan: str
+    switch_required: bool
+    primary_conflicts: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -300,7 +309,72 @@ def current_branch(workspace: Path) -> str:
     return branch
 
 
+def status_entries(workspace: Path) -> tuple[str, ...]:
+    """Every uncommitted entry as ``"XY path"``, parsed from ``-z`` output.
+
+    The human-readable status form quotes and escapes unusual paths, so a
+    gate built on it can name a file that does not exist. The NUL-separated
+    form keeps each path exactly as Git holds it.
+    """
+    fields = git(
+        workspace,
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+    ).stdout.split("\0")
+    entries: list[str] = []
+    index = 0
+    while index < len(fields):
+        field = fields[index]
+        index += 1
+        if not field:
+            continue
+        code, path = field[:2], field[3:]
+        # A rename or copy carries its origin path in the following field.
+        if "R" in code or "C" in code:
+            index += 1
+        entries.append(f"{code} {path}")
+    return tuple(entries)
+
+
+def entry_path(entry: str) -> str:
+    return entry[3:]
+
+
+def paths_written_between(workspace: Path, left: str, right: str) -> frozenset[str]:
+    """Working-tree paths that moving from `left` to `right` would write."""
+    result = git(workspace, "diff", "--name-only", "-z", left, right, check=False)
+    if result.returncode != 0:
+        raise CleanupError(f"could not compare {left} with {right} in {workspace}")
+    return frozenset(path for path in result.stdout.split("\0") if path)
+
+
+def obstructing_entries(
+    workspace: Path, at_risk_paths: frozenset[str]
+) -> tuple[str, ...]:
+    """Uncommitted entries sitting on a path this cleanup would write.
+
+    Git rewrites only the paths that differ across a switch or a merge; it
+    preserves every other file and refuses only when an incoming tracked file
+    would land on an untracked one. Refusing on the presence of any loose
+    file blocks far more than that hazard, and the workbench pattern expects
+    loose capture notes in the primary checkout as its steady state.
+    """
+    return tuple(
+        entry
+        for entry in status_entries(workspace)
+        if entry_path(entry) in at_risk_paths
+    )
+
+
 def require_clean(workspace: Path, role: str) -> None:
+    """Refuse any uncommitted content at all.
+
+    Reserved for a checkout about to be removed, where the whole directory
+    goes and an untracked file in it would be destroyed rather than
+    preserved. Every other gate here is scoped to the paths at risk.
+    """
     status = git(
         workspace,
         "status",
@@ -493,9 +567,37 @@ def execute_reconciliation(
     workspace: Path,
     report: ReconciliationReport,
 ) -> None:
-    require_clean(workspace, "primary workspace")
-    for candidate in report.safe_to_delete:
-        git(workspace, "branch", "-d", "--", candidate.branch)
+    """Delete the verified safe candidates and prune stale worktree metadata.
+
+    There is no working-tree gate here because there is no working-tree
+    write: deleting a ref and pruning metadata touch no file in the checkout,
+    so loose files in it are never at risk.
+
+    `git branch -d` is not usable: it re-checks containment against `HEAD` and
+    would call a delivery merged into `main` unmerged whenever the checkout
+    sits on the workbench. Forcing the delete therefore gives up Git's own
+    safety net, so every candidate is re-verified here — tip unchanged since
+    it was classified, and still contained in the base — before any branch is
+    deleted. Verifying the whole set first keeps a moved ref from leaving a
+    half-finished reconciliation behind.
+    """
+    deletable = report.safe_to_delete
+    for candidate in deletable:
+        tip = git(
+            workspace, "rev-parse", "--verify", f"refs/heads/{candidate.branch}"
+        ).stdout.strip()
+        if tip != candidate.head_oid:
+            raise CleanupError(
+                f"{candidate.branch} moved since it was classified "
+                f"({candidate.head_oid} to {tip}); nothing was deleted"
+            )
+        if not is_ancestor(workspace, tip, report.base_ref):
+            raise CleanupError(
+                f"{candidate.branch} is no longer contained in {report.base_ref}; "
+                "nothing was deleted"
+            )
+    for candidate in deletable:
+        git(workspace, "branch", "-D", "--", candidate.branch)
     git(workspace, "worktree", "prune")
     remaining = local_delivery_branches(workspace)
     undeleted = tuple(
@@ -634,7 +736,6 @@ def build_cleanup_plan(
             )
         require_clean(target_worktree.path, "delivery checkout")
 
-    require_clean(primary, "primary workspace")
     initial_primary_branch = current_branch(primary)
     allowed_primary_branches = {
         pull_request.base_branch,
@@ -669,9 +770,44 @@ def build_cleanup_plan(
         and not is_ancestor(primary, remote_base, WORKBENCH_BRANCH)
     )
 
-    deletion_flag = "-d"
-    if not is_ancestor(primary, pull_request.head_oid, remote_base):
-        deletion_flag = "-D"
+    head_contained_in_base = is_ancestor(primary, pull_request.head_oid, remote_base)
+
+    local_base_oid = git(
+        primary, "rev-parse", "--verify", f"refs/heads/{pull_request.base_branch}"
+    ).stdout.strip()
+    remote_base_oid = git(primary, "rev-parse", remote_base).stdout.strip()
+    if local_base_oid == remote_base_oid:
+        base_advance = BASE_ALREADY_CURRENT
+    elif not is_ancestor(primary, local_base_oid, remote_base):
+        raise CleanupError(
+            f"local {pull_request.base_branch} is not an ancestor of "
+            f"origin/{pull_request.base_branch}, so it cannot be advanced without "
+            "rewriting history. Reconcile the two deliberately."
+        )
+    elif initial_primary_branch == pull_request.base_branch:
+        base_advance = BASE_FAST_FORWARD_IN_PLACE
+    else:
+        base_advance = BASE_REF_UPDATE
+
+    # The primary keeps its visible branch unless the cleanup genuinely needs
+    # it moved: off a branch that is about to be deleted, or onto the
+    # workbench so its sync merge has somewhere to happen.
+    switch_required = initial_primary_branch == pull_request.head_branch or (
+        workbench_sync_needed and initial_primary_branch != return_branch
+    )
+
+    at_risk: frozenset[str] = frozenset()
+    if base_advance == BASE_FAST_FORWARD_IN_PLACE:
+        at_risk |= paths_written_between(
+            primary, pull_request.base_branch, remote_base
+        )
+    if switch_required:
+        landing = (
+            remote_base if return_branch == pull_request.base_branch else return_branch
+        )
+        at_risk |= paths_written_between(primary, "HEAD", landing)
+    if workbench_sync_needed:
+        at_risk |= paths_written_between(primary, WORKBENCH_BRANCH, remote_base)
 
     remotes = (
         live_remote_branches(primary)
@@ -684,9 +820,13 @@ def build_cleanup_plan(
         target_worktree=target_worktree,
         initial_primary_branch=initial_primary_branch,
         return_branch=return_branch,
-        deletion_flag=deletion_flag,
+        head_contained_in_base=head_contained_in_base,
         remote_branch_exists=pull_request.head_branch in remotes,
         workbench_sync_needed=workbench_sync_needed,
+        base_advance=base_advance,
+        base_oid_at_plan=local_base_oid,
+        switch_required=switch_required,
+        primary_conflicts=obstructing_entries(primary, at_risk),
     )
 
 
@@ -711,36 +851,98 @@ def sync_workbench_with_base(
     return "conflict-manual-resolution-required"
 
 
+def advance_base(plan: CleanupPlan) -> str:
+    """Bring local base level with its remote, writing no file if it can.
+
+    Advancing a branch nobody has checked out is a ref update; it needs no
+    working tree and touches none. The script used to reach the same result
+    by checking the base out in the primary, which rewrote that checkout's
+    files underneath whatever was running in it — the exact interference
+    separate worktrees exist to prevent.
+    """
+    primary = plan.primary_workspace
+    base = plan.pull_request.base_branch
+    if plan.base_advance == BASE_ALREADY_CURRENT:
+        return BASE_ALREADY_CURRENT
+    remote_oid = git(primary, "rev-parse", f"origin/{base}").stdout.strip()
+    if plan.base_advance == BASE_FAST_FORWARD_IN_PLACE:
+        git(primary, "merge", "--ff-only", f"origin/{base}")
+        return BASE_FAST_FORWARD_IN_PLACE
+    # Compare-and-swap against the value the plan verified, so a base that
+    # moved since planning fails the update instead of being overwritten by it.
+    result = git(
+        primary,
+        "update-ref",
+        f"refs/heads/{base}",
+        remote_oid,
+        plan.base_oid_at_plan,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise CleanupError(
+            f"local {base} moved since this cleanup was planned, so it was not "
+            "advanced: " + (result.stderr.strip() or "ref update refused")
+        )
+    return BASE_REF_UPDATE
+
+
+def delete_delivery_branch(plan: CleanupPlan) -> None:
+    """Delete the merged local delivery ref after proving it is contained.
+
+    `git branch -d` decides "fully merged" against `HEAD`, and this cleanup no
+    longer stands on the base branch — from the workbench it would call a
+    delivery that is merged into `main` unmerged. Containment is therefore
+    checked here against the base itself. When it does not hold, the merge was
+    a squash or a rebase, and the plan has already verified from pull-request
+    evidence that the result reached the base.
+
+    Because the delete is forced either way, the ref is re-read first: a tip
+    that moved since planning no longer carries the history the plan proved
+    merged, and forcing it away would discard commits nothing has reviewed.
+    """
+    primary = plan.primary_workspace
+    pull_request = plan.pull_request
+    tip = git(
+        primary, "rev-parse", "--verify", f"refs/heads/{pull_request.head_branch}"
+    ).stdout.strip()
+    if tip != pull_request.head_oid:
+        raise CleanupError(
+            f"{pull_request.head_branch} moved since this cleanup was planned "
+            f"({pull_request.head_oid} to {tip}); it was not deleted"
+        )
+    if plan.head_contained_in_base and not is_ancestor(
+        primary, pull_request.head_oid, pull_request.base_branch
+    ):
+        raise CleanupError(
+            f"{pull_request.head_branch} is no longer contained in "
+            f"{pull_request.base_branch}; the base moved during cleanup"
+        )
+    git(primary, "branch", "-D", "--", pull_request.head_branch)
+
+
 def execute_cleanup(plan: CleanupPlan) -> str | None:
     primary = plan.primary_workspace
     pull_request = plan.pull_request
 
-    if current_branch(primary) != pull_request.base_branch:
-        git(primary, "switch", "--", pull_request.base_branch)
-    git(
-        primary,
-        "merge",
-        "--ff-only",
-        f"origin/{pull_request.base_branch}",
-    )
+    if plan.primary_conflicts:
+        raise CleanupError(
+            "primary workspace holds changes on paths this cleanup would "
+            "write:\n" + "\n".join(plan.primary_conflicts)
+        )
+
+    advance_base(plan)
 
     if plan.target_worktree and plan.target_worktree.path != primary:
         git(primary, "worktree", "remove", str(plan.target_worktree.path))
 
-    git(
-        primary,
-        "branch",
-        plan.deletion_flag,
-        "--",
-        pull_request.head_branch,
-    )
-
-    if plan.return_branch != pull_request.base_branch:
+    if plan.switch_required and current_branch(primary) != plan.return_branch:
         git(primary, "switch", "--", plan.return_branch)
+
+    delete_delivery_branch(plan)
     git(primary, "worktree", "prune")
 
     workbench_sync: str | None = None
-    if plan.return_branch == WORKBENCH_BRANCH and plan.return_branch != pull_request.base_branch:
+    if plan.workbench_sync_needed and plan.return_branch == WORKBENCH_BRANCH:
         workbench_sync = sync_workbench_with_base(
             primary,
             workbench_branch=WORKBENCH_BRANCH,
@@ -790,16 +992,33 @@ def render_plan(
         target = f"{role} at {plan.target_worktree.path}"
     remote_state = "still exists" if plan.remote_branch_exists else "already absent"
     mode = "executed" if executed else "verified dry run"
+    containment = (
+        f"contained in origin/{plan.pull_request.base_branch}"
+        if plan.head_contained_in_base
+        else "not contained; squash or rebase merge, authorized by merged-PR evidence"
+    )
     lines = [
         f"Local cleanup {mode} for PR #{plan.pull_request.number}.",
         f"  PR: {plan.pull_request.url}",
         f"  Branch: {plan.pull_request.head_branch}",
         f"  Checkout: {target}",
-        f"  Local deletion: git branch {plan.deletion_flag}",
-        f"  Return branch: {plan.return_branch}",
+        f"  Local deletion: {containment}",
+        f"  Base advance: {plan.base_advance}",
+        f"  Primary checkout: "
+        + (
+            f"switches to {plan.return_branch}"
+            if plan.switch_required
+            else f"stays on {plan.initial_primary_branch}"
+        ),
         f"  Remote branch: {remote_state}; this script never deletes it",
     ]
-    if plan.return_branch == WORKBENCH_BRANCH and plan.return_branch != plan.pull_request.base_branch:
+    if plan.primary_conflicts:
+        lines.append("  BLOCKED, uncommitted changes on paths this cleanup writes:")
+        lines.extend(f"    {entry}" for entry in plan.primary_conflicts)
+    if plan.workbench_sync_needed or (
+        plan.return_branch == WORKBENCH_BRANCH
+        and plan.return_branch != plan.pull_request.base_branch
+    ):
         if executed:
             lines.append(f"  Workbench sync: {workbench_sync}")
         else:
@@ -824,6 +1043,8 @@ def cleanup_plan_as_json(
             "pullRequestUrl": plan.pull_request.url,
             "branch": plan.pull_request.head_branch,
             "mergeOid": plan.pull_request.merge_oid,
+            "baseAdvance": plan.base_advance,
+            "primarySwitched": plan.switch_required,
             "localCleanup": "completed" if executed else "planned",
             "cleanupDebt": None,
             "remoteBranch": "present" if plan.remote_branch_exists else "absent",

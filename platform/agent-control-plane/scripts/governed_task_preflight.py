@@ -58,6 +58,10 @@ class RepositoryState:
     remote_main_tracked: bool
     main_ahead_of_remote: int
     main_behind_remote: int
+    #: Paths the pending operation would write. Empty when nothing is known
+    #: about where it is headed, which is also the case where an untracked
+    #: file cannot be in its way.
+    at_risk_paths: tuple[str, ...] = ()
 
 
 class InspectionError(RuntimeError):
@@ -153,9 +157,105 @@ def main_divergence(root: Path) -> tuple[bool, int, int]:
         return (False, 0, 0)
 
 
-def inspect_repository(root: Path) -> RepositoryState:
+UNTRACKED_STATUS = "??"
+
+
+def status_entries(root: Path) -> tuple[str, ...]:
+    """Every uncommitted entry as ``"XY path"``, parsed from ``-z`` output.
+
+    The human-readable status form quotes and escapes unusual paths, so a
+    gate built on it can name a file that does not exist. The NUL-separated
+    form keeps each path exactly as Git holds it, which is what the at-risk
+    comparison below comes down to.
+    """
+    result = run(
+        ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+        cwd=root,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or "unknown Git failure"
+        raise InspectionError(f"could not inspect the working tree: {detail}")
+    fields = result.stdout.split("\0")
+    entries: list[str] = []
+    index = 0
+    while index < len(fields):
+        field = fields[index]
+        index += 1
+        if not field:
+            continue
+        code, path = field[:2], field[3:]
+        # A rename or copy carries its origin path in the following field.
+        if "R" in code or "C" in code:
+            index += 1
+        entries.append(f"{code} {path}")
+    return tuple(entries)
+
+
+def entry_status(entry: str) -> str:
+    return entry[:2]
+
+
+def entry_path(entry: str) -> str:
+    return entry[3:]
+
+
+def paths_written_between(root: Path, left: str, right: str) -> frozenset[str]:
+    """Working-tree paths that moving from `left` to `right` would write.
+
+    This is the set Git itself protects: a switch or a merge rewrites only
+    the paths that differ, leaves every other file alone, and refuses when an
+    incoming tracked file would land on an untracked one.
+    """
+    result = run(
+        ["git", "diff", "--name-only", "-z", left, right], cwd=root, check=False
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or "unknown Git failure"
+        raise InspectionError(f"could not compare {left} with {right}: {detail}")
+    return frozenset(path for path in result.stdout.split("\0") if path)
+
+
+def branch_creation_start_point(command: str) -> str | None:
+    """The revision a branch-creation command would start from, if it names one.
+
+    Creating a branch without a start point branches from `HEAD` and writes
+    nothing to the working tree. A start point is what makes the command able
+    to overwrite a file, so it is what decides which files are at risk.
+    """
+    match = BRANCH_CREATION_START_POINT_PATTERN.search(command)
+    if match is None:
+        return None
+    start = match.group("start")
+    return start if start and not start.startswith("-") else None
+
+
+def blocking_entries(
+    dirty_entries: Sequence[str], at_risk_paths: Sequence[str]
+) -> tuple[str, ...]:
+    """The uncommitted entries that actually stand in the way.
+
+    A tracked modification is unfinished delivery work and always blocks:
+    carrying it across a branch is how one delivery's evidence ends up in
+    another's. An untracked file is not delivery work. The workbench pattern
+    expects loose capture notes in the primary checkout as its steady state,
+    and Git preserves an untracked file across a switch or a merge unless an
+    incoming tracked file would land on its exact path. Refusing on every
+    loose file blocks far more than the hazard it guards.
+    """
+    at_risk = frozenset(at_risk_paths)
+    return tuple(
+        entry
+        for entry in dirty_entries
+        if entry_status(entry) != UNTRACKED_STATUS or entry_path(entry) in at_risk
+    )
+
+
+def inspect_repository(
+    root: Path, *, at_risk_paths: Sequence[str] = ()
+) -> RepositoryState:
     try:
-        status = run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root)
+        status_lines = status_entries(root)
         branch = run(["git", "branch", "--show-current"], cwd=root).stdout.strip()
         open_prs_result = run(
             [
@@ -257,7 +357,8 @@ def inspect_repository(root: Path) -> RepositoryState:
     remote_main_tracked, main_ahead, main_behind = main_divergence(root)
 
     return RepositoryState(
-        dirty_entries=tuple(line for line in status.stdout.splitlines() if line),
+        dirty_entries=status_lines,
+        at_risk_paths=tuple(at_risk_paths),
         open_governed_pull_requests=open_governed_pull_requests,
         current_branch=branch,
         current_pull_request_state=current_pull_request_state,
@@ -313,12 +414,14 @@ def blockers_for(state: RepositoryState) -> list[str]:
             "before reconciling workbench evidence."
         )
 
-    if state.dirty_entries:
+    obstructing = blocking_entries(state.dirty_entries, state.at_risk_paths)
+    if obstructing:
         blockers.append(
-            "Can't implement the next task: the working tree has uncommitted changes. "
-            "Commit the current delivery, or intentionally stash or resolve its changes, "
-            "before creating another branch or worktree.\n"
-            + "\n".join(f"  {entry}" for entry in state.dirty_entries)
+            "Can't implement the next task: the working tree holds changes this "
+            "operation would carry across or overwrite. Commit the current "
+            "delivery, or intentionally stash or resolve these entries, before "
+            "creating another branch or worktree.\n"
+            + "\n".join(f"  {entry}" for entry in obstructing)
         )
 
     if state.open_governed_pull_requests:
@@ -360,6 +463,18 @@ def blockers_for(state: RepositoryState) -> list[str]:
 def warnings_for(state: RepositoryState) -> list[str]:
     warnings: list[str] = []
 
+    preserved = tuple(
+        entry
+        for entry in state.dirty_entries
+        if entry not in blocking_entries(state.dirty_entries, state.at_risk_paths)
+    )
+    if preserved:
+        warnings.append(
+            "Untracked files are present and will be preserved. They are not on "
+            "the list of paths this operation writes, so they do not block it:\n"
+            + "\n".join(f"  {entry}" for entry in preserved)
+        )
+
     if state.stale_local_delivery_branches:
         warnings.append(
             "Local cleanup debt detected. These merged Jira-keyed branches are safe "
@@ -383,6 +498,9 @@ CANONICAL_PREPARATION = (
 )
 
 BRANCH_CREATION_COMMAND_PATTERN = re.compile(r"\bgit\s+(?:checkout\s+-b\b|switch\s+-c\b)")
+BRANCH_CREATION_START_POINT_PATTERN = re.compile(
+    r"\bgit\s+(?:checkout\s+-b|switch\s+-c)\s+(?P<branch>\S+)(?:\s+(?P<start>\S+))?"
+)
 
 
 def targets_branch_creation(command: str) -> bool:
@@ -419,7 +537,13 @@ def hook_response(tool_input: dict[str, Any], root: Path) -> dict[str, dict[str,
     if not targets_branch_creation(command):
         return None
     try:
-        state = inspect_repository(root)
+        start_point = branch_creation_start_point(command)
+        at_risk = (
+            paths_written_between(root, "HEAD", start_point)
+            if start_point
+            else frozenset()
+        )
+        state = inspect_repository(root, at_risk_paths=sorted(at_risk))
     except InspectionError as error:
         return deny_decision(f"Can't verify whether the next governed task is safe: {error}")
     blockers = blockers_for(state)
@@ -478,8 +602,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("\n\n".join(warnings), file=sys.stderr)
 
     print(
-        "Governed task preflight passed: the working tree is clean and no "
-        "outstanding governed pull request blocks task isolation."
+        "Governed task preflight passed: nothing uncommitted stands in the way "
+        "and no outstanding governed pull request blocks task isolation."
     )
     return 0
 
