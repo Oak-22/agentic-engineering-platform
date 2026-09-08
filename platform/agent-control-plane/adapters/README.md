@@ -23,8 +23,9 @@ translate that intent but must not become an alternate canonical source.
 
 Destination mappings translate portable contract fields into a concrete
 deployment, such as the Jira custom-field identifiers in
-[`jira/aepi-field-mapping.json`](jira/aepi-field-mapping.json). Runtime
-renderers instead translate canonical assets into provider-native files. Each
+[`jira/aepi-jira-field-mapping.json`](jira/aepi-jira-field-mapping.json).
+Runtime renderers instead translate canonical assets into provider-native
+files. Each
 runtime adapter's generated installation manifest inventories the checked-in
 outputs owned by that adapter; the manifest supports the adapter but is not
 itself a translation adapter. Bootstrap commands may materialize outputs and

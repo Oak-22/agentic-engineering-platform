@@ -73,7 +73,7 @@ class DestinationContractTests(unittest.TestCase):
         errors = list(
             validator_class(schema).iter_errors(
                 load_json(
-                    "platform/agent-control-plane/adapters/jira/aepi-field-mapping.json"
+                    "platform/agent-control-plane/adapters/jira/aepi-jira-field-mapping.json"
                 )
             )
         )
