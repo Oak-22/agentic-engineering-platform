@@ -68,8 +68,9 @@ review wait would always exhaust its window and fail closed, and the strict
 gives Copilot a short grace window, then concludes `success` on the
 `control-plane-guards` evidence alone and records the waiver in the job
 summary. Every other author still fails closed when no review covers the
-current head. The waiver is keyed to the pull-request author read from the
-GitHub API, the same identity the branch rule sees, so it cannot be forged by
+current head. The waiver is keyed to the pull-request author from the
+`pull_request` event payload — a `workflow_dispatch` diagnostic run falls back
+to the API — the same identity the branch rule sees, so it cannot be forged by
 branch content.
 
 The declarative target is checked in at
