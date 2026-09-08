@@ -1,4 +1,4 @@
-# Checked-in GitHub Copilot projections generated into agent-related .github/ paths.
+# Checked-in GitHub Copilot files generated into agent-related .github/ paths.
 # Add one repository-relative path per line when a renderer is implemented.
 .github/hooks/agent-permission-gate.json
 .github/hooks/instruction-manifest.json

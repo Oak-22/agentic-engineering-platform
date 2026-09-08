@@ -10,7 +10,8 @@ agent sees:
 - [`jira/`](jira/) maps governed work-item metadata and delivery operations to
   the configured Atlassian/Jira surfaces.
 - [`runtimes/`](runtimes/) owns provider runtime capability declarations,
-  supported-version ranges, configuration renderers, and mapping tests.
+  supported-version ranges, configuration renderers, generated installation
+  manifests, and mapping tests.
 
 Do not add a `destinations/` namespace for these adapters. Jira and GitHub are
 the primary destination boundaries, and future destination adapters should be
@@ -19,6 +20,17 @@ different grouping.
 
 Portable intent remains in `contracts/` and `agent-assets/`. Adapters may
 translate that intent but must not become an alternate canonical source.
+
+Destination mappings translate portable contract fields into a concrete
+deployment, such as the Jira custom-field identifiers in
+[`jira/aepi-field-mapping.json`](jira/aepi-field-mapping.json). Runtime
+renderers instead translate canonical assets into provider-native files. Each
+runtime adapter's generated installation manifest inventories the checked-in
+outputs owned by that adapter; the manifest supports the adapter but is not
+itself a translation adapter. Bootstrap commands may materialize outputs and
+validation commands may verify them, but those consumers remain distinct from
+the mappings, renderers, and manifests they use. No general bootstrap command
+currently materializes every manifest entry.
 
 A destination adapter standardizes the contract, the semantic actions, the
 permission-gate namespace, the evidence shape, and the authority boundary. It

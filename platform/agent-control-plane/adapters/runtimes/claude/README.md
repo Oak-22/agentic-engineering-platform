@@ -13,12 +13,14 @@ external-program handler forcing a URL scheme. Add a Claude-only renderer
 here only if Claude Code's presentation needs diverge from this shared
 function in a way a branch in `render_citation` cannot express.
 
-List any checked-in generated installation files, one repository-relative path
-per line, in `generated-projections.txt`.
+List checked-in generated installation files, one repository-relative path per
+line, in the adapter-owned `generated-installation-manifest.txt`. This manifest
+supports the adapter by inventorying expected outputs; it is not itself a
+translation adapter.
 
 Canonical behavior remains under `../../../agent-assets/`. Repository-native
 installation files remain under the root `CLAUDE.md` and `.claude/` paths and
-should contain only discovery links, canonical imports, generated projections,
+should contain only discovery links, canonical imports, generated files,
 or explicitly approved Claude Code configuration.
 
 Do not place credentials, personal configuration, or portable workflow
