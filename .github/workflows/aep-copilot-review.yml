@@ -50,6 +50,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           EVENT_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
           EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          EVENT_PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
           INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
           RUN_SHA: ${{ github.sha }}
         run: |
@@ -69,9 +70,19 @@ jobs:
               exit 1
             fi
           fi
+          # The author decides whether a missing Copilot review is fatal.
+          # Copilot does not review pull requests opened by dependabot[bot], so
+          # for those the review-wait step passes on the guards alone instead
+          # of exhausting the window for evidence that will never arrive. Read
+          # it from the event payload; only a manual dispatch needs the API.
+          PR_AUTHOR="${EVENT_PR_AUTHOR}"
+          if [ -z "${PR_AUTHOR}" ]; then
+            PR_AUTHOR="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.user.login')"
+          fi
           {
             echo "PR_NUMBER=${PR_NUMBER}"
             echo "HEAD_SHA=${HEAD_SHA}"
+            echo "PR_AUTHOR=${PR_AUTHOR}"
           } >> "$GITHUB_ENV"
 
       - name: Wait for the control-plane guards on this head
@@ -108,8 +119,15 @@ jobs:
         run: |
           # Paginate: a single page is 30 reviews, and the gate must select
           # Copilot's latest review of this exact head, not merely a recent one.
+          # Copilot does not review dependabot[bot] pull requests, so give one a
+          # brief window in case that ever changes, then waive rather than wait
+          # out the full window for a review that will not come.
+          ATTEMPTS=45
+          if [ "${PR_AUTHOR}" = "dependabot[bot]" ]; then
+            ATTEMPTS=3
+          fi
           REVIEW_ID=""
-          for _ in $(seq 1 45); do
+          for _ in $(seq 1 "${ATTEMPTS}"); do
             gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" --jq '.[]' \
               | jq -s --arg head "${HEAD_SHA}" '[.[] | select((.user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]") and .commit_id == $head)] | sort_by(.submitted_at) | last // empty' \
               > /tmp/copilot-event-review.json
@@ -120,23 +138,36 @@ jobs:
             sleep 20
           done
           if [ -z "${REVIEW_ID}" ]; then
+            if [ "${PR_AUTHOR}" = "dependabot[bot]" ]; then
+              # The control-plane guards already passed for this head. Copilot
+              # does not review Dependabot pull requests, so this is the whole
+              # evidence the gate can have; conclude success and skip the
+              # normalizer steps below.
+              echo "Dependabot pull request; Copilot posted no review for ${HEAD_SHA}. Passing on the control-plane guards alone." >&2
+              printf '%s' "{\"conclusion\":\"success\",\"waived\":\"dependabot\",\"review\":{\"reviewId\":null,\"headSha\":\"${HEAD_SHA}\",\"submittedAt\":null,\"state\":\"dependabot-waived\",\"actionableFindings\":0,\"unrecognizedFindings\":0,\"disputedFindings\":[]}}" > /tmp/copilot-result.json
+              echo "COPILOT_REVIEW_WAIVED=dependabot" >> "$GITHUB_ENV"
+              exit 0
+            fi
             echo "No Copilot review exists for current head ${HEAD_SHA}; nothing to evaluate." >&2
             exit 1
           fi
           echo "REVIEW_ID=${REVIEW_ID}" >> "$GITHUB_ENV"
 
       - name: Check out the exact-head tooling
+        if: env.COPILOT_REVIEW_WAIVED == ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.HEAD_SHA }}
           persist-credentials: false
 
       - name: Set up Python for the normalizer
+        if: env.COPILOT_REVIEW_WAIVED == ''
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: platform/agent-control-plane/pyproject.toml
 
       - name: Fetch and normalize the exact-head review
+        if: env.COPILOT_REVIEW_WAIVED == ''
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -201,6 +232,7 @@ jobs:
           fi
 
       - name: Publish the normalized result in the job summary
+        if: env.COPILOT_REVIEW_WAIVED == ''
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
@@ -216,9 +248,20 @@ jobs:
           print(f"Disputed findings: {len(review['disputedFindings'])}")
           PY
 
+      - name: Publish the Dependabot waiver in the job summary
+        if: env.COPILOT_REVIEW_WAIVED != ''
+        run: |
+          {
+            echo '## AEP Copilot review gate'
+            echo
+            echo 'Conclusion: **success**'
+            echo "Head SHA: \`${HEAD_SHA}\`"
+            echo 'Waiver: **dependabot** — Copilot does not review Dependabot pull requests; passed on the control-plane guards alone.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Enforce the normalized conclusion
         run: |
-          CONCLUSION="$(python -c 'import json; print(json.load(open("/tmp/copilot-result.json"))["conclusion"])')"
+          CONCLUSION="$(jq -r '.conclusion' /tmp/copilot-result.json)"
           case "${CONCLUSION}" in
             success) exit 0 ;;
             neutral) exit 78 ;;
