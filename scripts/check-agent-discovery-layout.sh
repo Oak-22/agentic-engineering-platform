@@ -26,11 +26,11 @@ platform/agent-control-plane/agent-assets/execution-policies
 platform/agent-control-plane/agent-assets/skills
 platform/agent-control-plane/adapters/runtimes
 platform/agent-control-plane/adapters/runtimes/codex/README.md
-platform/agent-control-plane/adapters/runtimes/codex/generated-projections.txt
+platform/agent-control-plane/adapters/runtimes/codex/generated-installation-manifest.txt
 platform/agent-control-plane/adapters/runtimes/claude/README.md
-platform/agent-control-plane/adapters/runtimes/claude/generated-projections.txt
+platform/agent-control-plane/adapters/runtimes/claude/generated-installation-manifest.txt
 platform/agent-control-plane/adapters/runtimes/github-copilot/README.md
-platform/agent-control-plane/adapters/runtimes/github-copilot/generated-projections.txt
+platform/agent-control-plane/adapters/runtimes/github-copilot/generated-installation-manifest.txt
 platform/agent-control-plane/scripts/instruction_manifest_hook.py
 platform/agent-control-plane/scripts/provider_docs_session_start.py
 platform/agent-control-plane/scripts/validate_asset_registries.py
@@ -106,47 +106,47 @@ native_surface_roots="
 .github/skills
 "
 
-generated_projection_manifests="
-platform/agent-control-plane/adapters/runtimes/codex/generated-projections.txt
-platform/agent-control-plane/adapters/runtimes/claude/generated-projections.txt
-platform/agent-control-plane/adapters/runtimes/github-copilot/generated-projections.txt
+generated_installation_manifests="
+platform/agent-control-plane/adapters/runtimes/codex/generated-installation-manifest.txt
+platform/agent-control-plane/adapters/runtimes/claude/generated-installation-manifest.txt
+platform/agent-control-plane/adapters/runtimes/github-copilot/generated-installation-manifest.txt
 "
 
-for generated_projection_manifest in $generated_projection_manifests; do
-  while IFS= read -r generated_projection; do
-    case "$generated_projection" in
+for generated_installation_manifest in $generated_installation_manifests; do
+  while IFS= read -r generated_installation; do
+    case "$generated_installation" in
       ""|\#*)
         continue
         ;;
     esac
 
-    case "$generated_projection_manifest:$generated_projection" in
-      *runtimes/codex/generated-projections.txt:.agents/* \
-        |*runtimes/codex/generated-projections.txt:.codex/* \
-        |*runtimes/claude/generated-projections.txt:.claude/* \
-          |*runtimes/github-copilot/generated-projections.txt:.github/hooks/* \
-        |*runtimes/github-copilot/generated-projections.txt:.github/instructions/* \
-        |*runtimes/github-copilot/generated-projections.txt:.github/prompts/* \
-        |*runtimes/github-copilot/generated-projections.txt:.github/skills/*)
+    case "$generated_installation_manifest:$generated_installation" in
+      *runtimes/codex/generated-installation-manifest.txt:.agents/* \
+        |*runtimes/codex/generated-installation-manifest.txt:.codex/* \
+        |*runtimes/claude/generated-installation-manifest.txt:.claude/* \
+        |*runtimes/github-copilot/generated-installation-manifest.txt:.github/hooks/* \
+        |*runtimes/github-copilot/generated-installation-manifest.txt:.github/instructions/* \
+        |*runtimes/github-copilot/generated-installation-manifest.txt:.github/prompts/* \
+        |*runtimes/github-copilot/generated-installation-manifest.txt:.github/skills/*)
         ;;
       *)
-        echo "generated projection is outside its runtime-native surface: $generated_projection" >&2
+        echo "generated installation is outside its runtime-native surface: $generated_installation" >&2
         exit 1
         ;;
     esac
 
-    if [ ! -e "$generated_projection" ] && [ ! -L "$generated_projection" ]; then
-      echo "declared generated projection is missing: $generated_projection" >&2
+    if [ ! -e "$generated_installation" ] && [ ! -L "$generated_installation" ]; then
+      echo "declared generated installation is missing: $generated_installation" >&2
       exit 1
     fi
-  done < "$generated_projection_manifest"
+  done < "$generated_installation_manifest"
 done
 
-is_declared_generated_projection() {
-  projection_path=$1
+is_declared_generated_installation() {
+  installation_path=$1
 
-  for projection_manifest in $generated_projection_manifests; do
-    if grep -Fqx "$projection_path" "$projection_manifest"; then
+  for installation_manifest in $generated_installation_manifests; do
+    if grep -Fqx "$installation_path" "$installation_manifest"; then
       return 0
     fi
   done
@@ -182,7 +182,7 @@ done | while IFS= read -r native_path; do
       # Canonical imports are resolved and validated below.
       ;;
     *)
-      if ! is_declared_generated_projection "$native_path"; then
+      if ! is_declared_generated_installation "$native_path"; then
         echo "unclassified runtime-native installation file: $native_path" >&2
         exit 1
       fi

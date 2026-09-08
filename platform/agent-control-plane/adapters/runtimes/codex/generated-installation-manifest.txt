@@ -1,2 +1,2 @@
-# Checked-in Claude Code projections generated into .claude/.
+# Checked-in Codex files generated into .agents/ or .codex/.
 # Add one repository-relative path per line when a renderer is implemented.

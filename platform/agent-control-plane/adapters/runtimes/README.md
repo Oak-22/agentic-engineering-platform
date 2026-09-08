@@ -12,6 +12,14 @@ unsupported semantics without weakening canonical intent. Repository-root
 runtime paths remain generated or linked discovery outputs rather than
 canonical sources.
 
+A runtime renderer translates canonical assets into provider-native files. A
+provider's `generated-installation-manifest.txt` is a separate, adapter-owned
+inventory of the checked-in outputs expected from that translation. The
+manifest supports its runtime adapter but is not itself a translation adapter.
+Bootstrap commands may materialize manifest entries and validation commands
+may verify them; today the repository validates the inventories but has no
+general bootstrap command that materializes every listed asset.
+
 ## Providers
 
 - [`codex/`](codex/) maps canonical assets into Codex project configuration,
