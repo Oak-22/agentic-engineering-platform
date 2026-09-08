@@ -60,6 +60,19 @@ evaluation for diagnosis, and its result cannot satisfy the required check.
 | `failure` | Findings remain actionable, the review is stale, or the provider payload cannot be normalized safely. |
 | `neutral` | Remaining findings are explicitly disputed with evidence; the result remains visible for a human decision. |
 
+## Dependabot pull requests
+
+Copilot does not review pull requests opened by `dependabot[bot]`, so the
+review wait would always exhaust its window and fail closed, and the strict
+`main` ruleset requires this check. For a `dependabot[bot]` author the gate
+gives Copilot a short grace window, then concludes `success` on the
+`control-plane-guards` evidence alone and records the waiver in the job
+summary. Every other author still fails closed when no review covers the
+current head. The waiver is keyed to the pull-request author from the
+`pull_request` event payload — a `workflow_dispatch` diagnostic run falls back
+to the API — the same identity the branch rule sees, so it cannot be forged by
+branch content.
+
 The declarative target is checked in at
 `.github/rulesets/protect-main.json`. Applying it to GitHub is a separate
 repository-administration operation: the active ruleset requires exactly the
