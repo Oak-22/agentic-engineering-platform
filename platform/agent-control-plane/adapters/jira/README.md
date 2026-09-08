@@ -15,11 +15,13 @@ general blueprint: it describes which portable properties must map to Jira
 fields and the shape of a deployment mapping. It is reusable across Jira
 projects and sites.
 
-[`aepi-field-mapping.json`](aepi-field-mapping.json) is the concrete AEPI
-instance of that blueprint. It contains this deployment's actual Jira custom
-field IDs. It is not an alternative schema and it is not orphaned. Keep the
-generic schema stable when adding another deployment; add a sibling instance
-only when that deployment has a different mapping.
+[`aepi-jira-field-mapping.json`](aepi-jira-field-mapping.json) is the
+concrete AEPI instance of that blueprint. Its name carries the schema's stem
+so the instance-of relationship is legible from the filename alone. It
+contains this deployment's actual Jira custom field IDs. It is not an
+alternative schema and it is not orphaned. Keep the generic schema stable when
+adding another deployment; add a sibling instance only when that deployment
+has a different mapping.
 
 [`jira-delivery-mapping.json`](jira-delivery-mapping.json) separately records
 which Jira communication surface owns each operation. It does not duplicate
@@ -106,7 +108,7 @@ not make them required: nothing outside the vendor's runtime can populate
 them, so a required vendor field rejects every programmatic create.
 
 Record the standard accountability field and Jira-generated `customfield_*`
-identifiers in `aepi-field-mapping.json` using
+identifiers in `aepi-jira-field-mapping.json` using
 [`jira-field-mapping.schema.json`](jira-field-mapping.schema.json). Do not
 invent IDs or commit authentication material.
 
