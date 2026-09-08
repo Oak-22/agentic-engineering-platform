@@ -7,6 +7,9 @@ Prefer formatting that reveals conceptual structure.
 When human interpretation is part of an artifact's purpose, preserve semantic
 structure during mechanical formatting.
 
+When writing prose, use contrastive negation or antithetical framing sparingly;
+avoid repetitive `not X, but Y` constructions.
+
 ## Documentation
 
 - Use clear heading hierarchy and scannable section order.
