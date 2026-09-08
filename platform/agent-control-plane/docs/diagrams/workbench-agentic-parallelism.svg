@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="850" viewBox="0 0 1200 850" role="img" aria-labelledby="title desc">
+  <title id="title">From traditional Git to governed agentic parallelism</title>
+  <desc id="desc">Traditional serial Git contrasted with a primary workbench and parallel Jira-keyed delivery worktrees, supported by explicit evidence states.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker>
+    <style>.title{font:700 30px system-ui,sans-serif;fill:#172033}.section{font:700 21px system-ui,sans-serif;fill:#172033}.label{font:700 15px system-ui,sans-serif;fill:#172033}.small{font:14px system-ui,sans-serif;fill:#596579}.tiny{font:12px system-ui,sans-serif;fill:#596579}.box{fill:#fff;stroke:#c8ced8;stroke-width:1.5}.line{fill:none;stroke:#64748b;stroke-width:2;marker-end:url(#arrow)}.dash{fill:none;stroke:#64748b;stroke-width:2;stroke-dasharray:7 6;marker-end:url(#arrow)}</style>
+  </defs>
+  <rect width="1200" height="850" fill="#f6f4ee"/>
+  <text x="60" y="58" class="title">From serial Git work to governed agentic parallelism</text>
+  <text x="60" y="88" class="small">AEP adds ownership, evidence, and delivery gates so human work continues safely while agents execute.</text>
+
+  <rect x="45" y="115" width="1110" height="160" fill="#fffefa" stroke="#d7d2c6" rx="18"/>
+  <text x="70" y="150" class="section">1. Traditional Git workflow (pre-AI default)</text>
+  <g>
+    <rect x="75" y="180" width="150" height="58" class="box" rx="12"/><text x="150" y="214" text-anchor="middle" class="label">Developer</text>
+    <rect x="285" y="180" width="150" height="58" class="box" rx="12"/><text x="360" y="214" text-anchor="middle" class="label">Edit checkout</text>
+    <rect x="495" y="180" width="150" height="58" class="box" rx="12"/><text x="570" y="214" text-anchor="middle" class="label">Commit</text>
+    <rect x="705" y="180" width="150" height="58" class="box" rx="12"/><text x="780" y="204" text-anchor="middle" class="label">Feature branch</text><text x="780" y="224" text-anchor="middle" class="tiny">serial switching</text>
+    <rect x="915" y="180" width="150" height="58" fill="#eaf8f2" stroke="#16835f" stroke-width="2" rx="12"/><text x="990" y="214" text-anchor="middle" class="label">PR → main</text>
+    <path d="M225 209H285M435 209H495M645 209H705M855 209H915" class="line"/>
+  </g>
+
+  <rect x="45" y="300" width="1110" height="335" fill="#fffefa" stroke="#d7d2c6" rx="18"/>
+  <text x="70" y="335" class="section">2. AEP safe parallelism</text>
+  <text x="70" y="360" class="small">The primary preserves evolving intent; each bounded outcome gets an isolated worktree from current main.</text>
+  <rect x="75" y="390" width="355" height="165" fill="#fff5e8" stroke="#bd6704" stroke-width="2" rx="15"/>
+  <text x="98" y="423" class="label">Primary developer-visible workspace</text><text x="98" y="458" class="section">workbench/local</text>
+  <text x="98" y="487" class="small">Human + collaborating agents</text><text x="98" y="512" class="small">mental models · small edits · atomic capture</text><text x="98" y="540" class="tiny">Private evolving intent; never the delivery ancestry base.</text>
+  <ellipse cx="590" cy="472" rx="92" ry="45" fill="#eaf8f2" stroke="#16835f" stroke-width="2"/><text x="590" y="467" text-anchor="middle" class="label">current main</text><text x="590" y="489" text-anchor="middle" class="tiny">verified clean base</text>
+  <g>
+    <rect x="755" y="380" width="340" height="65" fill="#edf4ff" stroke="#2563eb" stroke-width="2" rx="12"/><text x="777" y="407" class="label">…-AEPI-106</text><text x="777" y="429" class="tiny">refactor/AEPI-106-slug · one owner</text>
+    <rect x="755" y="465" width="340" height="65" fill="#edf4ff" stroke="#2563eb" stroke-width="2" rx="12"/><text x="777" y="492" class="label">…-AEPI-116</text><text x="777" y="514" class="tiny">feature/AEPI-116-slug · one owner</text>
+    <rect x="755" y="550" width="340" height="65" fill="#edf4ff" stroke="#2563eb" stroke-width="2" rx="12"/><text x="777" y="577" class="label">…-AEPI-X</text><text x="777" y="599" class="tiny">fix/AEPI-X-slug · one owner</text>
+    <path d="M682 448C715 430 725 412 755 412M682 472H755M682 496C715 520 725 582 755 582" class="line"/>
+    <path d="M430 450C515 380 675 365 755 400" class="dash"/><text x="505" y="385" class="tiny">selected commit, file, or hunk</text>
+  </g>
+  <text x="75" y="603" class="small">Git + VS Code: worktrees, windows, filesystem isolation</text><text x="75" y="625" class="small">AEP: Jira identity, ownership, verified base, review gates, cleanup</text>
+
+  <rect x="45" y="660" width="1110" height="155" fill="#fffefa" stroke="#d7d2c6" rx="18"/>
+  <text x="70" y="695" class="section">3. Evidence reconciliation keeps parallel work coherent</text>
+  <g>
+    <rect x="75" y="725" width="165" height="58" fill="#fff0f1" stroke="#b83c46" stroke-width="2" rx="12"/><text x="158" y="749" text-anchor="middle" class="label">unresolved</text><text x="158" y="769" text-anchor="middle" class="tiny">only blocker</text>
+    <rect x="280" y="710" width="165" height="58" fill="#edf4ff" stroke="#2563eb" stroke-width="2" rx="12"/><text x="363" y="744" text-anchor="middle" class="label">in-delivery</text>
+    <rect x="280" y="780" width="165" height="58" fill="#fff5e8" stroke="#bd6704" stroke-width="2" rx="12"/><text x="363" y="814" text-anchor="middle" class="label">parked</text>
+    <rect x="485" y="780" width="165" height="58" fill="#f4efff" stroke="#7654b5" stroke-width="2" rx="12"/><text x="568" y="814" text-anchor="middle" class="label">superseded</text>
+    <rect x="690" y="710" width="165" height="58" fill="#eaf8f2" stroke="#16835f" stroke-width="2" rx="12"/><text x="773" y="744" text-anchor="middle" class="label">represented</text>
+    <rect x="895" y="725" width="210" height="58" fill="#172033" rx="12"/><text x="1000" y="749" text-anchor="middle" style="font:700 15px system-ui,sans-serif;fill:#fff">human continuity</text><text x="1000" y="769" text-anchor="middle" style="font:12px system-ui,sans-serif;fill:#dbe5f5">during agent latency</text>
+    <path d="M240 745C260 745 265 739 280 739M240 760C260 780 265 809 280 809M240 770C350 845 430 809 485 809M445 739H690M855 739H895" class="line"/>
+  </g>
+</svg>
