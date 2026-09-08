@@ -127,12 +127,20 @@ class AepCopilotReviewWorkflowTests(unittest.TestCase):
         """
         workflow = self.workflow
 
-        # The author is resolved once, up front, for the waiver decision.
+        # The author is resolved once, up front, for the waiver decision, from
+        # the event payload — the API call is only the manual-dispatch fallback,
+        # so a transient API failure cannot block a pull_request run.
         self.assertIn("PR_AUTHOR=${PR_AUTHOR}", workflow)
         self.assertIn(
-            'PR_AUTHOR="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq \'.user.login\')"',
+            "EVENT_PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}",
             workflow,
         )
+        self.assertIn('PR_AUTHOR="${EVENT_PR_AUTHOR}"', workflow)
+        author_line = workflow.index('PR_AUTHOR="${EVENT_PR_AUTHOR}"')
+        author_fallback = workflow.index(
+            'PR_AUTHOR="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq \'.user.login\')"'
+        )
+        self.assertLess(author_line, author_fallback)
 
         # A Dependabot pull request gets a short grace window, then a success
         # result, and the normalizer steps are skipped.

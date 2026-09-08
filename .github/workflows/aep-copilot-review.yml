@@ -50,6 +50,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           EVENT_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
           EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          EVENT_PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
           INPUT_PR_NUMBER: ${{ inputs.pr_number || '' }}
           RUN_SHA: ${{ github.sha }}
         run: |
@@ -72,8 +73,12 @@ jobs:
           # The author decides whether a missing Copilot review is fatal.
           # Copilot does not review pull requests opened by dependabot[bot], so
           # for those the review-wait step passes on the guards alone instead
-          # of exhausting the window for evidence that will never arrive.
-          PR_AUTHOR="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.user.login')"
+          # of exhausting the window for evidence that will never arrive. Read
+          # it from the event payload; only a manual dispatch needs the API.
+          PR_AUTHOR="${EVENT_PR_AUTHOR}"
+          if [ -z "${PR_AUTHOR}" ]; then
+            PR_AUTHOR="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.user.login')"
+          fi
           {
             echo "PR_NUMBER=${PR_NUMBER}"
             echo "HEAD_SHA=${HEAD_SHA}"
