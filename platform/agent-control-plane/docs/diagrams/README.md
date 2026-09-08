@@ -1,5 +1,9 @@
 # Agent Control Plane Diagrams
 
+- [Workbench agentic parallelism](workbench-agentic-parallelism.svg) — contrasts
+  the traditional serial Git loop with AEP's private workbench, parallel
+  Jira-keyed delivery worktrees, and evidence-reconciliation states.
+
 - [Agent Control Plane](agent-control-plane.svg) — rendered system view
   ([editable source](agent-control-plane.excalidraw); `.png` and `.pdf`
   exports alongside).

@@ -10,6 +10,16 @@ the agent's edits from outrunning the developer's visible filesystem. Treat
 while keeping ad hoc work in the primary checkout and longer, targeted
 development in separate worktrees cut from current `main`.
 
+![Traditional serial Git workflow compared with AEP's governed parallel workbench and Jira-keyed delivery worktrees.](diagrams/workbench-agentic-parallelism.svg)
+
+Git and VS Code provide branches, linked worktrees, separate filesystem views,
+and editor visibility. This workflow adds the ownership, evidence
+reconciliation, delivery gates, and human-acceptance boundary needed to keep
+those worktrees coherent during long-running agent execution. Its central
+benefit is not merely more parallel agents: it preserves continuity of human
+intent while agents execute asynchronously, without allowing filesystem state,
+Git history, Jira ownership, or review evidence to drift apart.
+
 ```text
 primary IDE checkout                         separate delivery worktree
 
