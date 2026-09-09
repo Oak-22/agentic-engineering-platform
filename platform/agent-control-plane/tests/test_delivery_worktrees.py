@@ -805,6 +805,46 @@ class ProvisioningBoundaryTests(unittest.TestCase):
             self.assertIn("inside the primary worktree", str(raised.exception))
 
 
+class PrimaryCheckoutRoleTests(unittest.TestCase):
+    def test_a_repository_without_a_workbench_keeps_the_direct_path(self):
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = False
+
+        with mock.patch.object(MODULE, "_sibling", return_value=preflight):
+            MODULE.require_pinned_primary(Path("/repo"))
+
+    def test_a_workbench_repository_requires_the_primary_to_stay_pinned(self):
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = True
+        cleanup = mock.Mock()
+        cleanup.inspect_worktrees.return_value = (
+            mock.Mock(path=Path("/repo"), branch="feature/PROJ-1-task"),
+        )
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_cleanup_module", return_value=cleanup),
+        ):
+            with self.assertRaises(MODULE.WorktreeError) as raised:
+                MODULE.require_pinned_primary(Path("/repo"))
+
+        self.assertIn("remain pinned to workbench/local", str(raised.exception))
+
+    def test_a_pinned_primary_allows_a_sibling_delivery(self):
+        preflight = mock.Mock()
+        preflight.local_branch_exists.return_value = True
+        cleanup = mock.Mock()
+        cleanup.inspect_worktrees.return_value = (
+            mock.Mock(path=Path("/repo"), branch="workbench/local"),
+        )
+
+        with (
+            mock.patch.object(MODULE, "_sibling", return_value=preflight),
+            mock.patch.object(MODULE, "_cleanup_module", return_value=cleanup),
+        ):
+            MODULE.require_pinned_primary(Path("/repo"))
+
+
 class ConcurrentClaimTests(unittest.TestCase):
     """The tool exists for parallel agents, so the race is the normal path."""
 

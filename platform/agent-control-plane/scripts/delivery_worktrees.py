@@ -46,6 +46,7 @@ UNREGISTERED = "unregistered"
 
 STORE_NAME = "delivery-worktrees"
 OWNERSHIP_FILENAME = "worktree-ownership.json"
+WORKBENCH_BRANCH = "workbench/local"
 
 
 class WorktreeError(RuntimeError):
@@ -291,6 +292,27 @@ def primary_worktree_path(root: Path) -> Path:
     if not worktrees:
         raise WorktreeError("Git reported no worktrees for the repository")
     return worktrees[0].path
+
+
+def require_pinned_primary(root: Path) -> None:
+    """Require the developer-visible checkout to retain its workbench role."""
+    preflight = _sibling("governed_task_preflight")
+    if not preflight.local_branch_exists(root, WORKBENCH_BRANCH):
+        return
+
+    cleanup = _cleanup_module()
+    worktrees = cleanup.inspect_worktrees(root)
+    if not worktrees:
+        raise WorktreeError("Git reported no primary worktree")
+    primary = worktrees[0]
+    if primary.branch != WORKBENCH_BRANCH:
+        actual = primary.branch or "detached HEAD"
+        raise WorktreeError(
+            f"the primary checkout {primary.path} is on {actual}, but governed "
+            f"delivery requires it to remain pinned to {WORKBENCH_BRANCH}. Switch "
+            "the primary back, then provision or claim the Jira-keyed sibling "
+            "worktree."
+        )
 
 
 def reject_nested_worktree_target(root: Path, target: Path) -> None:
@@ -582,6 +604,7 @@ def claim(
     if error:
         raise WorktreeError(error)
 
+    require_pinned_primary(root)
     target = requested_path.resolve()
     reject_nested_worktree_target(root, target)
     worktrees = live_worktrees(root)
@@ -637,6 +660,7 @@ def provision(
     if error:
         raise WorktreeError(error)
 
+    require_pinned_primary(root)
     target = (requested_path or default_worktree_path(root, key)).resolve()
     reject_nested_worktree_target(root, target)
     usable_worktree_target(target)

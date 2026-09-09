@@ -2,14 +2,19 @@
 
 ## Operating thesis
 
-Use private `workbench/local` for ad hoc changes caused by frequent context
-switching during AI-assisted software engineering. Use a Jira-keyed delivery
-branch in a separate worktree for longer, targeted development, created from
-current `main`. When an outcome is already bounded, skip workbench shaping and
-create the delivery branch directly from current `main`. Shape coherent
+Use private `workbench/local` for developer-visible ad hoc capture caused by
+frequent context switching during AI-assisted software engineering. When it
+exists, keep the primary IDE checkout pinned to it. Use a uniquely claimed
+Jira-keyed sibling worktree for every scoped delivery, created from current
+`main`. When an outcome is already bounded, skip workbench shaping and create
+the delivery worktree directly from current `main`. Shape coherent
 workbench outcomes and transfer them, in dependency order, to delivery
 branches. Reviewed pull requests
 advance `main`; the workbench does not.
+
+Keep integrated terminals in the primary VS Code window scoped to its
+`workbench/local` folder. Delivery agents run in their claimed sibling
+worktrees without changing a primary-window terminal's working directory.
 
 ## Why this exists
 
@@ -66,8 +71,9 @@ and [continuous integration](https://dora.dev/capabilities/continuous-integratio
 | `main` | Reviewed integration state | Accepted outcomes merged through pull requests |
 
 Keep the primary checkout on private `workbench/local` for ad hoc changes
-that arise from frequent context switching. Use separate worktrees with
-branches cut from current `main` for longer, targeted development.
+that arise from frequent context switching. Never switch it for Jira delivery.
+Use uniquely owned sibling worktrees with branches cut from current `main` for
+every Jira-scoped implementation.
 
 ## Entry paths
 
@@ -75,8 +81,9 @@ branches cut from current `main` for longer, targeted development.
 
 1. Start from a Jira outcome with explicit scope and acceptance criteria.
 2. Create its Jira-keyed delivery branch from current `main`.
-3. Open the delivery branch in a separate worktree, then implement and verify
-   the bounded outcome there.
+3. Uniquely claim its canonical sibling worktree, then implement and verify
+   the bounded outcome there. The primary IDE window remains on
+   `workbench/local`.
 4. Review and merge the pull request before starting a dependent branch from
    updated `main`.
 
@@ -116,14 +123,15 @@ clear review boundary. Split independently valuable, reviewable, reversible,
 or separately owned work into separate units.
 
 When the requested outcome is already bounded by a Jira task and acceptance
-criteria and a shaping buffer adds no value, create its Jira-keyed branch
-directly from current `main`.
+criteria and a shaping buffer adds no value, create and claim its Jira-keyed
+sibling worktree directly from current `main`. Do not switch the primary
+`workbench/local` checkout.
 
 Use the private `workbench/local` branch for ad hoc changes caused by frequent
 context switching. Commit each coherent idea atomically there: one explainable
 change per commit. Treat those commits as capture evidence, not automatically
-as final delivery boundaries. Use a separate worktree for longer, targeted
-development.
+as final delivery boundaries. Once Jira scope exists, perform implementation,
+delivery commits, and verification only in that task's claimed worktree.
 
 For each shaped repository outcome, use the default relationship:
 

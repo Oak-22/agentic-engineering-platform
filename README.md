@@ -166,12 +166,14 @@ The Agent Control Plane governs how agent-assisted repository work moves from
 evolving local intent into clearly scoped Jira tasks, reviewable Git branches, and
 accepted changes on `main`.
 
-Use the private `workbench/local` branch for ad hoc changes during frequent
-context switching in AI-assisted software engineering. Use separate worktrees
-with branches cut from current `main` for longer, targeted development. The
-workbench remains optional: when a Jira task is already clearly scoped,
-developers may follow the conventional path by creating its delivery branch
-directly from current `main`. In either path,
+Use the private `workbench/local` branch for developer-visible ad hoc capture
+during frequent context switching in AI-assisted software engineering. When
+that branch exists, keep it pinned in the primary IDE checkout. Every
+Jira-scoped repository implementation uses a uniquely claimed sibling
+worktree with a branch cut from current `main`; agents do not switch the
+primary checkout or interpret another delivery worktree's dirt as their own.
+The workbench remains optional for adopter repositories that use only the
+direct-delivery path. In either path,
 Jira-keyed branches contain one reviewable outcome and merge through pull
 requests; the workbench never advances `main`. A branch ruleset holds that
 boundary on the remote: merging into `main` requires the `control-plane-guards`

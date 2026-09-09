@@ -117,8 +117,8 @@ not recognized.
 
 ## Governed delivery-branch preparation
 
-Create a Jira-keyed branch as one verified operation rather than a check
-followed by a separate shell command:
+In a repository without `workbench/local`, create a Jira-keyed branch as one
+verified operation rather than a check followed by a separate shell command:
 
 ```bash
 python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
@@ -126,6 +126,19 @@ python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
 python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
   refactor/PROJ-12-telemetry-layout --execute
 ```
+
+When `workbench/local` exists, this command refuses to switch the primary
+checkout. Keep that developer-visible checkout pinned and provision the Jira
+branch in its canonical sibling worktree instead:
+
+```bash
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py provision \
+  refactor/PROJ-12-telemetry-layout --agent <opaque-agent-id>
+```
+
+Run the delivery agent with the claimed worktree as its execution directory.
+Do not repurpose an integrated terminal from the primary VS Code window; its
+workspace and terminal defaults remain scoped to `workbench/local`.
 
 Stages, in order:
 
