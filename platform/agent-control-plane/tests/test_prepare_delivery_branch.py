@@ -127,8 +127,34 @@ class WorktreeAndEvidenceTests(unittest.TestCase):
 
         self.assertTrue(decision.blocks)
         self.assertIn("2 workbench-only outcome(s)", decision.detail)
-        self.assertIn("Deliver, park, or supersede", decision.detail)
+        self.assertIn("--carries-evidence", decision.detail)
+        self.assertIn("--park", decision.detail)
+        self.assertIn("--supersede", decision.detail)
         self.assertIn("abc1234", decision.detail)
+
+    def test_the_blocker_does_not_offer_a_route_the_tooling_cannot_perform(self):
+        # "Deliver" was listed first while being the one action the loop could
+        # not reach: delivering needs a branch, and the branch was blocked on
+        # the delivering. The message must name the flag that actually works.
+        decision = MODULE.evidence_decision(1, "    abc1234 A thing [p1]")
+
+        self.assertNotIn("Deliver, park, or supersede", decision.detail)
+
+    def test_a_branch_carrying_the_evidence_is_not_blocked_by_it(self):
+        decision = MODULE.evidence_decision(
+            2, "    abc1234 A thing [p1]", carries_evidence=True
+        )
+
+        self.assertFalse(decision.blocks)
+        self.assertEqual(decision.action, MODULE.OK)
+        self.assertIn("will be delivered on this branch", decision.detail)
+        self.assertIn("abc1234", decision.detail)
+
+    def test_carrying_evidence_still_reports_a_clean_audit_plainly(self):
+        decision = MODULE.evidence_decision(0, "", carries_evidence=True)
+
+        self.assertEqual(decision.action, MODULE.OK)
+        self.assertIn("every workbench-only outcome is accounted for", decision.detail)
 
     def test_fully_reconciled_evidence_passes(self):
         self.assertEqual(MODULE.evidence_decision(0, "").action, MODULE.OK)

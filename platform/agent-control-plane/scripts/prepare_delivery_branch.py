@@ -180,13 +180,37 @@ def worktree_decision(obstructing_entries: Sequence[str]) -> Decision:
     return Decision("working tree", OK, "nothing uncommitted is in the way")
 
 
-def evidence_decision(unresolved_count: int, summary: str) -> Decision:
+def evidence_decision(
+    unresolved_count: int, summary: str, *, carries_evidence: bool = False
+) -> Decision:
+    """Judge whether unresolved workbench evidence should stop this preparation.
+
+    `carries_evidence` is the caller stating that the branch being created is
+    the one that will deliver the outstanding outcomes. Delivering them is the
+    correct resolution, but it needs a Jira-keyed branch to deliver them onto,
+    and that branch is what this preparation creates. Blocking on the very
+    outcomes the new branch exists to carry closes a loop with no exit: the
+    disposition needs the branch, and the branch needs the disposition. The
+    flag is the exit, and it is deliberately explicit — it records intent at
+    the moment the branch name is already known, rather than pushing the
+    author toward `--park`, which would file active delivery work as
+    intentionally retained capture and quietly turn the audit into noise.
+    """
+    if unresolved_count and carries_evidence:
+        return Decision(
+            "workbench evidence",
+            OK,
+            f"{unresolved_count} workbench-only outcome(s) will be delivered on this "
+            "branch:\n" + summary,
+        )
     if unresolved_count:
         return Decision(
             "workbench evidence",
             BLOCKED,
             f"{unresolved_count} workbench-only outcome(s) have no disposition. "
-            "Deliver, park, or supersede each one before starting new work:\n"
+            "Re-run with --carries-evidence when this branch is the one that "
+            "will deliver them, or record --park or --supersede against each "
+            "one with workbench_evidence.py before starting unrelated work:\n"
             + summary,
         )
     return Decision("workbench evidence", OK, "every workbench-only outcome is accounted for")
@@ -257,7 +281,7 @@ def written_paths(
     return at_risk
 
 
-def plan(root: Path, *, fetch: bool) -> tuple[Decision, ...]:
+def plan(root: Path, *, fetch: bool, carries_evidence: bool = False) -> tuple[Decision, ...]:
     """Inspect the repository and decide every stage without mutating it."""
     preflight = _sibling("governed_task_preflight")
     evidence = _sibling("workbench_evidence")
@@ -309,6 +333,7 @@ def plan(root: Path, *, fetch: bool) -> tuple[Decision, ...]:
                     f"[{item.commit.evidence_id}]"
                     for item in outstanding
                 ),
+                carries_evidence=carries_evidence,
             )
         )
 
@@ -426,6 +451,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="authorize fast-forwarding main, syncing the workbench, and creating the branch",
     )
     parser.add_argument("--no-fetch", action="store_true", help="skip fetching the remote")
+    parser.add_argument(
+        "--carries-evidence",
+        action="store_true",
+        help=(
+            "this branch will deliver the outstanding workbench outcomes, so they "
+            "are reported rather than blocking"
+        ),
+    )
     parser.add_argument("--format", choices=("text", "json"), default="text")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
@@ -445,7 +478,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
-        decisions = plan(root, fetch=not args.no_fetch)
+        decisions = plan(
+            root, fetch=not args.no_fetch, carries_evidence=args.carries_evidence
+        )
     except PreparationError as error:  # noqa: F841 - reported below
         print(str(error), file=sys.stderr)
         return 2
