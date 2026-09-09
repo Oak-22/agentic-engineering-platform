@@ -415,6 +415,25 @@ A reason is required, and dispositions are stored machine-locally — see
 [workbench dispositions](../docs/local-doc-mirrors.md#workbench-dispositions)
 for why. Exits 1 while any evidence is unresolved, 0 otherwise.
 
+### Delivering the evidence itself
+
+`parked` and `superseded` both say the work is not being delivered now, so
+neither fits the case where delivering the outstanding evidence *is* the next
+task. That case needs a Jira-keyed branch to deliver onto, and
+`prepare_delivery_branch.py` is what creates one — so blocking it on the same
+outcomes leaves no way through. Declare the intent instead:
+
+```bash
+python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
+  <category>/<JIRA-ISSUE-KEY>-<outcome-slug> --carries-evidence
+```
+
+The outstanding outcomes are then reported on the plan rather than blocking
+it, and the branch that will carry them is named in the same command. Use it
+only when that is true. Reaching for `--park` here would file work that is
+actively being delivered as intentionally retained capture, which is the one
+reading that makes the audit's states stop meaning anything.
+
 ## Instruction adapter generation
 
 Instruction frontmatter for `.claude/rules/<id>.md` and
@@ -429,8 +448,9 @@ python3 platform/agent-control-plane/scripts/generate_instruction_adapters.py
 - Renders both adapters' frontmatter from one canonical glob list per
   instruction; the shared `@`-import body line is unchanged.
 - Only rewrites files whose rendered content differs from what's on disk.
-- Skips instructions with empty `runtimeAdapters` (e.g.
-  `prose-writing-rules`) rather than erroring.
+- Skips instructions with empty `runtimeAdapters` rather than erroring, which
+  permits intentionally non-runtime assets without weakening validation for
+  instructions that declare adapters.
 - `--check` renders without writing and exits nonzero if any adapter file is
   stale relative to the registry.
 
