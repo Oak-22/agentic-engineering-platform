@@ -101,6 +101,11 @@ class WorkbenchCommit:
         """
         return self.patch_id or self.sha
 
+    @property
+    def current_workbench_sha(self) -> str:
+        """The current observed locator for this workbench evidence."""
+        return self.sha
+
 
 @dataclass(frozen=True)
 class Disposition:
@@ -557,7 +562,8 @@ def as_json(classified: Sequence[ClassifiedCommit]) -> str:
             "schemaVersion": 1,
             "evidence": [
                 {
-                    "sha": item.commit.sha,
+                    "currentWorkbenchSha": item.commit.current_workbench_sha,
+                    "stablePatchId": item.commit.patch_id,
                     "evidenceId": item.commit.evidence_id,
                     "subject": item.commit.subject,
                     "paths": list(item.commit.paths),
@@ -585,12 +591,19 @@ def as_text(classified: Sequence[ClassifiedCommit]) -> str:
     ]
     if blocking:
         lines.append("\nUnreconciled workbench evidence:")
-        for item in blocking:
-            lines.append(f"  {item.commit.sha[:7]} {item.commit.subject}")
-            lines.append(f"  Evidence: {item.commit.evidence_id}")
+    else:
+        lines.append("\nReconciled workbench evidence:")
+    for item in classified:
+        lines.append(f"  {item.commit.sha[:7]} {item.commit.subject}")
+        lines.append(f"  Stable patch ID: {item.commit.patch_id or '(none; SHA fallback)'}")
+        lines.append(f"  Current workbench SHA: {item.commit.current_workbench_sha}")
+        lines.append(f"  Evidence: {item.commit.evidence_id}")
+        lines.append(f"  State: {item.state}")
+        lines.append(f"  Rationale: {item.rationale}")
+        if item.blocks:
             lines.append(f"  Paths: {', '.join(item.commit.paths)}")
-            lines.append("  Status: absent from main and open delivery branches")
-            lines.append("  Required disposition: deliver, park, or supersede\n")
+            lines.append("  Required disposition: deliver, park, or supersede")
+        lines.append("")
     return "\n".join(lines)
 
 
