@@ -433,8 +433,9 @@ python3 platform/agent-control-plane/scripts/generate_instruction_adapters.py
 - Renders both adapters' frontmatter from one canonical glob list per
   instruction; the shared `@`-import body line is unchanged.
 - Only rewrites files whose rendered content differs from what's on disk.
-- Skips instructions with empty `runtimeAdapters` (e.g.
-  `prose-writing-rules`) rather than erroring.
+- Skips instructions with empty `runtimeAdapters` rather than erroring, which
+  permits intentionally non-runtime assets without weakening validation for
+  instructions that declare adapters.
 - `--check` renders without writing and exits nonzero if any adapter file is
   stale relative to the registry.
 
