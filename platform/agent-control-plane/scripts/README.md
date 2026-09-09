@@ -369,7 +369,7 @@ Each non-merge workbench-only commit lands in one of five states:
 
 | State | Meaning | Blocks? |
 | --- | --- | --- |
-| `represented` | Every path it touched is now identical between `main` and the workbench | No |
+| `represented` | Every path it touched is now identical between `main` and the workbench, or replaying the commit onto `main` changes nothing | No |
 | `in-delivery` | An identical patch, or full path coverage, exists on a live Jira-keyed branch | No |
 | `parked` | Recorded as intentionally retained capture work | No |
 | `superseded` | Recorded as replaced by later work | No |
@@ -381,6 +381,21 @@ changing whether the outcome arrived, so asking whether a SHA is on `main`
 reports delivered work as missing. Asking whether its paths still differ does
 not. On this repository that distinction takes the raw count from dozens of
 commits down to the handful that genuinely need a decision.
+
+That path question is cheap but not commit-scoped. When a later capture
+commit changes a file an earlier one also touched, the path differs on
+account of the later change, and every earlier commit sharing it would be
+reported as blocking. So whatever survives the cheap test is replayed: the
+audit provisions a detached scratch worktree at `main`, cherry-picks each
+remaining commit into it, and treats an unchanged tree as proof the outcome
+already arrived. The scratch worktree is always removed, and the caller's
+checkout is never touched.
+
+This replay is the one part of the audit that writes anything, and it is
+deliberately reserved for the residual set. A false `unresolved` costs a
+person one adjudication; a false `represented` silently drops real work out
+of the audit, so the expensive authoritative test is preferred over a cheap
+approximate one wherever the verdict actually blocks.
 
 Path coverage is deliberately weaker than patch identity: a delivery branch
 touching the same files is not proof it carries the same change, so coverage

@@ -9,9 +9,20 @@ missing when its outcome is already delivered.
 
 This module asks about content instead. A workbench commit whose paths no
 longer differ between `main` and `workbench/local` has had its outcome
-delivered, however it travelled. What remains after that test is small enough
-for a person to judge, and each remaining item is placed in one of the
-reconciliation states below.
+delivered, however it travelled. That test is cheap and settles most of the
+stream.
+
+It cannot settle the rest, because it is not commit-scoped. When a later
+capture commit changes a file an earlier one also touched, the path differs
+on account of the later change, and every earlier commit sharing it would be
+reported as blocking. So whatever survives the cheap test is replayed onto
+`main`: a cherry-pick that leaves the tree unchanged proves the outcome is
+already there, whatever route it took and however the surrounding lines have
+since moved. That replay is reserved for the small residual set, since
+replaying the whole stream would cost far more than the question is worth.
+
+What remains after both is small enough for a person to judge, and each
+remaining item is placed in one of the reconciliation states below.
 
 Run with no arguments for a human-readable audit, or `--format json` for the
 machine-readable shape the governed preparation flow consumes.
@@ -21,8 +32,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -445,22 +458,97 @@ def record_disposition(
 
 
 # --------------------------------------------------------------------------
+# Delivery probe
+# --------------------------------------------------------------------------
+
+
+def probe_delivered(root: Path, shas: Sequence[str]) -> frozenset[str]:
+    """Which of `shas` are already contained in `main`, by empty cherry-pick.
+
+    The cheap classification asks whether paths differ, which cannot separate
+    a commit's own outcome from later work on the same file. Replaying the
+    commit onto integration answers directly: a cherry-pick that leaves the
+    tree unchanged proves the content is already there, whatever route it
+    took and however the surrounding lines have since moved.
+
+    This is the only part of the audit that writes anything. It provisions a
+    detached scratch worktree, never touches the caller's checkout, and
+    always removes what it created. It is deliberately reserved for the small
+    residual set, because replaying every workbench commit would cost far
+    more than the question is worth.
+    """
+    if not shas:
+        return frozenset()
+
+    scratch = Path(tempfile.mkdtemp(prefix="aep-evidence-probe-"))
+    added = _git(
+        root, "worktree", "add", "--detach", str(scratch), INTEGRATION_BRANCH, check=False
+    )
+    if added.returncode != 0:
+        raise EvidenceError(
+            "could not provision a scratch worktree to probe delivery; "
+            f"git said: {added.stderr.strip()}"
+        )
+
+    delivered: set[str] = set()
+    try:
+        for sha in shas:
+            replay = _git(scratch, "cherry-pick", "--no-commit", sha, check=False)
+            if replay.returncode == 0:
+                staged = _git(scratch, "diff", "--cached", "--quiet", check=False)
+                if staged.returncode == 0:
+                    delivered.add(sha)
+            _git(scratch, "cherry-pick", "--abort", check=False)
+            _git(scratch, "reset", "--hard", check=False)
+            _git(scratch, "clean", "-fdq", check=False)
+    finally:
+        _git(root, "worktree", "remove", "--force", str(scratch), check=False)
+        shutil.rmtree(scratch, ignore_errors=True)
+    return frozenset(delivered)
+
+
+def apply_probe(
+    classified: Sequence[ClassifiedCommit], delivered: frozenset[str]
+) -> tuple[ClassifiedCommit, ...]:
+    """Promote probed commits to `represented`, leaving every other verdict."""
+    promoted = []
+    for item in classified:
+        if item.commit.sha in delivered:
+            promoted.append(
+                ClassifiedCommit(
+                    item.commit,
+                    REPRESENTED,
+                    f"replaying this commit onto {INTEGRATION_BRANCH} changes "
+                    "nothing, so its outcome is already there; the paths that "
+                    "still differ carry later work",
+                )
+            )
+        else:
+            promoted.append(item)
+    return tuple(promoted)
+
+
+# --------------------------------------------------------------------------
 # Reporting
 # --------------------------------------------------------------------------
 
 
-def audit(root: Path, recognizer) -> tuple[ClassifiedCommit, ...]:
+def audit(root: Path, recognizer, *, probe: bool = True) -> tuple[ClassifiedCommit, ...]:
     if not branch_exists(root, WORKBENCH_BRANCH):
         return ()
     branches = live_delivery_branches(root, recognizer)
     patch_ids, paths = delivery_evidence(root, branches)
-    return classify_all(
+    classified = classify_all(
         workbench_commits(root),
         residual_paths=residual_paths(root),
         delivery_patch_ids=patch_ids,
         delivery_paths=paths,
         dispositions=load_dispositions(disposition_path(root)),
     )
+    if not probe:
+        return classified
+    residual = tuple(item.commit.sha for item in unresolved(classified))
+    return apply_probe(classified, probe_delivered(root, residual))
 
 
 def as_json(classified: Sequence[ClassifiedCommit]) -> str:

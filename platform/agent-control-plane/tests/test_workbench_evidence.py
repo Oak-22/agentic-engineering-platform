@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -295,6 +296,101 @@ class ReportingTests(unittest.TestCase):
 
     def test_an_empty_workbench_reports_nothing_to_reconcile(self):
         self.assertIn("No workbench-only commits", MODULE.as_text(()))
+
+
+class ApplyProbeTests(unittest.TestCase):
+    """The pure half of the probe: promoting what the replay proved."""
+
+    def classified(self, sha, state):
+        return MODULE.ClassifiedCommit(commit(sha=sha), state, "because")
+
+    def test_a_probed_commit_becomes_represented(self):
+        promoted = MODULE.apply_probe(
+            (self.classified("aaa1111", MODULE.UNRESOLVED),), frozenset({"aaa1111"})
+        )
+
+        self.assertEqual(promoted[0].state, MODULE.REPRESENTED)
+        self.assertIn("changes nothing", promoted[0].rationale)
+
+    def test_an_unprobed_commit_keeps_its_verdict(self):
+        promoted = MODULE.apply_probe(
+            (self.classified("bbb2222", MODULE.UNRESOLVED),), frozenset()
+        )
+
+        self.assertEqual(promoted[0].state, MODULE.UNRESOLVED)
+        self.assertTrue(promoted[0].blocks)
+
+
+class ProbeDeliveredTests(unittest.TestCase):
+    """The replay itself, against a real repository.
+
+    Reproduces the shared-path misattribution: two capture commits touch one
+    index file, the earlier one is delivered, the later one is not. Asking
+    whether the path differs cannot tell them apart. Replaying them can.
+    """
+
+    @staticmethod
+    def git(cwd: Path, *arguments: str):
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def repository(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name) / "repo"
+        root.mkdir()
+        self.git(root, "init", "--initial-branch=main")
+        self.git(root, "config", "user.name", "Evidence Test")
+        self.git(root, "config", "user.email", "evidence@example.invalid")
+        index = root / "index.md"
+        index.write_text("- one\n", encoding="utf-8")
+        self.git(root, "add", "index.md")
+        self.git(root, "commit", "-m", "Initial")
+        return root, index
+
+    def test_a_delivered_commit_replays_empty_even_after_main_moved_on(self):
+        root, index = self.repository()
+
+        self.git(root, "switch", "-c", "workbench/local")
+        index.write_text("- one\n- two\n", encoding="utf-8")
+        self.git(root, "commit", "-am", "Add two")
+        delivered = self.git(root, "rev-parse", "HEAD").stdout.strip()
+        index.write_text("- one\n- two\n- three\n", encoding="utf-8")
+        self.git(root, "commit", "-am", "Add three")
+        undelivered = self.git(root, "rev-parse", "HEAD").stdout.strip()
+
+        # main takes the first outcome and then moves further on its own, so
+        # the file no longer matches either workbench revision exactly.
+        self.git(root, "switch", "main")
+        index.write_text("- one\n- two\n", encoding="utf-8")
+        self.git(root, "commit", "-am", "Add two on main")
+        (root / "other.md").write_text("later\n", encoding="utf-8")
+        self.git(root, "add", "other.md")
+        self.git(root, "commit", "-m", "Unrelated later work")
+
+        probed = MODULE.probe_delivered(root, [delivered, undelivered])
+
+        self.assertIn(delivered, probed)
+        self.assertNotIn(undelivered, probed)
+
+    def test_the_probe_leaves_no_worktree_behind(self):
+        root, _ = self.repository()
+        before = self.git(root, "worktree", "list").stdout
+
+        MODULE.probe_delivered(root, [self.git(root, "rev-parse", "HEAD").stdout.strip()])
+
+        self.assertEqual(self.git(root, "worktree", "list").stdout, before)
+
+    def test_probing_nothing_touches_no_worktree(self):
+        root, _ = self.repository()
+
+        self.assertEqual(MODULE.probe_delivered(root, []), frozenset())
 
 
 if __name__ == "__main__":
