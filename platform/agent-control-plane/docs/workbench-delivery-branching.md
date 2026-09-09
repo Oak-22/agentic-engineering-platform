@@ -135,6 +135,11 @@ For every separate worktree:
 6. remove only the separate worktree after its merge is verified and local
    cleanup is authorized.
 
+The canonical delivery location is `<repo>.worktrees/<JIRA-KEY>` beside the
+repository. Its parent is transient container state: post-merge cleanup removes
+it when the verified child worktree was removed and no sibling delivery
+worktrees remain. Custom worktree parents are preserved.
+
 Do not create a separate worktree merely to keep `main` visibly frozen. Stop
 when concurrent agents claim the same path, ownership is unclear, the target
 worktree is dirty with unrelated work, or the developer cannot establish which
@@ -292,7 +297,9 @@ After a verified merge and authorized local cleanup:
 5. delete the merged local delivery branch after verifying it is contained in
    the base, and verify its absence; and
 6. remove a worktree directory only when it was an explicitly identified
-   secondary-worktree exception.
+   secondary-worktree exception; and
+7. remove the empty canonical `<repo>.worktrees` container after rechecking
+   that the target is no longer a linked worktree.
 
 Never delete the primary checkout directory during delivery cleanup.
 

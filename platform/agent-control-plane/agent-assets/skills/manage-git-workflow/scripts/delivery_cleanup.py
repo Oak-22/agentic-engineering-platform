@@ -920,6 +920,39 @@ def delete_delivery_branch(plan: CleanupPlan) -> None:
     git(primary, "branch", "-D", "--", pull_request.head_branch)
 
 
+def canonical_worktree_container(primary: Path) -> Path:
+    return primary.parent / f"{primary.name}.worktrees"
+
+
+def remove_empty_canonical_container(
+    primary: Path, target_worktree: Worktree | None
+) -> None:
+    """Remove only the canonical container after its verified child is gone."""
+    if target_worktree is None:
+        return
+
+    target = target_worktree.path.resolve()
+    container = canonical_worktree_container(primary).resolve()
+    if target.parent != container:
+        return
+
+    remaining_paths = {item.path.resolve() for item in inspect_worktrees(primary)}
+    if target in remaining_paths:
+        raise CleanupError(
+            f"cleanup verification failed: worktree remains {target}"
+        )
+
+    if not container.exists() or any(container.iterdir()):
+        return
+
+    try:
+        container.rmdir()
+    except OSError as error:
+        raise CleanupError(
+            f"could not remove empty canonical worktree container {container}: {error}"
+        ) from error
+
+
 def execute_cleanup(plan: CleanupPlan) -> str | None:
     primary = plan.primary_workspace
     pull_request = plan.pull_request
@@ -961,6 +994,7 @@ def execute_cleanup(plan: CleanupPlan) -> str | None:
                 f"cleanup verification failed: worktree remains "
                 f"{plan.target_worktree.path}"
             )
+    remove_empty_canonical_container(primary, plan.target_worktree)
     local_base = git(
         primary,
         "rev-parse",
