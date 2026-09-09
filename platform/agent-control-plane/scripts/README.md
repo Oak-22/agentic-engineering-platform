@@ -22,6 +22,7 @@ maintainer interpreter `platform/agent-control-plane/.venv/bin/python`:
 | Asset registries | `$P platform/agent-control-plane/scripts/validate_asset_registries.py` |
 | Contract schemas | `$P platform/agent-control-plane/scripts/validate_contracts.py` |
 | Instruction adapter freshness | `$P platform/agent-control-plane/scripts/generate_instruction_adapters.py --check` |
+| Hook registrations | `$P platform/agent-control-plane/scripts/verify_hook_registrations.py` |
 
 The agent discovery layout guard also rejects retired downstream product
 identifiers in tracked content so application-specific identity cannot drift
@@ -459,6 +460,37 @@ python3 platform/agent-control-plane/scripts/generate_instruction_adapters.py
   instructions that declare adapters.
 - `--check` renders without writing and exits nonzero if any adapter file is
   stale relative to the registry.
+
+## Hook registration verification
+
+Skills propagate by symlink and instructions by rendered adapter, so neither
+can disagree with its canonical source without the guards above noticing.
+Hook registrations are the exception: each runtime requires its own native
+schema and there is no adapter file to render, so every registration entry is
+hand-written. `verify_hook_registrations.py` makes that surface checkable:
+
+```bash
+python3 platform/agent-control-plane/scripts/verify_hook_registrations.py
+```
+
+- Reads `hooks_registry.json` and, for each declared runtime leg, confirms the
+  registration file exists, parses, and carries an entry invoking the declared
+  `implementation` for each declared event.
+- Handles both registry shapes: `ownership: centralized` entries with a
+  `runtimes` array, and flat `ownership: runtime-owned` entries.
+- Reads Codex, Claude, and Copilot JSON configs and the `.githooks/pre-commit`
+  shell hook, matching event names case-insensitively because the runtimes
+  differ in casing convention for the same event.
+- Reports the reverse direction too: a registration invoking a control-plane
+  script that the registry does not declare for that file and event.
+- Reports a leg marked `verified: false` as unconfirmed without failing. That
+  flag records that nobody has confirmed the runtime actually fires the hook,
+  which stays true even when the file matches, so the leg is surfaced whether
+  or not its registration is present.
+
+It verifies registrations; it does not generate them. The three runtimes need
+different native JSON schemas and there is no separate adapter file to render,
+so a mismatch is repaired by hand in whichever side the message names.
 
 ## Prompt instruction evidence
 
