@@ -136,6 +136,12 @@ class ClassifyCommitTests(unittest.TestCase):
         self.assertEqual(commit().evidence_id, "p1")
         self.assertEqual(commit(patch_id=None).evidence_id, "a1b2c3d")
 
+    def test_current_sha_is_an_observed_locator_separate_from_stable_identity(self):
+        evidence = commit(sha="current-sha", patch_id="stable-patch")
+
+        self.assertEqual(evidence.current_workbench_sha, "current-sha")
+        self.assertEqual(evidence.evidence_id, "stable-patch")
+
     def test_a_disposition_recorded_against_a_sha_still_applies(self):
         without_patch = commit(patch_id=None)
         parked = MODULE.Disposition(MODULE.PARKED, "binary blob", "2026-08-31T00:00:00+00:00")
@@ -270,6 +276,8 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(payload["unresolvedCount"], 1)
         entry = payload["evidence"][0]
         self.assertEqual(entry["state"], MODULE.UNRESOLVED)
+        self.assertEqual(entry["currentWorkbenchSha"], "a1b2c3d")
+        self.assertEqual(entry["stablePatchId"], "p1")
         self.assertEqual(entry["evidenceId"], "p1")
         self.assertEqual(entry["paths"], ["docs/one.md"])
 
@@ -284,6 +292,23 @@ class ReportingTests(unittest.TestCase):
         text = MODULE.as_text((self.classified(MODULE.UNRESOLVED),))
 
         self.assertIn("Evidence: p1", text)
+
+    def test_text_report_shows_patch_id_and_current_sha_for_reconciled_evidence(self):
+        text = MODULE.as_text(
+            (self.classified(MODULE.PARKED, sha="rewritten-sha", patch_id="stable-patch"),)
+        )
+
+        self.assertIn("Stable patch ID: stable-patch", text)
+        self.assertIn("Current workbench SHA: rewritten-sha", text)
+        self.assertIn("State: parked", text)
+
+    def test_text_report_identifies_sha_fallback_for_binary_or_empty_evidence(self):
+        text = MODULE.as_text(
+            (self.classified(MODULE.SUPERSEDED, sha="binary-sha", patch_id=None),)
+        )
+
+        self.assertIn("Stable patch ID: (none; SHA fallback)", text)
+        self.assertIn("Evidence: binary-sha", text)
 
     def test_text_report_summarizes_a_fully_reconciled_workbench(self):
         text = MODULE.as_text(
