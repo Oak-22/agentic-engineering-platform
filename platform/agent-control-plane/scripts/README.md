@@ -289,13 +289,19 @@ claim succeeds, `list` reports the worktree as `unregistered` and it is not a
 governed delivery.
 
 For terminal-only operation, `provision` remains an optional convenience that
-creates a new worktree beside the repository (`<repo>.worktrees/<JIRA-KEY>`) at
-verified current `main` and immediately records its claim:
+creates a new worktree in the sole canonical delivery container beside the
+repository (`<repo>.worktrees/<JIRA-KEY>`) at verified current `main` and
+immediately records its claim:
 
 ```bash
 python3 platform/agent-control-plane/scripts/delivery_worktrees.py \
   provision feature/PROJ-12-thing --agent agent-a
 ```
+
+The `<repo>.worktrees` directory is transient container state. Merged-PR
+cleanup removes a child only after the verified worktree and local branch
+cleanup succeeds, then removes the container when it is empty. Custom
+worktree parents are never removed by that cleanup path.
 
 Provision refuses an existing local or remote branch; use Git or VS Code to
 open that branch in a worktree, then run `claim`. A nested worktree is still a

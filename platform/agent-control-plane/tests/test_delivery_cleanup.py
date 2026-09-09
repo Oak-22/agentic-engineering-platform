@@ -307,7 +307,9 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
 
     def test_clean_secondary_worktree_is_removed(self):
         scenario = self.scenario()
-        secondary = scenario.root / "secondary"
+        container = scenario.primary.parent / f"{scenario.primary.name}.worktrees"
+        container.mkdir()
+        secondary = container / "PROJ-999"
         scenario.git(
             scenario.primary,
             "worktree",
@@ -323,9 +325,71 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         MODULE.execute_cleanup(plan)
 
         self.assertFalse(secondary.exists())
+        self.assertFalse(container.exists())
         self.assertFalse(
             MODULE.branch_exists(scenario.primary, scenario.feature_branch)
         )
+
+    def test_nonempty_canonical_container_is_preserved(self):
+        scenario = self.scenario()
+        container = scenario.primary.parent / f"{scenario.primary.name}.worktrees"
+        container.mkdir()
+        secondary = container / "PROJ-999"
+        other = container / "other"
+        scenario.git(
+            scenario.primary,
+            "worktree",
+            "add",
+            str(secondary),
+            scenario.feature_branch,
+        )
+        scenario.git(scenario.primary, "branch", "other-work", "main")
+        scenario.git(
+            scenario.primary,
+            "worktree",
+            "add",
+            str(other),
+            "other-work",
+        )
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        MODULE.execute_cleanup(plan)
+
+        self.assertFalse(secondary.exists())
+        self.assertTrue(other.exists())
+        self.assertTrue(container.exists())
+
+    def test_custom_worktree_parent_is_preserved(self):
+        scenario = self.scenario()
+        custom_parent = scenario.root / "custom-worktrees"
+        custom_parent.mkdir()
+        secondary = custom_parent / "delivery"
+        scenario.git(
+            scenario.primary,
+            "worktree",
+            "add",
+            str(secondary),
+            scenario.feature_branch,
+        )
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        MODULE.execute_cleanup(plan)
+
+        self.assertFalse(secondary.exists())
+        self.assertTrue(custom_parent.exists())
+
+    def test_canonical_container_removal_failure_becomes_cleanup_error(self):
+        scenario = self.scenario()
+        container = scenario.primary.parent / f"{scenario.primary.name}.worktrees"
+        container.mkdir()
+        target = container / "PROJ-999"
+        worktree = MODULE.Worktree(target, scenario.head_oid, scenario.feature_branch)
+
+        with mock.patch.object(Path, "rmdir", side_effect=OSError("permission denied")):
+            with self.assertRaisesRegex(
+                MODULE.CleanupError, "could not remove empty canonical worktree container"
+            ):
+                MODULE.remove_empty_canonical_container(scenario.primary, worktree)
 
     def test_open_pull_request_blocks_cleanup(self):
         scenario = self.scenario()
