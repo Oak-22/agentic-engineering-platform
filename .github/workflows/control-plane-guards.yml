@@ -42,7 +42,7 @@ jobs:
   # Keep it stable: renaming it silently detaches the branch ruleset that
   # requires it, and the rule then waits forever on a context nothing reports.
   #
-  # One job is intentional. All five guards need the same lightweight Python
+  # One job is intentional. All six guards need the same lightweight Python
   # environment, so a matrix would only multiply setup cost, and one stable
   # check name is far easier to protect than several.
   control-plane-guards:
@@ -106,6 +106,10 @@ jobs:
         id: guard_instruction_adapters
         run: python platform/agent-control-plane/scripts/generate_instruction_adapters.py --check
 
+      - name: Guard - hook registrations
+        id: guard_hook_registrations
+        run: python platform/agent-control-plane/scripts/verify_hook_registrations.py
+
       - name: Summarize the guard run
         # `always()` so a failed run still publishes the summary. Without it,
         # the step inherits the default `success()` condition and the failure
@@ -118,6 +122,7 @@ jobs:
           ASSET_REGISTRIES: ${{ steps.guard_asset_registries.outcome }}
           CONTRACTS: ${{ steps.guard_contracts.outcome }}
           INSTRUCTION_ADAPTERS: ${{ steps.guard_instruction_adapters.outcome }}
+          HOOK_REGISTRATIONS: ${{ steps.guard_hook_registrations.outcome }}
         run: |
           set -eu
 
@@ -143,6 +148,7 @@ jobs:
             echo "| Asset registries | $(outcome "${ASSET_REGISTRIES}") | \`python platform/agent-control-plane/scripts/validate_asset_registries.py\` |"
             echo "| Contract schemas | $(outcome "${CONTRACTS}") | \`python platform/agent-control-plane/scripts/validate_contracts.py\` |"
             echo "| Instruction adapter freshness | $(outcome "${INSTRUCTION_ADAPTERS}") | \`python platform/agent-control-plane/scripts/generate_instruction_adapters.py --check\` |"
+            echo "| Hook registrations | $(outcome "${HOOK_REGISTRATIONS}") | \`python platform/agent-control-plane/scripts/verify_hook_registrations.py\` |"
             echo
 
             if [ "${JOB_STATUS}" = "success" ]; then
@@ -153,6 +159,8 @@ jobs:
               echo "equivalent in the same row. A stale instruction adapter is"
               echo "fixed by rerunning"
               echo "\`python platform/agent-control-plane/scripts/generate_instruction_adapters.py\`"
-              echo "and committing the regenerated files."
+              echo "and committing the regenerated files. A hook registration"
+              echo "mismatch is fixed by hand, in either the runtime config"
+              echo "named in the message or in \`hooks_registry.json\`."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
