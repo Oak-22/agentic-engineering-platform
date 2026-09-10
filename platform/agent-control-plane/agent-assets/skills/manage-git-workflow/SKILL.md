@@ -56,19 +56,22 @@ dependencies, or stacked branches are in scope.
   checkout for ongoing agent co-programming when work may cross contexts,
   files, modules, or delivery boundaries. Commit each coherent idea atomically
   without assuming that capture commits are final delivery units.
-- Keep the workbench optional. When a Jira outcome is already bounded by
-  explicit scope and acceptance criteria and shaping adds no value, create its
-  delivery branch directly from current `main`.
+- Keep the workbench optional across adopter repositories. When it exists,
+  leave it checked out in the primary developer-visible checkout. A Jira
+  outcome with explicit scope and acceptance criteria goes directly to a
+  uniquely claimed sibling worktree whose branch derives from current `main`;
+  it never uses `workbench/local` as its implementation checkout.
 - Use `shape-repository-change` to partition workbench evidence before
-  delivery. For longer, targeted development, use a separate worktree on a
-  Jira-keyed branch created from current `main`, then transfer only the
-  selected commits, files, or hunks. `main` remains the base even when it is
-  not checked out.
+  delivery. For every Jira-scoped repository implementation, use a separate
+  worktree on a Jira-keyed branch created from current `main`, then transfer
+  only the selected commits, files, or hunks. `main` remains the base even
+  when it is not checked out.
 - Deliver foundational semantic changes first. Create dependent branches from
   updated `main` after their prerequisites merge; branches that share only the
   merged prerequisite may then proceed independently.
-- Use a separate worktree for longer, targeted development, keeping private
-  `workbench/local` available for ad hoc changes during context switching.
+- Keep private `workbench/local` pinned in the primary checkout for ad hoc
+  capture during context switching. Never switch that checkout to `main` or a
+  Jira-keyed branch as part of governed delivery.
   Separate worktrees also support concurrent agents, parallel delivery, stable
   long-running processes, or unsafe branch switching caused by unrelated work.
   Before editing there, disclose its exact path, branch, owner, purpose, and
@@ -141,20 +144,25 @@ cleanable; do not use the retired three for new delivery units.
 Keep project names, actor identities, runtime names, spaces, and parenthetical
 expansions out of branch names.
 
-Create the branch through the governed preparation operation rather than a bare
-`git switch -c`. It fetches, verifies or safely fast-forwards `main`, syncs and
-reconciles the workbench where one is in use, then re-reads the baseline and
-cuts the branch from the exact commit it verified — so the state that was
-checked and the state the branch starts from cannot drift apart. It is
-read-only until `--execute`, and never commits, stashes, discards, rebases,
-force-updates, or resolves a conflict.
+When `workbench/local` exists, provision and claim the canonical sibling
+worktree through `delivery_worktrees.py`; `prepare_delivery_branch.py` refuses
+to switch the primary checkout in that repository. Repositories without a
+workbench retain the direct preparation operation. Both paths verify current
+`main` and cut the branch from the exact commit they verified.
 
 ```bash
-python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
-  <category>/<JIRA-ISSUE-KEY>-<outcome-slug>          # plan
-python3 platform/agent-control-plane/scripts/prepare_delivery_branch.py \
-  <category>/<JIRA-ISSUE-KEY>-<outcome-slug> --execute
+python3 platform/agent-control-plane/scripts/delivery_worktrees.py provision \
+  <category>/<JIRA-ISSUE-KEY>-<outcome-slug> --agent <opaque-agent-id>
 ```
+
+Before editing, verify the active execution directory equals the claimed
+worktree path and that its checked-out branch equals the claim. Inspect another
+worktree only to establish ownership or file overlap; its dirty state is not
+part of the active delivery and must not be staged, reverted, or incorporated.
+Do not run a delivery agent by changing the working directory of an integrated
+terminal in the primary `workbench/local` VS Code window. Use the agent's
+claimed worktree execution context; the primary window's terminals remain
+workbench-scoped.
 
 Keep commit subjects concise, imperative, and outcome-oriented. Leave Jira
 keys and model or runtime names out of commit subjects unless the user
@@ -240,9 +248,10 @@ request. If the user expands or narrows the request, apply the newest scope.
 - Preserve generated or cache files created by verification unless they are
   known disposable outputs within the requested scope; do not stage them
   merely because a check created them.
-- Use a separate worktree for longer, targeted development, and surface the
-  resulting visibility split before implementation. Keep private
-  `workbench/local` available for ad hoc changes during context switching.
+- Use a separate, uniquely claimed worktree for every Jira-scoped repository
+  implementation and surface the visibility split before editing. When
+  `workbench/local` exists, keep it pinned in the primary checkout for ad hoc
+  capture during context switching.
 - Re-read remote or pull-request state after writes.
 - Treat merge, force push, rebase of published history, and branch deletion as
   distinct operations with distinct authority.

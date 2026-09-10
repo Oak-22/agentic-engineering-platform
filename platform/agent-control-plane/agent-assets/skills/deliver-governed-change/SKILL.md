@@ -112,18 +112,28 @@ how many units one invocation delivers.
    expectations. Then resolve the accountable owner and durable design
    location, classify the durable change authority, and select the delivery
    path.
-2. **Isolate:** use a separate worktree on a Jira-keyed feature branch from
-   current `main` for longer, targeted development, then transfer only shaped
-   workbench evidence when applicable. Keep the private workbench available in
-   the primary checkout for ad hoc context-switching work. Expose the
-   worktree's visibility boundary. Resolve external configuration targets
-   without creating empty Git artifacts. Use another branch base only for an
-   explicit dependency exception.
+2. **Isolate:** before editing a repository outcome already scoped in Jira,
+   provision and uniquely claim a separate worktree on its Jira-keyed branch
+   from current `main`, then transfer only shaped workbench evidence when
+   applicable. When `workbench/local` exists, keep it pinned in the primary,
+   developer-visible checkout throughout delivery. Do not switch that checkout
+   to `main` or a Jira-keyed branch. Expose the delivery worktree's path,
+   branch, owner, purpose, and visibility boundary. Resolve external
+   configuration targets without creating empty Git artifacts. Use another
+   branch base only for an explicit dependency exception.
 
-   Use private `workbench/local` for ad hoc changes caused by frequent context
-   switching. When the Jira outcome is already bounded, the checkout is clean,
-   and shaping adds no value, proceed directly from current `main` to its
-   Jira-keyed delivery branch.
+   Keep the primary VS Code window and its integrated terminals scoped to the
+   primary `workbench/local` checkout. Run delivery agents in their claimed
+   worktree execution directories without reusing an integrated terminal from
+   the primary window. A terminal title or prompt naming another Jira branch
+   is evidence that the terminal belongs to another delivery context, not a
+   reason to inspect or alter that work from the current task.
+
+   Use private `workbench/local` only for developer-visible ad hoc capture and
+   stewardship whose delivery boundary is not yet established. Once a Jira
+   outcome is bounded, all implementation edits, delivery commits, and
+   acceptance verification belong in its claimed sibling worktree. Do not
+   continue the Jira-scoped implementation on `workbench/local`.
 
    When preflight reports uncommitted changes, the sanctioned resolution is the
    workbench-to-delivery transition, not a question back to the user: commit
@@ -134,8 +144,12 @@ how many units one invocation delivers.
    Parking work on the workbench is ordinary capture and is authorized whenever
    delivery is. Stashing, discarding, or carrying dirty changes across the
    switch remain prohibited.
-3. **Implement:** make the bounded changes and run the smallest relevant
-   checks; re-read external configuration after mutation.
+3. **Implement:** re-read the active path, branch, and ownership claim; require
+   that they identify the Jira unit's sibling worktree before making bounded
+   changes or running acceptance checks. Treat dirt in another worktree as
+   another owner's state: report ownership or overlap rather than analyzing,
+   staging, reverting, or incorporating it. Re-read external configuration
+   after mutation.
 4. **Commit:** partition the result into coherent commits when committing is
    authorized.
 5. **Publish:** during an explicit governed-delivery invocation, use the
@@ -214,9 +228,10 @@ For a repository change, the backfill includes:
 3. Inspect current Git and GitHub state for existing branches, commits, pull
    requests, or merge evidence before creating anything.
 4. Create or select the Jira-keyed local feature branch needed by the delivery
-   relationship in a separate worktree for longer, targeted development. Keep
-   the primary developer-visible checkout available for private
-   `workbench/local` capture, and disclose the worktree visibility boundary.
+   relationship in a separate, uniquely claimed worktree before repository
+   implementation begins. When `workbench/local` exists, keep it pinned in the
+   primary developer-visible checkout and disclose the delivery worktree's
+   visibility boundary.
 5. Transfer only the bounded change into the delivery unit, run the smallest
    relevant checks, and synchronize the branch and verification evidence back
    to Jira.

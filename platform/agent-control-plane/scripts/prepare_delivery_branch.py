@@ -159,6 +159,29 @@ def workbench_decision(exists: bool, behind: int) -> Decision:
     )
 
 
+def checkout_role_decision(workbench_exists: bool) -> Decision:
+    """Keep a repository that has a workbench on the worktree delivery path.
+
+    The primary checkout is the developer-visible filesystem. Switching it to
+    a Jira branch lets one agent rewrite the files another agent and the IDE
+    are observing. Once a repository has opted into ``workbench/local``, Jira
+    delivery therefore starts in a claimed sibling worktree instead.
+    """
+    if workbench_exists:
+        return Decision(
+            "checkout role",
+            BLOCKED,
+            f"{WORKBENCH_BRANCH} exists, so the primary checkout must stay pinned "
+            "to it. Provision and claim a Jira-keyed sibling worktree with "
+            "delivery_worktrees.py instead of switching this checkout.",
+        )
+    return Decision(
+        "checkout role",
+        OK,
+        f"no {WORKBENCH_BRANCH}; direct delivery in this checkout is permitted",
+    )
+
+
 def worktree_decision(obstructing_entries: Sequence[str]) -> Decision:
     """Whether uncommitted work stands between here and the new branch.
 
@@ -307,9 +330,12 @@ def plan(root: Path, *, fetch: bool, carries_evidence: bool = False) -> tuple[De
         workbench_exists, preflight.workbench_commits_behind_main(root)
     )
 
-    # The working-tree stage is decided last and reported first: which files
-    # are at risk depends on where the other stages are about to move.
+    # The working-tree stage is reported ahead of the moves it guards, but
+    # decided against them: which files are at risk depends on where baseline
+    # and workbench are about to move. The checkout-role stage leads the plan
+    # because it gates whether those moves are attempted at all.
     decisions = [
+        checkout_role_decision(workbench_exists),
         worktree_decision(
             preflight.blocking_entries(
                 preflight.status_entries(root),

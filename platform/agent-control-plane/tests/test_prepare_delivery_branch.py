@@ -111,6 +111,21 @@ class WorkbenchDecisionTests(unittest.TestCase):
         self.assertEqual(MODULE.workbench_decision(True, 0).action, MODULE.OK)
 
 
+class CheckoutRoleDecisionTests(unittest.TestCase):
+    def test_a_workbench_repository_requires_a_sibling_delivery_worktree(self):
+        decision = MODULE.checkout_role_decision(True)
+
+        self.assertTrue(decision.blocks)
+        self.assertIn("primary checkout must stay pinned", decision.detail)
+        self.assertIn("delivery_worktrees.py", decision.detail)
+
+    def test_a_repository_without_a_workbench_keeps_direct_delivery(self):
+        decision = MODULE.checkout_role_decision(False)
+
+        self.assertEqual(decision.action, MODULE.OK)
+        self.assertIn("direct delivery", decision.detail)
+
+
 class WorktreeAndEvidenceTests(unittest.TestCase):
     def test_a_dirty_tree_blocks_and_lists_the_entries(self):
         decision = MODULE.worktree_decision((" M one.txt", "?? two.txt"))

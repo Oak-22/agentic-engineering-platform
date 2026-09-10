@@ -3,12 +3,13 @@
 ## Purpose
 
 Make the private workbench the path for ad hoc changes caused by frequent
-context switching while preserving the conventional direct-delivery path for
-bounded work. Keep repository history from outrunning the delivery model or
-the agent's edits from outrunning the developer's visible filesystem. Treat
+context switching while preserving a direct-from-`main` delivery path inside
+separate Jira-keyed worktrees. Keep repository history from outrunning the
+delivery model or the agent's edits from outrunning the developer's visible
+filesystem. Treat
 `main`, delivery branches, and the optional workbench as different Git roles
-while keeping ad hoc work in the primary checkout and longer, targeted
-development in separate worktrees cut from current `main`.
+while keeping ad hoc work in the primary checkout and every Jira-scoped
+implementation in a separate worktree cut from current `main`.
 
 ![Traditional serial Git workflow compared with AEP's governed parallel workbench and Jira-keyed delivery worktrees.](diagrams/workbench-agentic-parallelism.svg)
 
@@ -48,13 +49,14 @@ merge target. Every delivery branch derives from current `main` at its start.
 
 - Treat the session's primary workspace root as the developer-visible checkout
   unless the developer explicitly identifies another open workspace.
-- Capture ad hoc work in the primary checkout. Open a separate worktree for
-  longer, targeted delivery so the IDE, tests, and agent observe the same
-  files.
+- When `workbench/local` exists, keep it pinned in the primary checkout. Use a
+  separate, uniquely claimed worktree for every Jira-scoped implementation so
+  each agent, test run, and delivery branch observes one attributable
+  filesystem.
 - Before editing, report the active repository root and branch. Report them
   again whenever either changes.
-- Never silently redirect implementation to a separate worktree. If the
-  active execution directory differs from the primary workspace, disclose the
+- Never silently redirect implementation to a separate worktree. Before Jira
+  implementation starts, disclose the
   exact path, branch, purpose, and expected visibility difference before
   editing there.
 - Stop when the developer expects primary-checkout visibility but cannot see
@@ -99,8 +101,9 @@ merge target. Every delivery branch derives from current `main` at its start.
   from the work item's governed `Class` field: `feature`, `fix`, `refactor`,
   `chore`, or `docs`. Use the full issue key and keep actor or runtime identity
   in structured provenance rather than the branch name.
-- For longer, targeted development, use a separate worktree on the delivery
-  branch and open it in the IDE before implementation.
+- Use a separate, uniquely claimed worktree on the delivery branch before any
+  Jira-scoped implementation edit. It may run headlessly; the primary IDE
+  window remains on `workbench/local`.
 - Use `shape-repository-change` to partition workbench commits, files, or hunks
   into independently reviewable outcomes.
 - Transfer only the selected evidence. A full commit may be cherry-picked when
@@ -115,8 +118,9 @@ merge target. Every delivery branch derives from current `main` at its start.
 
 ## Separate worktrees
 
-Use a separate worktree for longer, targeted development, keeping the primary
-`workbench/local` checkout available for ad hoc work. Other reasons include:
+Use a separate worktree for every Jira-scoped implementation, keeping the
+primary `workbench/local` checkout stable and available for ad hoc work. This
+also isolates:
 
 - concurrent agents that must not write into the same filesystem;
 - genuinely parallel delivery units that must remain independently runnable;
@@ -154,6 +158,24 @@ existing branch and a location, and its **Git: Open Worktree in New Window**
 and **Open Worktree in Current Window** commands open one. Creating the
 Jira-keyed branch is therefore Git's step, and the editor's role begins at the
 worktree that branch is already in.
+
+Governed agents do not use **Open Worktree in Current Window**: replacing the
+primary folder would defeat its stable `workbench/local` identity. A delivery
+may run headlessly or be inspected in a separate window.
+
+The same boundary applies to integrated terminals. New terminals in the
+primary window start at `${workspaceFolder}`, and delivery agents do not `cd`
+those terminals into sibling worktrees. A terminal process retains its own
+working directory and title even when the Explorer remains on the primary
+checkout; stale Jira names in terminal tabs therefore identify old delivery
+processes, not a branch switch in the visible workspace. Close or deliberately
+retain those processes instead of treating their prompts as repository state.
+
+The repository disables automatic Git worktree discovery in its shared VS
+Code settings. Delivery ownership remains visible through
+`delivery_worktrees.py list`, which distinguishes active, missing, and
+unregistered worktrees without adding them to the primary window's Source
+Control view.
 
 ```bash
 git fetch origin main:main
@@ -233,13 +255,16 @@ Two VS Code settings change what a claim sees:
   access — is the reason to keep machine-local state such as `.local-mirrors/`
   off that list unless the delivery genuinely needs it.
 
-### Switching windows is not switching branches
+### Switching contexts is not switching branches
 
-The practical pattern is one stable editor window per worktree:
+The practical pattern is one stable execution context per worktree:
 
-- a primary window stays on `workbench/local` for capture and stewardship;
-- each concurrent delivery gets its own window on its own worktree and branch;
-- the operator moves attention between windows while agents keep working.
+- the single primary window stays on `workbench/local` for capture and
+  stewardship;
+- each concurrent delivery runs in its own claimed worktree and branch,
+  without requiring another visible editor window; and
+- an operator who chooses to inspect a delivery opens it in a new window,
+  never by replacing the primary window's folder.
 
 The distinction matters because the two look similar and behave nothing alike.
 Switching a window changes which delivery you are looking at and changes
@@ -250,31 +275,21 @@ worktree distinguishable — through its title, workspace name, or color — so 
 two are never confused.
 
 An agent must not modify another agent's worktree or change its checked-out
-branch without explicit coordination.
+branch without explicit coordination. It may inspect ownership and overlap
+metadata, but it must not interpret another worktree's dirty status as part of
+its own delivery.
 
-## Primary-checkout transitions
+## Primary-checkout stability
 
-### Main to direct delivery
+When `workbench/local` exists, the primary checkout does not transition during
+governed delivery. Keep it checked out while `main` advances by ref update and
+while Jira-keyed branches live in canonical sibling worktrees. Provision and
+claim the sibling before implementation, transfer only selected evidence, and
+run delivery verification there.
 
-1. Start from a bounded Jira outcome with explicit acceptance criteria.
-2. Run the governed-task preflight.
-3. Fetch the remote, switch the primary checkout to `main`, and update it by
-   fast-forward only.
-4. Create and switch to the Jira-keyed delivery branch from that current
-   `main`.
-5. Implement and verify only the selected delivery outcome.
-
-### Workbench to delivery
-
-1. Commit each coherent workbench idea and require a clean status before
-   switching branches.
-2. Run `shape-repository-change` against the bounded workbench evidence.
-3. Fetch the remote, switch the primary checkout to `main`, and update it by
-   fast-forward only.
-4. Create and switch to the Jira-keyed delivery branch from that current
-   `main`.
-5. Transfer only the selected workbench commits, files, or hunks and verify the
-   result against the delivery acceptance criteria.
+Repositories without `workbench/local` retain the direct-checkout path. That
+portable exception does not change the pinned-primary contract for a
+repository that has adopted the workbench.
 
 Stop instead of stashing, discarding, or carrying dirty changes across the
 switch automatically. Those actions change recoverability or scope and require

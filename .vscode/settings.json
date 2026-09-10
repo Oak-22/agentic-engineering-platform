@@ -8,5 +8,7 @@
   },
   "explorer.excludeGitIgnore": false,
   "explorer.sortOrder": "modified",
-  "git.autofetch": "all"
+  "git.autofetch": "all",
+  "git.detectWorktrees": false,
+  "terminal.integrated.cwd": "${workspaceFolder}"
 }
