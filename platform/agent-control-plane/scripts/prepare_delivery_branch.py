@@ -330,8 +330,10 @@ def plan(root: Path, *, fetch: bool, carries_evidence: bool = False) -> tuple[De
         workbench_exists, preflight.workbench_commits_behind_main(root)
     )
 
-    # The working-tree stage is decided last and reported first: which files
-    # are at risk depends on where the other stages are about to move.
+    # The working-tree stage is reported ahead of the moves it guards, but
+    # decided against them: which files are at risk depends on where baseline
+    # and workbench are about to move. The checkout-role stage leads the plan
+    # because it gates whether those moves are attempted at all.
     decisions = [
         checkout_role_decision(workbench_exists),
         worktree_decision(
