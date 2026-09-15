@@ -23,3 +23,9 @@ design choices that isn't tied to one delivery outcome or Jira issue.
   still-missing change-detection piece. Other notes that apply this
   pattern to one mechanism (e.g. the session-transcript note above) link
   back here rather than restating it.
+- [Assertion Outrunning Evidence](assertion-to-evidence.md)
+  The failure several repository mechanisms were built against without
+  being named: artifacts that assert more than has been shown and pass
+  review because they have the right shape. Two directions of drift, the
+  countermeasure for each, and a link to the dated ledger under
+  `evidence/` that carries the counts.

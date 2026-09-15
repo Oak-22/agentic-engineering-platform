@@ -13,6 +13,10 @@ runtime dependency of the platform components.
 - [`experiments/repo-context-handoff-across-models/`](experiments/repo-context-handoff-across-models/)
   measures whether a quarantined, session-derived context handoff improves a
   new agent session's repository understanding.
+- [`assertion-to-evidence/`](assertion-to-evidence/) is a dated ledger of
+  artifacts that asserted more than had been shown, each recorded against
+  the countermeasure that should have caught it, with per-countermeasure
+  tallies.
 - [`side-effects/`](side-effects/) records behavior a component produced
   outside its declared contract, what came to depend on it, and whether the
   resolution was to declare the behavior or remove the dependency.

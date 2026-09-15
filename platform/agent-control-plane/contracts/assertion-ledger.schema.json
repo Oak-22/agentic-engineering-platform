@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-engineering-platform.dev/schemas/assertion-ledger.schema.json",
+  "title": "Assertion-to-Evidence Ledger",
+  "description": "Source of truth for evidence/assertion-to-evidence/ledger.md. Each instance records one artifact that asserted more than had been shown, who judged it so, and whether a human has confirmed the finding. The Markdown ledger is rendered from this file and never hand-edited.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["countermeasures", "instances", "readingNotes"],
+  "properties": {
+    "countermeasures": {
+      "description": "Known countermeasures, so that ones with zero instances still appear in the tallies as not yet exercised.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "instances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/instance" }
+    },
+    "readingNotes": {
+      "description": "Paragraphs rendered under the tallies. Interpretation that must travel with the counts.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "confirmed", "found", "foundBy", "where", "asserted", "actual",
+        "direction", "countermeasure", "caught", "fixed"
+      ],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "confirmed": {
+          "description": "A human's label on the finding's quality. A row enters as unlabelled and stays so until a human reads it.",
+          "enum": ["unlabelled", "green", "yellow", "red"]
+        },
+        "confirmedNote": { "type": "string", "description": "Required context for yellow or red." },
+        "found": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "recorded": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "When the row was written, if later than found." },
+        "foundBy": {
+          "description": "Who judged the assertion unsupported: human, <runtime>:<session>, or unrecorded.",
+          "type": "string",
+          "pattern": "^(human|unrecorded|[a-z]+:[0-9a-f-]{8,})$"
+        },
+        "where": { "type": "string", "minLength": 1 },
+        "asserted": { "type": "string", "minLength": 1 },
+        "actual": { "type": "string", "minLength": 1 },
+        "direction": {
+          "description": "never: the evidence was never produced. expired: it existed and stopped being true.",
+          "enum": ["never", "expired", "undetermined"]
+        },
+        "countermeasure": {
+          "description": "Entry from countermeasures, or none when no mechanism exists.",
+          "type": "string",
+          "minLength": 1
+        },
+        "countermeasureNote": { "type": "string" },
+        "caught": { "enum": ["yes", "no"] },
+        "caughtNote": { "type": "string", "description": "How a human found it first, or the caveat on a yes." },
+        "fixed": { "type": "string", "minLength": 1, "description": "What was done, or open with a pointer." }
+      }
+    }
+  }
+}

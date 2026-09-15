@@ -110,6 +110,10 @@ jobs:
         id: guard_hook_registrations
         run: python platform/agent-control-plane/scripts/verify_hook_registrations.py
 
+      - name: Guard - assertion ledger freshness
+        id: guard_assertion_ledger
+        run: python platform/agent-control-plane/scripts/render_assertion_ledger.py --check
+
       - name: Summarize the guard run
         # `always()` so a failed run still publishes the summary. Without it,
         # the step inherits the default `success()` condition and the failure
@@ -123,6 +127,7 @@ jobs:
           CONTRACTS: ${{ steps.guard_contracts.outcome }}
           INSTRUCTION_ADAPTERS: ${{ steps.guard_instruction_adapters.outcome }}
           HOOK_REGISTRATIONS: ${{ steps.guard_hook_registrations.outcome }}
+          ASSERTION_LEDGER: ${{ steps.guard_assertion_ledger.outcome }}
         run: |
           set -eu
 
@@ -149,6 +154,7 @@ jobs:
             echo "| Contract schemas | $(outcome "${CONTRACTS}") | \`python platform/agent-control-plane/scripts/validate_contracts.py\` |"
             echo "| Instruction adapter freshness | $(outcome "${INSTRUCTION_ADAPTERS}") | \`python platform/agent-control-plane/scripts/generate_instruction_adapters.py --check\` |"
             echo "| Hook registrations | $(outcome "${HOOK_REGISTRATIONS}") | \`python platform/agent-control-plane/scripts/verify_hook_registrations.py\` |"
+            echo "| Assertion ledger freshness | $(outcome "${ASSERTION_LEDGER}") | \`python platform/agent-control-plane/scripts/render_assertion_ledger.py --check\` |"
             echo
 
             if [ "${JOB_STATUS}" = "success" ]; then
