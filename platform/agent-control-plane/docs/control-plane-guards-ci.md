@@ -291,6 +291,7 @@ scripts/check-agent-discovery-layout.sh
 "$P" platform/agent-control-plane/scripts/validate_asset_registries.py
 "$P" platform/agent-control-plane/scripts/validate_contracts.py
 "$P" platform/agent-control-plane/scripts/generate_instruction_adapters.py --check
+"$P" platform/agent-control-plane/scripts/render_assertion_ledger.py --check --schema
 ```
 
 CI invokes these as `python`, because `setup-python` has already put the

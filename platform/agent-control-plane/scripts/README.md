@@ -23,6 +23,7 @@ maintainer interpreter `platform/agent-control-plane/.venv/bin/python`:
 | Contract schemas | `$P platform/agent-control-plane/scripts/validate_contracts.py` |
 | Instruction adapter freshness | `$P platform/agent-control-plane/scripts/generate_instruction_adapters.py --check` |
 | Hook registrations | `$P platform/agent-control-plane/scripts/verify_hook_registrations.py` |
+| Assertion ledger freshness | `$P platform/agent-control-plane/scripts/render_assertion_ledger.py --check --schema` |
 
 The agent discovery layout guard also rejects retired downstream product
 identifiers in tracked content so application-specific identity cannot drift
