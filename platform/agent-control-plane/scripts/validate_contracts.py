@@ -31,6 +31,7 @@ INSTRUCTION_EVIDENCE_RECORD = "instruction-evidence-record.schema.json"
 INSTRUCTION_EVIDENCE_STORE = "instruction-evidence-store.schema.json"
 AGENT_RUN_ATTEMPT = "agent-run-attempt.schema.json"
 JIRA_WORK_ITEM_METADATA = "jira-delivery/jira-work-item-metadata.schema.json"
+ASSERTION_LEDGER = "assertion-ledger.schema.json"
 
 
 class ContractUnavailableError(RuntimeError):
@@ -104,6 +105,11 @@ def validate_attempt(attempt: Any) -> list[str]:
 def validate_work_item_metadata(metadata: Any) -> list[str]:
     """Return human-readable errors for governed Jira work-item metadata."""
     return _errors(JIRA_WORK_ITEM_METADATA, metadata)
+
+
+def validate_assertion_ledger(source: Any) -> list[str]:
+    """Return human-readable errors for the assertion-to-evidence ledger source."""
+    return _errors(ASSERTION_LEDGER, source)
 
 
 def evidence_types() -> list[str]:

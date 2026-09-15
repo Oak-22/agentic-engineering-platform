@@ -103,5 +103,26 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(renderer.render(source), renderer.RENDER_PATH.read_text(encoding="utf-8"))
 
 
+class ContractTests(unittest.TestCase):
+    """The contract, not the renderer, is authoritative; exercise it directly."""
+
+    def test_checked_in_ledger_satisfies_contract(self):
+        renderer.validate_against_contract(renderer.load_source())
+
+    def test_contract_rejects_bad_found_by_pattern(self):
+        with self.assertRaisesRegex(ValueError, "foundBy"):
+            renderer.validate_against_contract(_source(_row(foundBy="Claude Session")))
+
+    def test_contract_requires_note_for_yellow_and_red(self):
+        for label in ("yellow", "red"):
+            with self.assertRaisesRegex(ValueError, "confirmedNote"):
+                renderer.validate_against_contract(_source(_row(confirmed=label)))
+            renderer.validate_against_contract(_source(_row(confirmed=label, confirmedNote="caveat")))
+        renderer.validate_against_contract(_source(_row(confirmed="green")))
+
+    def test_check_with_schema_flag_passes_on_checked_in_ledger(self):
+        self.assertEqual(renderer.main(["--check", "--schema"]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

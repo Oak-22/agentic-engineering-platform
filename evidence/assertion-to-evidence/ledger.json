@@ -47,7 +47,7 @@
       "actual": "File does not exist at repository or component root",
       "direction": "undetermined",
       "countermeasure": "check_links.py (machine-local)",
-      "countermeasureNote": "`~/Projects/dev/tools`",
+      "countermeasureNote": "external checker outside this repository",
       "caught": "yes",
       "caughtNote": "on first run; the tool postdates the instance by weeks",
       "fixed": "open"
@@ -85,6 +85,6 @@
     }
   ],
   "readingNotes": [
-    "Five instances from one session is enough to state the mechanism and not enough to state a rate. Countermeasures with zero instances have not been exercised, not shown to work. Instances with no countermeasure are the current gaps."
+    "Five instances, four found in one session and one recorded retrospectively from an earlier observation, is enough to state the mechanism and not enough to state a rate. Countermeasures with zero instances have not been exercised, not shown to work. Instances with no countermeasure are the current gaps."
   ]
 }

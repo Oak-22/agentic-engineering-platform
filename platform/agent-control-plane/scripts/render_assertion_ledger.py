@@ -5,8 +5,10 @@ The JSON is the source of truth; the Markdown is a derived projection whose
 tallies are computed rather than hand-maintained. ``--check`` reports a stale
 render without writing, so CI can refuse a ledger whose counts disagree with
 its rows. Enum fields are validated here with the standard library so the
-render never depends on ``jsonschema``; the contract under ``contracts/``
-remains the authoritative schema.
+render never depends on ``jsonschema``. The contract under ``contracts/``
+remains the authoritative schema; ``--schema`` validates the source against it
+through the shared contract validator, which CI runs with ``jsonschema``
+installed.
 """
 
 from __future__ import annotations
@@ -184,6 +186,24 @@ def render(source: dict) -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def validate_against_contract(source: dict) -> None:
+    """Validate the source against ``contracts/assertion-ledger.schema.json``.
+
+    The renderer's own checks cover only what the render depends on; the
+    contract also constrains patterns such as ``foundBy`` and dates. Imported
+    lazily so the plain render stays stdlib-only.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import validate_contracts  # noqa: E402  (sibling script, needs jsonschema)
+
+    try:
+        errors = validate_contracts.validate_assertion_ledger(source)
+    except validate_contracts.ContractUnavailableError as error:
+        raise ValueError(str(error)) from error
+    if errors:
+        raise ValueError("ledger.json violates the contract:\n  " + "\n  ".join(errors))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -191,10 +211,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="report a stale ledger.md without writing; exit nonzero if stale",
     )
+    parser.add_argument(
+        "--schema",
+        action="store_true",
+        help="also validate ledger.json against the contract schema (needs jsonschema)",
+    )
     args = parser.parse_args(argv)
     try:
         source = load_source()
         validate(source)
+        if args.schema:
+            validate_against_contract(source)
         content = render(source)
     except (ValueError, KeyError) as error:
         print(f"render_assertion_ledger failed: {error}", file=sys.stderr)

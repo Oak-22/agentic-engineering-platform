@@ -1,8 +1,8 @@
 # Assertion outrunning evidence
 
 Standing as of 2026-09-14: in use; too early to call. Five instances
-recorded, all found in one session, all after the countermeasures below had
-landed. Counts and per-countermeasure tallies live in the
+recorded in one session, four found in that session and one preserving an
+earlier finding date, all after the countermeasures below had landed. Counts and per-countermeasure tallies live in the
 [ledger](../../../../evidence/assertion-to-evidence/ledger.md); this line is
 the only status in this note.
 

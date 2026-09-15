@@ -61,7 +61,9 @@
         "caught": { "enum": ["yes", "no"] },
         "caughtNote": { "type": "string", "description": "How a human found it first, or the caveat on a yes." },
         "fixed": { "type": "string", "minLength": 1, "description": "What was done, or open with a pointer." }
-      }
+      },
+      "if": { "properties": { "confirmed": { "enum": ["yellow", "red"] } } },
+      "then": { "required": ["confirmedNote"], "properties": { "confirmedNote": { "minLength": 1 } } }
     }
   }
 }
