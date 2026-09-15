@@ -1,0 +1,4 @@
+interface:
+  display_name: "Render AI Conversation"
+  short_description: "Render a conversation transcript as reviewable Markdown for a human"
+  default_prompt: "Use $render-ai-conversation to render this session's transcript — prompts and messages verbatim, tool activity summarized — into a reviewable local Markdown file. Note: model reasoning is redacted by the producer and cannot be included, and the snapshot is machine-local until deliberately promoted."
