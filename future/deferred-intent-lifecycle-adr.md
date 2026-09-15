@@ -126,15 +126,6 @@ must describe an intended state that has not yet reached `main`.
   criteria without deleting or rewriting them merely to make the directory
   look uniform.
 
-## Relationship to the cardinality and latency proposal
-
-This proposal governs how deferred intent becomes active and where its meaning
-lives. `future/governed-delivery-cardinality-latency-adr.md` separately governs
-how active outcomes map to Jira tasks, branches, pull requests, commits, and
-connector calls. The decisions can be reviewed independently. Their workflow
-documentation and skill edits may be implemented together when doing so avoids
-duplicated changes without collapsing the two decision records.
-
 ## Open decisions
 
 - Decide whether future artifacts need lightweight required metadata for
