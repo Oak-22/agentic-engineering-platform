@@ -65,7 +65,7 @@ REPO_NAME = "agentic-engineering-platform"
 # AEPI-132 collapsed the six specialist principals into this one. Role
 # separation never produced a separation of duties — a specialist subagent is
 # the same model, in the same session, adopting a role it chose for itself —
-# so the boundary that matters is enforced here and by the independent
+# so the boundary that matters is enforced here and by the external
 # Copilot review on the pull request, not by which name the runtime used to
 # spawn a subagent. `resolve_agent_type` therefore maps every runtime
 # identity, built-in or custom, onto the single generalist policy unless a

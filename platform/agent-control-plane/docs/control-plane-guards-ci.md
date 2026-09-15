@@ -227,16 +227,21 @@ first version of the change.
 
 ### What Copilot sees
 
-Copilot reviews the pull-request diff plus repository context from the base
-branch, including `.github/copilot-instructions.md` and the path-scoped files
-under `.github/instructions/`. Those instructions on `main` are the review
-policy source.
+Copilot reviews the pull-request diff plus repository context, and it reads
+custom instructions from the pull request's **head branch**, not from `main`:
+`.github/copilot-instructions.md`, the path-scoped files under
+`.github/instructions/`, and `AGENTS.md` or `CLAUDE.md` where present. A pull
+request that edits one of those files is therefore reviewed under the
+instructions it wrote.
 
-This makes the review **independent of the developer's local agent session**:
-it does not inherit the implementation conversation, the reasoning behind a
-choice, or any context the author never wrote down. It is not, however, blind
-to the implementation — it reads the diff and the repository. Independence here
-means a separate vantage point, not ignorance.
+The review is **external to the developer's local agent session**: it does
+not inherit the implementation conversation, the reasoning behind a choice, or
+any context the author never wrote down. It is not blind to the implementation
+— it reads the diff and the repository — and because its instructions come
+from the head branch it is not independent of the change either.
+[ADR-0006](../../../docs/architecture/adr/0006-treat-copilot-review-as-contextual-corroboration.md)
+records why this is treated as contextual corroboration rather than
+independent verification.
 
 ### What Copilot cannot do
 
