@@ -42,7 +42,7 @@ jobs:
   # Keep it stable: renaming it silently detaches the branch ruleset that
   # requires it, and the rule then waits forever on a context nothing reports.
   #
-  # One job is intentional. All six guards need the same lightweight Python
+  # One job is intentional. All seven guards need the same lightweight Python
   # environment, so a matrix would only multiply setup cost, and one stable
   # check name is far easier to protect than several.
   control-plane-guards:

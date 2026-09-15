@@ -179,7 +179,7 @@ def render(source: dict) -> str:
         "| Countermeasure | Instances it should have caught | Caught | Missed |",
         "| --- | --- | --- | --- |",
     ]
-    lines.extend(f"| {a} | {b} | {c} | {d} |" for a, b, c, d in tallies(source))
+    lines.extend(f"| {_cell(a)} | {b} | {c} | {d} |" for a, b, c, d in tallies(source))
     lines += ["", direction_line(source), "", "## Reading the tallies", ""]
     for note in source["readingNotes"]:
         lines += [note, ""]

@@ -90,6 +90,10 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(cells[1], "unlabelled")
         self.assertIn("a\\|b", line)
 
+    def test_tally_row_escapes_countermeasure_name(self):
+        out = renderer.render(_source(_row(countermeasure="a|b"), countermeasures=("a|b",)))
+        self.assertIn("| a\\|b | 1 | 0 | 1 |", out)
+
     def test_render_is_deterministic_and_marked_generated(self):
         source = _source(_row(id=2), _row(id=1))
         out = renderer.render(source)
