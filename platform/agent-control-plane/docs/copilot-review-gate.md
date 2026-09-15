@@ -1,6 +1,6 @@
 # Ordered Copilot review gate
 
-The repository uses two independent checks for a pull request targeting
+The repository uses two ordered checks for a pull request targeting
 `main`:
 
 1. `control-plane-guards` runs first on the pull-request head.
@@ -31,11 +31,12 @@ policy.
 That is a claim about authority, not about statistical independence. Copilot
 code review reads the pull request's own head-branch instructions, skills, and
 configured tools, so producer and reviewer share context and can share blind
-spots. The open proposal in
-[`future/copilot-independent-reviewer-boundary.md`](../../../future/copilot-independent-reviewer-boundary.md)
-holds the unanswered questions about what a stronger boundary would require;
-until it is decided, describe the gate as an external review the agent cannot
-grant itself, not as independent verification.
+spots.
+[ADR-0006](../../../docs/architecture/adr/0006-treat-copilot-review-as-contextual-corroboration.md)
+records the decision not to build a stronger boundary, names the
+self-graded-exam gap that remains, and lists the conditions that would reopen
+it. Describe the gate as contextual corroboration — an external review the
+agent cannot grant itself — not as independent verification.
 
 ## Why the gate is triggered by the pull request
 
