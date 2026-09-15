@@ -241,8 +241,8 @@ decide what to filter, which is the whole reason `raw_type` is preserved.
 
 ## Consumer: snapshot capture
 
-The first consumer built on this reader is the `capture-session-trail`
-skill (`agent-assets/skills/capture-session-trail/`), which renders one
+The first consumer built on this reader is the `render-ai-conversation`
+skill (`agent-assets/skills/render-ai-conversation/`), which renders one
 session into a Markdown snapshot for a **human teammate** to review. It is
 the layered-consumer shape this note argued for: it calls
 `locate_sessions`/`read_turns` and adds only rendering, watermarking, and
