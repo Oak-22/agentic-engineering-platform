@@ -89,6 +89,15 @@ do not activate these mutations.
 - Inspect available transitions immediately before changing status.
 - Inspect issue-link types before creating a relationship whose direction
   matters.
+  - Follow the connector's current `createIssueLink` description: pass the
+    blocker or duplicate as `inwardIssue` and the blocked or duplicating
+    issue as `outwardIssue`. Verified 2026-09-15 on AEPI-148: the inverse
+    call produced a reversed link. (An earlier 2026-08-30 observation found
+    the connector inverted; that behavior has since changed, so do not
+    reintroduce the `outwardIssue`-as-blocker workaround.)
+  - Create one link, confirm its direction with `getJiraIssue`, and only then
+    create the rest. The connector has no link-deletion operation, so a
+    reversed link can only be removed in the Jira UI.
 - Distinguish a board-visibility problem from an issue-creation problem by
   checking status, board filter, issue type, parent, sprint, and project.
 

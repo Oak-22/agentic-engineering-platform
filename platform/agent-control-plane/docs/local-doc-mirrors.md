@@ -13,7 +13,7 @@ but they differ in trigger, scope, and whether the result is tracked here.
 | [Artifact archive](#artifact-archive) | `PostToolUse` hook on the `Artifact` tool, automatic | `$XDG_DATA_HOME/aep/artifact-archive/<repository-name>--<identity-hash>/` | No |
 | [Artifact promotion](#artifact-promotion) | Manual, deliberate | `docs/diagrams/` | Yes |
 | [Show-me viewing cache](#show-me-viewing-cache) | Manual, deliberate — the `show-me` skill | `$XDG_DATA_HOME/aep/show-me-captures/<repository-name>--<identity-hash>/` | No |
-| [Session snapshots](#session-snapshots) | Manual, deliberate — the `capture-session-trail` skill | `$XDG_DATA_HOME/aep/session-snapshots/<repository-name>--<identity-hash>/` | No |
+| [Session snapshots](#session-snapshots) | Manual, deliberate — the `render-ai-conversation` skill | `$XDG_DATA_HOME/aep/session-snapshots/<repository-name>--<identity-hash>/` | No |
 | [Public-skills store](#public-skills-store) | Manual, deliberate — authored or installed by the developer | `$XDG_DATA_HOME/aep/skills/` | No |
 | [Experiment runs](#experiment-runs) | Manual, deliberate — an evaluation harness | `$XDG_DATA_HOME/aep/experiments/<repository-name>--<identity-hash>/` | No |
 | [Workbench dispositions](#workbench-dispositions) | Manual, deliberate — reconciling workbench evidence | `$XDG_DATA_HOME/aep/workbench-dispositions/<repository-name>--<identity-hash>/` | No |
@@ -275,8 +275,8 @@ skill's concern.
 
 ## Session snapshots
 
-The `capture-session-trail` skill
-(`platform/agent-control-plane/agent-assets/skills/capture-session-trail/`)
+The `render-ai-conversation` skill
+(`platform/agent-control-plane/agent-assets/skills/render-ai-conversation/`)
 renders one session's message text **and** per-turn tool-call summaries
 into a Markdown snapshot at
 `$XDG_DATA_HOME/aep/session-snapshots/<repository-name>--<identity-hash>/<runtime>-<session-id>.md`
