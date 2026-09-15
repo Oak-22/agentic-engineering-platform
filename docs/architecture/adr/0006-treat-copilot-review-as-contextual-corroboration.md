@@ -18,13 +18,15 @@ supersedes: []
 
 ## Context
 
-The ordered Copilot review gate gives every pull request to `main` an
-external review the producing agent cannot grant itself. That is an authority
-property: ADR-0005 keeps acceptance with a human, and the gate keeps the
-review outside the agent's credential. It is not a statistical-independence
-property. Copilot code review reads repository instructions, agent
-instructions, and skills from the pull request's head branch, so producer and
-reviewer share context and can share blind spots. GitHub's
+The ordered Copilot review gate gives a pull request to `main` an external
+review the producing agent cannot grant itself (Dependabot pull requests,
+which Copilot does not review, pass on guard evidence alone). That is an
+authority property: ADR-0005 keeps acceptance with a human, and the gate
+keeps the review outside the agent's credential. It is not a
+statistical-independence property. Copilot code review reads repository
+instructions, agent instructions, and skills from the pull request's head
+branch, so producer and reviewer share context and can share blind spots.
+GitHub's
 [Copilot code review documentation](https://docs.github.com/en/copilot/how-tos/copilot-on-github/use-copilot-agents/copilot-code-review)
 states the head-branch behavior (checked 2026-09-15).
 
@@ -32,12 +34,15 @@ A captured proposal asked whether AEP should build a verification-independent
 reviewer: pinned policy, a blind or minimally contextual reviewer, a separate
 tool plane, provider diversity. A business would take that on for one of two
 reasons — a security-posture requirement, or evidence that shared context is
-degrading review quality. Neither holds here. The repository has one
-maintainer with write access, so no adversarial producer exists; and no
-defect attributable to instruction context has been observed reaching
-`main`. Meanwhile the contextual reading is where Copilot's value comes from:
-it knows the adapter layout, the skill packaging, and the ADRs, and a
-context-free reviewer would trade that precision for generic findings.
+degrading review quality. Neither holds here. The repository is public, so a
+fork pull request can rewrite its own head-branch instruction surfaces; but
+one maintainer holds merge authority and ADR-0005 keeps acceptance with a
+human who reads the diff, so no instruction change reaches `main` unread and
+the producer never grades its own merge. No defect attributable to instruction
+context has been observed reaching `main`. Meanwhile the contextual reading is
+where Copilot's value comes from: it knows the adapter layout, the skill
+packaging, and the ADRs, and a context-free reviewer would trade that
+precision for generic findings.
 
 One concrete gap survives the analysis. Because Copilot reads instructions
 from the head branch, a pull request that changes an instruction surface
