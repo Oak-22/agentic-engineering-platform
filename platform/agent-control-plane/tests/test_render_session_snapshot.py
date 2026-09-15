@@ -15,7 +15,7 @@ SCRIPT_PATH = (
     Path(__file__).parents[1]
     / "agent-assets"
     / "skills"
-    / "capture-session-trail"
+    / "render-ai-conversation"
     / "scripts"
     / "render_session_snapshot.py"
 )

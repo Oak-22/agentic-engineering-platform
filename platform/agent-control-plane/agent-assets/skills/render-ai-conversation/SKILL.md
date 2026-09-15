@@ -1,9 +1,9 @@
 ---
-name: capture-session-trail
-description: Capture what an agent actually said and did during a session — message text plus tool-call summaries, per turn — into a reviewable, machine-local Markdown snapshot a human teammate can read. Use when someone needs to review an agent's real working trail rather than its summary, or asks to capture, snapshot, or share a session. Never fires automatically at session end.
+name: render-ai-conversation
+description: Render a Codex or Claude Code conversation transcript — user prompts and assistant messages verbatim, tool activity summarized, tool results truncated, raw reasoning absent — into a reviewable, machine-local Markdown copy a human teammate can read. The runtime already keeps the native JSONL record; this skill reads it and renders it without modifying the source. Use when someone needs to review what an agent actually said and did rather than its summary, or asks to render, capture, snapshot, or share a conversation. Never fires automatically at session end.
 ---
 
-# Capture Session Trail
+# Render AI Conversation
 
 Turn a live session transcript into something a *human teammate* can read
 and judge. The audience is the distinction: `handoff-agent-work` packages
@@ -65,7 +65,7 @@ gets the distinction.
    else *before* it is written anywhere.
 
    ```bash
-   python3 platform/agent-control-plane/agent-assets/skills/capture-session-trail/scripts/render_session_snapshot.py \
+   python3 platform/agent-control-plane/agent-assets/skills/render-ai-conversation/scripts/render_session_snapshot.py \
      --runtime claude --dry-run
    ```
 3. Review the dry-run output with the user for credentials, private

@@ -9,7 +9,7 @@ design choices that isn't tied to one delivery outcome or Jira issue.
 - [Session Transcript Reader and Its Consumers](session-transcript-reader.md)
   The read-only reader (`locate_sessions`/`read_turns`) is implemented and
   verified against real local data, with one consumer built on it — the
-  `capture-session-trail` skill, which renders a session for a human
+  `render-ai-conversation` skill, which renders a session for a human
   reviewer. Runtime-neutral extraction for another *agent* to pick up, and
   cross-agent scanning, are still deferred.
 - [One Owner Per Decision, Not One Function Per Similar Code](one-owner-per-decision.md)
