@@ -2,7 +2,8 @@
 
 Standing as of 2026-09-14: in use; too early to call. Five instances
 recorded in one session, four found in that session and one preserving an
-earlier finding date, all after the countermeasures below had landed. Counts and per-countermeasure tallies live in the
+earlier finding date; the repository's countermeasures below predate every
+instance they are tallied against. Counts and per-countermeasure tallies live in the
 [ledger](../../../../evidence/assertion-to-evidence/ledger.md); this line is
 the only status in this note.
 
@@ -72,9 +73,12 @@ deleted when the work lands.
 
 ## Why the countermeasures are evidence, not just remedies
 
-They predate the recorded instances. The evidence labels landed 2026-07-30
-and the plan template 2026-08-18; the five ledger entries were found on
-2026-09-14, one of them inside a plan written under that template. A failure
+The repository's countermeasures predate the instances tallied against them.
+The evidence labels landed 2026-07-30 and the plan template 2026-08-18; four
+ledger entries were found on 2026-09-14, one of them inside a plan written
+under that template. The one exception is the machine-local link checker,
+which postdates instance 3 and caught it on first run; it is excluded from
+this argument because it is not a repository mechanism. A failure
 that recurs after its countermeasure has been built is a standing pressure,
 not an education gap. If it were the latter, the countermeasures would have
 worked.

@@ -73,6 +73,11 @@ def load_source(path: Path = SOURCE_PATH) -> dict:
 def validate(source: dict) -> None:
     """Enum and referential checks that the render depends on. Actionable on failure."""
     known = set(source.get("countermeasures", []))
+    if NONE in known:
+        raise ValueError(
+            f"{NONE!r} is the reserved sentinel for an instance with no countermeasure; "
+            "remove it from countermeasures"
+        )
     seen_ids: set[int] = set()
     for row in source.get("instances", []):
         rid = row.get("id")
@@ -88,12 +93,16 @@ def validate(source: dict) -> None:
                 f"instance {rid}: countermeasure {cm!r} is not listed under countermeasures; "
                 f"add it there or use {NONE!r}"
             )
+        if cm == NONE and row.get("caught") == "yes":
+            raise ValueError(f"instance {rid}: caught=yes but no countermeasure exists to have caught it")
         if row["confirmed"] in ("yellow", "red") and not row.get("confirmedNote"):
             raise ValueError(f"instance {rid}: confirmed={row['confirmed']} requires confirmedNote")
 
 
 def _cell(text: str) -> str:
-    return text.replace("|", "\\|").replace("\n", " ")
+    # Backslashes first: otherwise a source backslash before a pipe would pair
+    # with the escape we add and leave the pipe live.
+    return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
 
 
 def _with_note(value: str, note: str | None) -> str:

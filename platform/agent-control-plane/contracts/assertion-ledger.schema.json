@@ -8,9 +8,9 @@
   "required": ["countermeasures", "instances", "readingNotes"],
   "properties": {
     "countermeasures": {
-      "description": "Known countermeasures, so that ones with zero instances still appear in the tallies as not yet exercised.",
+      "description": "Known countermeasures, so that ones with zero instances still appear in the tallies as not yet exercised. The sentinel none is reserved for instances and may not appear here.",
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": { "type": "string", "minLength": 1, "not": { "const": "none" } },
       "uniqueItems": true
     },
     "instances": {
@@ -43,7 +43,7 @@
         "foundBy": {
           "description": "Who judged the assertion unsupported: human, <runtime>:<session>, or unrecorded.",
           "type": "string",
-          "pattern": "^(human|unrecorded|[a-z]+:[0-9a-f-]{8,})$"
+          "pattern": "^(human|unrecorded|[a-z]+:[A-Za-z0-9_.-]{8,})$"
         },
         "where": { "type": "string", "minLength": 1 },
         "asserted": { "type": "string", "minLength": 1 },

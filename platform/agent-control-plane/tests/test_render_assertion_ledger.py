@@ -56,6 +56,14 @@ class ValidateTests(unittest.TestCase):
             renderer.validate(_source(_row(confirmed="yellow")))
         renderer.validate(_source(_row(confirmed="yellow", confirmedNote="caveat")))
 
+    def test_rejects_reserved_sentinel_in_countermeasures(self):
+        with self.assertRaisesRegex(ValueError, "reserved sentinel"):
+            renderer.validate(_source(_row(countermeasure="none"), countermeasures=("none",)))
+
+    def test_rejects_caught_yes_without_countermeasure(self):
+        with self.assertRaisesRegex(ValueError, "caught=yes but no countermeasure"):
+            renderer.validate(_source(_row(countermeasure="none", caught="yes")))
+
     def test_rejects_duplicate_ids(self):
         with self.assertRaisesRegex(ValueError, "appears twice"):
             renderer.validate(_source(_row(id=1), _row(id=1)))
@@ -90,6 +98,9 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(cells[1], "unlabelled")
         self.assertIn("a\\|b", line)
 
+    def test_cell_escapes_backslash_before_pipe(self):
+        self.assertEqual(renderer._cell("a\\|b"), "a\\\\\\|b")
+
     def test_tally_row_escapes_countermeasure_name(self):
         out = renderer.render(_source(_row(countermeasure="a|b"), countermeasures=("a|b",)))
         self.assertIn("| a\\|b | 1 | 0 | 1 |", out)
@@ -116,6 +127,11 @@ class ContractTests(unittest.TestCase):
     def test_contract_rejects_bad_found_by_pattern(self):
         with self.assertRaisesRegex(ValueError, "foundBy"):
             renderer.validate_against_contract(_source(_row(foundBy="Claude Session")))
+        renderer.validate_against_contract(_source(_row(foundBy="codex:session_01AbC-d.e")))
+
+    def test_contract_rejects_reserved_sentinel_in_countermeasures(self):
+        with self.assertRaisesRegex(ValueError, "countermeasures"):
+            renderer.validate_against_contract(_source(_row(), countermeasures=("none",)))
 
     def test_contract_requires_note_for_yellow_and_red(self):
         for label in ("yellow", "red"):
