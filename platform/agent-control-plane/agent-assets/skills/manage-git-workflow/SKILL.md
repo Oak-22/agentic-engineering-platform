@@ -306,14 +306,18 @@ The script applies the following contract:
 10. When the primary sits on `workbench/local`, sync it with the newly
    advanced base rather than leaving it to drift: fast-forward it when
    possible, otherwise merge. A conflict is resolved only on a path the
-   merged pull request changed, and only in favour of the base — the
-   workbench then holds the pre-review draft of something the base holds in
-   its reviewed form, and the pull request's own file list is the proof. A
-   conflict on any other path is undelivered workbench work: the merge is
-   aborted and the path is named, and `workbench/local` still needs a manual
-   `git merge <base>`. The plan lists which predicted conflicts fall on each
-   side before anything runs. The base branch and feature-branch cleanup
-   complete correctly regardless of this outcome.
+   merged pull request changed, only when the workbench's version of that
+   path is one the pull request itself carried at some commit (the
+   transferred draft or the fork-point version), and only in favour of the
+   base — that provenance is the proof the workbench holds nothing the base
+   has not superseded. A conflict anywhere else — an undelivered path, a
+   delivered path the workbench edited again after transfer, a workbench-side
+   deletion, or any path when the merge method left no reachable pull-request
+   commits — is workbench work: the merge is aborted and the path is named,
+   and `workbench/local` still needs a manual `git merge <base>`. The plan
+   lists which predicted conflicts fall on each side before anything runs.
+   The base branch and feature-branch cleanup complete correctly regardless
+   of this outcome.
 11. Report whether GitHub already deleted the remote branch. Delete it only
     when remote cleanup was explicitly authorized.
 

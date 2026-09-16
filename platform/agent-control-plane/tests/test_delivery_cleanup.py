@@ -480,15 +480,46 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         scenario.git(scenario.primary, "commit", "-m", f"Main change to {path}")
         scenario.git(scenario.primary, "push", "origin", "main")
 
+    def _reviewed_pull_request(self, scenario, number: int, path: str, *,
+                               draft: str, reviewed: str | None, base: str = "main"):
+        """Deliver `path` through a branch that first carried `draft` (the
+        transferred workbench content) and was then changed in review to
+        `reviewed` (None deletes it). Returns the merged PullRequest."""
+        branch = f"chore/PROJ-{number}-reviewed"
+        scenario.git(scenario.primary, "switch", "-c", branch, base)
+        (scenario.primary / path).write_text(draft, encoding="utf-8")
+        scenario.git(scenario.primary, "add", path)
+        scenario.git(scenario.primary, "commit", "-m", f"Transfer {path}")
+        if reviewed is None:
+            scenario.git(scenario.primary, "rm", "--quiet", path)
+        else:
+            (scenario.primary / path).write_text(reviewed, encoding="utf-8")
+            scenario.git(scenario.primary, "add", path)
+        scenario.git(scenario.primary, "commit", "-m", f"Review fix for {path}")
+        head = scenario.rev_parse(branch)
+        scenario.git(scenario.primary, "push", "--set-upstream", "origin", branch)
+        scenario.git(scenario.primary, "switch", base)
+        scenario.git(scenario.primary, "merge", "--no-ff", branch, "-m", f"Merge {branch}")
+        scenario.git(scenario.primary, "push", "origin", base)
+        return MODULE.PullRequest(
+            number=number, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse(base), base_branch=base,
+            head_branch=branch, head_oid=head,
+            url=f"https://example.invalid/pull/{number}",
+        )
+
     def test_workbench_conflict_on_a_delivered_path_is_resolved_from_base(self):
-        # The workbench holds the pre-review draft of feature.txt, which the
-        # pull request delivered. main is authoritative for it.
+        # The workbench holds the draft that was transferred; review changed
+        # it on the branch; main is authoritative for it.
         scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1003, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
-        self._workbench_capture(scenario, "feature.txt", "pre-review draft\n")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
         scenario.git(scenario.primary, "switch", "main")
 
-        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
         self.assertIn("feature.txt", plan.delivered_paths)
         self.assertEqual(plan.resolvable_conflicts, ("feature.txt",))
         self.assertEqual(plan.blocking_conflicts, ())
@@ -502,23 +533,53 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
         self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
         self.assertEqual(
-            (scenario.primary / "feature.txt").read_text(encoding="utf-8"), "feature\n"
+            (scenario.primary / "feature.txt").read_text(encoding="utf-8"), "reviewed\n"
         )
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
         self.assertEqual(status.strip(), "")
+
+    def test_a_later_workbench_edit_to_a_delivered_path_blocks_the_sync(self):
+        # The workbench transferred "draft", then kept working on the same
+        # file. That later version was never on the pull request, so taking
+        # main's copy would discard it: the sync must block.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1004, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        self._workbench_capture(scenario, "feature.txt", "draft\nplus a later idea\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertIn("feature.txt", plan.delivered_paths)
+        self.assertEqual(plan.resolvable_conflicts, ())
+        self.assertEqual(plan.blocking_conflicts, ("feature.txt",))
+
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
+
+        self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        self.assertEqual(blocking, ["feature.txt"])
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
 
     def test_workbench_conflict_on_an_undelivered_path_still_aborts_and_names_it(self):
         # feature.txt is delivered and would resolve; tracked.txt was never in
         # the pull request, so its conflict is undelivered workbench work.
         scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1005, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
         self._push_main_change(scenario, "tracked.txt", "main moved on\n")
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~2")
-        self._workbench_capture(scenario, "feature.txt", "pre-review draft\n")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
         self._workbench_capture(scenario, "tracked.txt", "undelivered capture\n")
         workbench_tip_before = scenario.rev_parse("workbench/local")
         scenario.git(scenario.primary, "switch", "main")
 
-        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
         self.assertEqual(plan.resolvable_conflicts, ("feature.txt",))
         self.assertEqual(plan.blocking_conflicts, ("tracked.txt",))
         rendered = MODULE.render_plan(plan, executed=False)
@@ -574,8 +635,11 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
 
     def test_a_commit_failure_after_resolution_aborts_the_merge_and_reraises(self):
         scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1006, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
-        self._workbench_capture(scenario, "feature.txt", "pre-review draft\n")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
         tip_before = scenario.rev_parse("workbench/local")
         hooks = scenario.primary / ".git" / "hooks"
         hooks.mkdir(exist_ok=True)
@@ -587,6 +651,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
             MODULE.sync_workbench_with_base(
                 scenario.primary, workbench_branch="workbench/local", base_branch="main",
                 delivered=frozenset({"feature.txt"}),
+                commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
             )
 
         self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
@@ -601,6 +666,9 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         # source path. GitHub's file list names only the destination.
         scenario = self.scenario()
         scenario.git(scenario.primary, "switch", "-c", "chore/PROJ-1002-rename", "main")
+        (scenario.primary / "feature.txt").write_text("draft\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Transfer feature draft")
         scenario.git(scenario.primary, "mv", "feature.txt", "renamed.txt")
         (scenario.primary / "renamed.txt").write_text(
             "entirely rewritten on the delivery branch\n" * 4, encoding="utf-8"
@@ -620,7 +688,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
             changed_files=("renamed.txt",),
         )
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
-        self._workbench_capture(scenario, "feature.txt", "workbench edit before rename\n")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
         scenario.git(scenario.primary, "switch", "main")
 
         plan = MODULE.build_cleanup_plan(scenario.primary, rename_pr)
@@ -659,23 +727,11 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         # edits it. Cleanup of that PR removes the file rather than keeping the
         # workbench's draft.
         scenario = self.scenario()
-        scenario.git(scenario.primary, "switch", "-c", "chore/PROJ-1000-remove", "main")
-        scenario.git(scenario.primary, "rm", "--quiet", "feature.txt")
-        scenario.git(scenario.primary, "commit", "-m", "Remove feature")
-        removal_head = scenario.rev_parse("chore/PROJ-1000-remove")
-        scenario.git(scenario.primary, "push", "--set-upstream", "origin", "chore/PROJ-1000-remove")
-        scenario.git(scenario.primary, "switch", "main")
-        scenario.git(scenario.primary, "merge", "--no-ff", "chore/PROJ-1000-remove", "-m", "Merge removal")
-        removal_merge = scenario.rev_parse("main")
-        scenario.git(scenario.primary, "push", "origin", "main")
-        removal_pr = MODULE.PullRequest(
-            number=1000, state="MERGED", merged_at="2026-08-04T00:00:00Z",
-            merge_oid=removal_merge, base_branch="main",
-            head_branch="chore/PROJ-1000-remove", head_oid=removal_head,
-            url="https://example.invalid/pull/1000",
+        removal_pr = self._reviewed_pull_request(
+            scenario, 1000, "feature.txt", draft="draft\n", reviewed=None
         )
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
-        self._workbench_capture(scenario, "feature.txt", "workbench edit of a removed file\n")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
         scenario.git(scenario.primary, "switch", "main")
 
         plan = MODULE.build_cleanup_plan(scenario.primary, removal_pr)

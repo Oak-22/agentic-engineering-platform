@@ -319,8 +319,10 @@ After a verified merge and authorized local cleanup:
    transferred to the delivery branch and then changed in review leaves the
    workbench holding a stale draft of the same paths, so this merge conflicts
    routinely. The cleanup resolves those conflicts from the base, but only on
-   paths the merged pull request changed; a conflict anywhere else is
-   undelivered workbench work and aborts the merge for manual resolution.
+   paths the merged pull request changed and only when the workbench's
+   version is one the pull request carried; a conflict anywhere else —
+   including a delivered path the workbench edited again after transfer — is
+   workbench work and aborts the merge for manual resolution.
 
 Never delete the primary checkout directory during delivery cleanup.
 

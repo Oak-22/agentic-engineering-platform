@@ -73,6 +73,9 @@ class CleanupPlan:
     # Paths the merged pull request changed: the proof that main is authoritative
     # for them when the workbench sync conflicts.
     delivered_paths: frozenset[str] = frozenset()
+    # The PR's own commits plus its fork point; the versions of a delivered
+    # path that the workbench may hold and still be safely superseded.
+    pull_request_commits: tuple[str, ...] = ()
     # Predicted workbench-sync conflicts, split by whether the cleanup may resolve
     # them (delivered) or must stop (undelivered workbench work).
     resolvable_conflicts: tuple[str, ...] = ()
@@ -830,16 +833,28 @@ def build_cleanup_plan(
         )
         at_risk |= paths_written_between(primary, "HEAD", landing)
     delivered: frozenset[str] = frozenset()
+    commits: tuple[str, ...] = ()
     resolvable: tuple[str, ...] = ()
     blocking: tuple[str, ...] = ()
     if workbench_sync_needed:
         at_risk |= paths_written_between(primary, WORKBENCH_BRANCH, remote_base)
         delivered = delivered_paths(primary, pull_request)
+        commits = pull_request_commits(primary, pull_request.merge_oid)
         predicted = predict_sync_conflicts(
             primary, workbench_branch=WORKBENCH_BRANCH, base_branch=remote_base
         )
-        resolvable = tuple(path for path in predicted if path in delivered)
-        blocking = tuple(path for path in predicted if path not in delivered)
+        resolvable = tuple(
+            path
+            for path in predicted
+            if path in delivered
+            and workbench_version_was_delivered(
+                primary,
+                commits=commits,
+                path=path,
+                workbench_blob=blob_at(primary, WORKBENCH_BRANCH, path),
+            )
+        )
+        blocking = tuple(path for path in predicted if path not in resolvable)
 
     remotes = (
         live_remote_branches(primary)
@@ -860,6 +875,7 @@ def build_cleanup_plan(
         switch_required=switch_required,
         primary_conflicts=obstructing_entries(primary, at_risk),
         delivered_paths=delivered,
+        pull_request_commits=commits,
         resolvable_conflicts=resolvable,
         blocking_conflicts=blocking,
     )
@@ -901,6 +917,52 @@ def merge_commit_paths(workspace: Path, merge_oid: str | None) -> frozenset[str]
     if result.returncode != 0:
         return frozenset()
     return frozenset(_nul_separated(result.stdout))
+
+
+def pull_request_commits(workspace: Path, merge_oid: str | None) -> tuple[str, ...]:
+    """Commits the pull request carried, plus its fork point from the base.
+
+    Only a two-parent merge keeps them reachable; a squash or rebase merge
+    yields nothing, so provenance cannot be established and every delivered
+    path fails closed.
+    """
+    if merge_oid is None:
+        return ()
+    parents = git(workspace, "rev-list", "--parents", "-n", "1", merge_oid, check=False)
+    if parents.returncode != 0 or len(parents.stdout.split()) != 3:
+        return ()
+    first, second = f"{merge_oid}^1", f"{merge_oid}^2"
+    listed = git(workspace, "rev-list", second, f"^{first}", check=False)
+    fork = git(workspace, "merge-base", first, second, check=False)
+    if listed.returncode != 0 or fork.returncode != 0:
+        return ()
+    return tuple(listed.stdout.split()) + (fork.stdout.strip(),)
+
+
+def blob_at(workspace: Path, revision: str, path: str) -> str | None:
+    result = git(workspace, "rev-parse", "--verify", "--quiet", f"{revision}:{path}", check=False)
+    return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+def carried_blobs(workspace: Path, commits: Sequence[str], path: str) -> frozenset[str]:
+    """Every version of path the pull request had at any of its commits."""
+    blobs = {blob_at(workspace, commit, path) for commit in commits}
+    return frozenset(blob for blob in blobs if blob)
+
+
+def workbench_version_was_delivered(
+    workspace: Path, *, commits: Sequence[str], path: str, workbench_blob: str | None
+) -> bool:
+    """True only when the workbench's version of path is one the PR carried.
+
+    That is the provenance the resolution rests on: the workbench holds the
+    draft that was transferred (or the fork-point version), so the base's
+    reviewed copy supersedes it. Content the PR never saw is later workbench
+    work, and a workbench-side deletion is undelivered intent; both are False.
+    """
+    if workbench_blob is None or not commits:
+        return False
+    return workbench_blob in carried_blobs(workspace, commits, path)
 
 
 def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
@@ -952,17 +1014,29 @@ def conflicted_paths(workspace: Path) -> tuple[str, ...]:
 
 
 def resolve_delivered_conflicts(
-    workspace: Path, *, base_branch: str, delivered: frozenset[str]
+    workspace: Path,
+    *,
+    base_branch: str,
+    delivered: frozenset[str],
+    commits: Sequence[str] = (),
 ) -> tuple[str, ...]:
     """Take base_branch's version of every conflicted path the PR delivered.
 
-    Returns the conflicted paths it did not touch. A path that base_branch
-    deleted is removed; any other is checked out from base_branch. Both are
-    staged so the merge can be committed once nothing else conflicts.
+    A path qualifies only when it is in the delivered set *and* the
+    workbench's side of the conflict (index stage 2) is a version the PR
+    carried. Returns the conflicted paths it did not touch. A path that
+    base_branch deleted is removed; any other is checked out from
+    base_branch. Both are staged so the merge can be committed once nothing
+    else conflicts.
     """
     remaining = []
     for path in conflicted_paths(workspace):
         if path not in delivered:
+            remaining.append(path)
+            continue
+        if not workbench_version_was_delivered(
+            workspace, commits=commits, path=path, workbench_blob=blob_at(workspace, ":2", path)
+        ):
             remaining.append(path)
             continue
         exists_on_base = (
@@ -984,6 +1058,7 @@ def sync_workbench_with_base(
     workbench_branch: str,
     base_branch: str,
     delivered: frozenset[str] = frozenset(),
+    commits: Sequence[str] = (),
     blocking_out: list[str] | None = None,
 ) -> str:
     """Bring workbench_branch up to date with a freshly fast-forwarded base.
@@ -992,13 +1067,15 @@ def sync_workbench_with_base(
     commits of its own beyond the merged history. Falls back to a real merge
     when it does.
 
-    A conflict is resolved only on a path the merged pull request changed, and
-    only in favour of the base: the workbench then holds the pre-review draft
-    of something the base holds in its reviewed, merged form, and the pull
-    request's own file list is the proof. A conflict on any other path is
-    undelivered workbench work, so the merge is aborted and reported rather
-    than resolved — matching this repository's "deny rather than silently
-    allow" pattern for outcomes that cannot be verified safe.
+    A conflict is resolved only on a path the merged pull request changed,
+    only when the workbench's version of it is one the pull request carried,
+    and only in favour of the base: the workbench then holds the draft that
+    was transferred and the base holds its reviewed, merged form. A conflict
+    anywhere else — an undelivered path, or a delivered path the workbench
+    edited again after transfer — is workbench work, so the merge is aborted
+    and reported rather than resolved, matching this repository's "deny
+    rather than silently allow" pattern for outcomes that cannot be verified
+    safe.
     """
     if is_ancestor(workspace, base_branch, workbench_branch):
         return "already-up-to-date"
@@ -1017,7 +1094,7 @@ def sync_workbench_with_base(
             git(workspace, "merge", "--abort", check=False)
             return SYNC_MERGE_FAILED
         remaining = resolve_delivered_conflicts(
-            workspace, base_branch=base_branch, delivered=delivered
+            workspace, base_branch=base_branch, delivered=delivered, commits=commits
         )
         remaining = tuple(dict.fromkeys(remaining + conflicted_paths(workspace)))
         if remaining:
@@ -1164,6 +1241,7 @@ def execute_cleanup(
             workbench_branch=WORKBENCH_BRANCH,
             base_branch=pull_request.base_branch,
             delivered=plan.delivered_paths,
+            commits=plan.pull_request_commits,
             blocking_out=blocking_out,
         )
 
@@ -1254,7 +1332,8 @@ def render_plan(
                 lines.extend(f"      {path}" for path in plan.resolvable_conflicts)
             if plan.blocking_conflicts:
                 lines.append(
-                    "    BLOCKING conflicts on undelivered paths; the sync will abort:"
+                    "    BLOCKING conflicts on undelivered paths or later workbench "
+                    "edits; the sync will abort:"
                 )
                 lines.extend(f"      {path}" for path in plan.blocking_conflicts)
     return "\n".join(lines)
