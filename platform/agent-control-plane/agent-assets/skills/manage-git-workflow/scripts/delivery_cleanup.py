@@ -1011,13 +1011,20 @@ def sync_workbench_with_base(
     if not conflicted_paths(workspace):
         git(workspace, "merge", "--abort", check=False)
         return SYNC_MERGE_FAILED
-    remaining = resolve_delivered_conflicts(
-        workspace, base_branch=base_branch, delivered=delivered
-    )
-    if remaining or conflicted_paths(workspace):
+    # Resolution and the final commit can each fail (a checkout error, a
+    # commit hook, signing). Nothing here may leave MERGE_HEAD behind, so any
+    # failure aborts the merge before it propagates.
+    try:
+        remaining = resolve_delivered_conflicts(
+            workspace, base_branch=base_branch, delivered=delivered
+        )
+        if remaining or conflicted_paths(workspace):
+            git(workspace, "merge", "--abort", check=False)
+            return SYNC_CONFLICT
+        git(workspace, "commit", "--no-edit")
+    except CleanupError:
         git(workspace, "merge", "--abort", check=False)
-        return SYNC_CONFLICT
-    git(workspace, "commit", "--no-edit")
+        raise
     return SYNC_MERGED_RESOLVED
 
 

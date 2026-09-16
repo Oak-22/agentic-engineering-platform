@@ -570,6 +570,28 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
         self.assertEqual(status.strip(), "")
 
+    def test_a_commit_failure_after_resolution_aborts_the_merge_and_reraises(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "pre-review draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        hooks = scenario.primary / ".git" / "hooks"
+        hooks.mkdir(exist_ok=True)
+        hook = hooks / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o755)
+
+        with self.assertRaises(MODULE.CleanupError):
+            MODULE.sync_workbench_with_base(
+                scenario.primary, workbench_branch="workbench/local", base_branch="main",
+                delivered=frozenset({"feature.txt"}),
+            )
+
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
     def test_workbench_conflict_on_the_source_side_of_a_delivered_rename_is_resolved(self):
         # The PR renames feature.txt -> renamed.txt and rewrites its content,
         # so Git's rename detection does not pair them and the workbench's
