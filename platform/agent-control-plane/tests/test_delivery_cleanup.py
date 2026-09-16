@@ -525,9 +525,11 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         self.assertIn("BLOCKING", rendered)
         self.assertIn("tracked.txt", rendered)
 
-        sync = MODULE.execute_cleanup(plan)
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
 
         self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        self.assertEqual(blocking, ["tracked.txt"])
         self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
         self.assertEqual(scenario.rev_parse("workbench/local"), workbench_tip_before)
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout

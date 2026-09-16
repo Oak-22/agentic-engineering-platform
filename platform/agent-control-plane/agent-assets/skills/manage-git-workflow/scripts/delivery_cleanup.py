@@ -984,6 +984,7 @@ def sync_workbench_with_base(
     workbench_branch: str,
     base_branch: str,
     delivered: frozenset[str] = frozenset(),
+    blocking_out: list[str] | None = None,
 ) -> str:
     """Bring workbench_branch up to date with a freshly fast-forwarded base.
 
@@ -1005,20 +1006,23 @@ def sync_workbench_with_base(
         return "fast-forwarded"
     if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
         return "merged"
-    # A nonzero merge is a conflict only when it left unmerged entries. Any
-    # other failure (a hook, a signing or configuration error) must not be
-    # turned into a commit, so it is aborted and reported as its own outcome.
-    if not conflicted_paths(workspace):
-        git(workspace, "merge", "--abort", check=False)
-        return SYNC_MERGE_FAILED
-    # Resolution and the final commit can each fail (a checkout error, a
-    # commit hook, signing). Nothing here may leave MERGE_HEAD behind, so any
-    # failure aborts the merge before it propagates.
+    # Everything after a failed merge runs under one guard: a probe, a
+    # checkout, or the final commit can each raise (index state, a hook,
+    # signing), and nothing here may leave MERGE_HEAD behind.
     try:
+        # A nonzero merge is a conflict only when it left unmerged entries.
+        # Any other failure must not be turned into a commit, so it is
+        # aborted and reported as its own outcome.
+        if not conflicted_paths(workspace):
+            git(workspace, "merge", "--abort", check=False)
+            return SYNC_MERGE_FAILED
         remaining = resolve_delivered_conflicts(
             workspace, base_branch=base_branch, delivered=delivered
         )
-        if remaining or conflicted_paths(workspace):
+        remaining = tuple(dict.fromkeys(remaining + conflicted_paths(workspace)))
+        if remaining:
+            if blocking_out is not None:
+                blocking_out.extend(remaining)
             git(workspace, "merge", "--abort", check=False)
             return SYNC_CONFLICT
         git(workspace, "commit", "--no-edit")
@@ -1130,7 +1134,9 @@ def remove_empty_canonical_container(
         ) from error
 
 
-def execute_cleanup(plan: CleanupPlan) -> str | None:
+def execute_cleanup(
+    plan: CleanupPlan, *, blocking_out: list[str] | None = None
+) -> str | None:
     primary = plan.primary_workspace
     pull_request = plan.pull_request
 
@@ -1158,6 +1164,7 @@ def execute_cleanup(plan: CleanupPlan) -> str | None:
             workbench_branch=WORKBENCH_BRANCH,
             base_branch=pull_request.base_branch,
             delivered=plan.delivered_paths,
+            blocking_out=blocking_out,
         )
 
     if branch_exists(primary, pull_request.head_branch):
@@ -1378,8 +1385,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 remote_branches=remotes,
             )
             workbench_sync = None
+            blocking: list[str] = []
             if args.execute:
-                workbench_sync = execute_cleanup(plan)
+                workbench_sync = execute_cleanup(plan, blocking_out=blocking)
             if args.format == "json":
                 print(
                     cleanup_plan_as_json(
@@ -1389,10 +1397,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
             else:
                 print(render_plan(plan, executed=args.execute, workbench_sync=workbench_sync))
             if workbench_sync == SYNC_CONFLICT:
-                blocking = ", ".join(plan.blocking_conflicts) or "paths outside the pull request"
+                # The paths the sync actually hit, not the dry-run prediction,
+                # which may be empty or stale by execution time.
+                named = ", ".join(blocking) or "paths outside the pull request"
                 print(
                     f"Workbench sync blocked: {WORKBENCH_BRANCH} conflicts with "
-                    f"{pull_request.base_branch} on undelivered work ({blocking}). "
+                    f"{pull_request.base_branch} on undelivered work ({named}). "
                     f"Resolve manually with `git merge {pull_request.base_branch}` on "
                     f"{WORKBENCH_BRANCH}.",
                     file=sys.stderr,

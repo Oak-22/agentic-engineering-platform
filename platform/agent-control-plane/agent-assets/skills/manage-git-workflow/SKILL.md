@@ -359,7 +359,7 @@ their lack of pull-request evidence is not authority for automatic deletion.
 
 `workbench/local` itself is not a Jira-keyed branch, so it never appears in
 this reconciler's output — its drift is a separate concern with its own
-backstop. Single-PR cleanup normally keeps it synced automatically (see step 9
+backstop. Single-PR cleanup normally keeps it synced automatically (see step 10
 above); governed-task preflight also reports, non-blockingly, how many commits
 `main` has that `workbench/local` lacks, as a check for cleanups skipped or
 run outside this tooling — for example a PR merged and cleaned up through the
