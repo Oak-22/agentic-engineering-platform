@@ -314,7 +314,13 @@ After a verified merge and authorized local cleanup:
 6. remove a worktree directory only when it was an explicitly identified
    secondary-worktree exception; and
 7. remove the empty canonical `<repo>.worktrees` container after rechecking
-   that the target is no longer a linked worktree.
+   that the target is no longer a linked worktree; and
+8. merge the advanced base into `workbench/local`. A capture that was
+   transferred to the delivery branch and then changed in review leaves the
+   workbench holding a stale draft of the same paths, so this merge conflicts
+   routinely. The cleanup resolves those conflicts from the base, but only on
+   paths the merged pull request changed; a conflict anywhere else is
+   undelivered workbench work and aborts the merge for manual resolution.
 
 Never delete the primary checkout directory during delivery cleanup.
 

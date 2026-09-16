@@ -305,11 +305,15 @@ The script applies the following contract:
 9. Prune stale worktree metadata and re-read the worktree and branch lists.
 10. When the primary sits on `workbench/local`, sync it with the newly
    advanced base rather than leaving it to drift: fast-forward it when
-   possible, otherwise merge; never resolve a conflicting merge automatically.
-   The plan reports whether the sync ran, and, if it hit a conflict, aborts
-   the merge and reports that `workbench/local` still needs a manual
-   `git merge <base>` — the base branch and feature-branch cleanup already
-   completed correctly regardless of this outcome.
+   possible, otherwise merge. A conflict is resolved only on a path the
+   merged pull request changed, and only in favour of the base — the
+   workbench then holds the pre-review draft of something the base holds in
+   its reviewed form, and the pull request's own file list is the proof. A
+   conflict on any other path is undelivered workbench work: the merge is
+   aborted and the path is named, and `workbench/local` still needs a manual
+   `git merge <base>`. The plan lists which predicted conflicts fall on each
+   side before anything runs. The base branch and feature-branch cleanup
+   complete correctly regardless of this outcome.
 11. Report whether GitHub already deleted the remote branch. Delete it only
     when remote cleanup was explicitly authorized.
 
