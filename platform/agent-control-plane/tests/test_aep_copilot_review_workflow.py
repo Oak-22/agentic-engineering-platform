@@ -172,3 +172,28 @@ class AepCopilotReviewWorkflowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_runtime_injected_env_names_are_declared_on_the_job(self):
+        """Static validation sees every env.<NAME> the job later references.
+
+        COPILOT_REVIEW_WAIVED and HEAD_SHA reach later steps only through
+        $GITHUB_ENV writes, so without a job-level declaration each
+        ``env.<NAME>`` reference reads as possibly-invalid context access.
+        Declaring both with the empty default Actions already resolves an
+        unset name to keeps the waiver conditions unchanged.
+        """
+        workflow = self.workflow
+
+        job_env = (
+            "  aep-copilot-review:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    # Covers the two waits below plus checkout and normalization.\n"
+            "    timeout-minutes: 30\n"
+            "    env:\n"
+            "      COPILOT_REVIEW_WAIVED: ''\n"
+            "      HEAD_SHA: ''\n"
+            "    steps:\n"
+        )
+        self.assertIn(job_env, workflow)
+        self.assertIn('echo "COPILOT_REVIEW_WAIVED=dependabot" >> "$GITHUB_ENV"', workflow)
+        self.assertIn("if: env.COPILOT_REVIEW_WAIVED == ''", workflow)
