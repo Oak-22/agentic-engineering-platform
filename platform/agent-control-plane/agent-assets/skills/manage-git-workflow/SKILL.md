@@ -305,11 +305,23 @@ The script applies the following contract:
 9. Prune stale worktree metadata and re-read the worktree and branch lists.
 10. When the primary sits on `workbench/local`, sync it with the newly
    advanced base rather than leaving it to drift: fast-forward it when
-   possible, otherwise merge; never resolve a conflicting merge automatically.
-   The plan reports whether the sync ran, and, if it hit a conflict, aborts
-   the merge and reports that `workbench/local` still needs a manual
-   `git merge <base>` — the base branch and feature-branch cleanup already
-   completed correctly regardless of this outcome.
+   possible, otherwise merge. A conflict is resolved only on a path the
+   merged pull request changed, only when the workbench's version of that
+   path — content and mode together — is one the pull request itself carried
+   at some commit (the transferred draft or the fork-point version), and only
+   in favour of the base — that provenance is the proof the workbench holds
+   nothing the base has not superseded. A conflict anywhere else — an
+   undelivered path, a delivered path the workbench edited or re-moded after
+   transfer, a workbench-side deletion, a path the base turned into a
+   directory, or any path when the merge method left no reachable
+   pull-request commits — cannot be proven safe: the merge is aborted and
+   the path is named, and `workbench/local` still needs a manual
+   `git merge <base>`. A real merge is not attempted at all while the
+   workbench index holds staged changes, since the merge commit would fold
+   them in. The plan lists which predicted conflicts fall on each side before
+   anything runs; that prediction needs Git 2.38 or newer, and the plan
+   reports rather than guesses when it cannot be made. The base branch and
+   feature-branch cleanup complete correctly regardless of this outcome.
 11. Report whether GitHub already deleted the remote branch. Delete it only
     when remote cleanup was explicitly authorized.
 
@@ -355,7 +367,7 @@ their lack of pull-request evidence is not authority for automatic deletion.
 
 `workbench/local` itself is not a Jira-keyed branch, so it never appears in
 this reconciler's output — its drift is a separate concern with its own
-backstop. Single-PR cleanup normally keeps it synced automatically (see step 9
+backstop. Single-PR cleanup normally keeps it synced automatically (see step 10
 above); governed-task preflight also reports, non-blockingly, how many commits
 `main` has that `workbench/local` lacks, as a check for cleanups skipped or
 run outside this tooling — for example a PR merged and cleaned up through the

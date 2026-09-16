@@ -9,9 +9,10 @@ import os
 import re
 import subprocess
 import sys
+from types import MappingProxyType
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 
 WORKBENCH_BRANCH = "workbench/local"
@@ -39,6 +40,9 @@ class PullRequest:
     head_branch: str
     head_oid: str
     url: str
+    # Paths the pull request changed, as GitHub reports them; None when the
+    # data did not carry them (hermetic tests, older callers).
+    changed_files: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +71,17 @@ class CleanupPlan:
     base_oid_at_plan: str
     switch_required: bool
     primary_conflicts: tuple[str, ...]
+    # Paths the merged pull request changed: the proof that main is authoritative
+    # for them when the workbench sync conflicts.
+    delivered_paths: frozenset[str] = frozenset()
+    # For every delivered path, the versions the pull request carried at any
+    # of its commits or fork points: what the workbench may hold and still be
+    # safely superseded. Computed once here and reused by execution.
+    carried_entries: Mapping[str, frozenset[TreeEntry]] = MappingProxyType({})
+    # Predicted workbench-sync conflicts, split by whether the cleanup may resolve
+    # them (delivered) or must stop (undelivered workbench work).
+    resolvable_conflicts: tuple[str, ...] = ()
+    blocking_conflicts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -193,6 +208,18 @@ def pull_request_from_data(
     else:
         raise CleanupError("GitHub pull-request data has invalid mergeCommit")
 
+    files = data.get("files")
+    changed_files: tuple[str, ...] | None
+    if files is None:
+        changed_files = None
+    elif isinstance(files, list) and all(
+        isinstance(item, dict) and isinstance(item.get("path"), str) and item["path"]
+        for item in files
+    ):
+        changed_files = tuple(item["path"] for item in files)
+    else:
+        raise CleanupError("GitHub pull-request data has invalid files")
+
     return PullRequest(
         number=returned_number,
         state=required_string("state").upper(),
@@ -202,6 +229,7 @@ def pull_request_from_data(
         head_branch=required_string("headRefName"),
         head_oid=required_string("headRefOid"),
         url=required_string("url"),
+        changed_files=changed_files,
     )
 
 
@@ -213,7 +241,7 @@ def load_pull_request(workspace: Path, number: int) -> PullRequest:
             "view",
             str(number),
             "--json",
-            "number,state,mergedAt,mergeCommit,baseRefName,headRefName,headRefOid,url",
+            "number,state,mergedAt,mergeCommit,baseRefName,headRefName,headRefOid,url,files",
         ],
         cwd=workspace,
         timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
@@ -806,8 +834,31 @@ def build_cleanup_plan(
             remote_base if return_branch == pull_request.base_branch else return_branch
         )
         at_risk |= paths_written_between(primary, "HEAD", landing)
+    delivered: frozenset[str] = frozenset()
+    carried: dict[str, frozenset[TreeEntry]] = {}
+    resolvable: tuple[str, ...] = ()
+    blocking: tuple[str, ...] = ()
     if workbench_sync_needed:
         at_risk |= paths_written_between(primary, WORKBENCH_BRANCH, remote_base)
+        delivered = delivered_paths(primary, pull_request)
+        # Every delivered path, not only the predicted conflicts: execution
+        # reuses this and the real conflict set may differ from the prediction.
+        carried = carried_entries_by_path(
+            primary, pull_request.merge_oid, sorted(delivered)
+        )
+        predicted = predict_sync_conflicts(
+            primary, workbench_branch=WORKBENCH_BRANCH, base_branch=remote_base
+        )
+        candidates = [path for path in predicted if path in delivered]
+        workbench_entries = entries_at(primary, WORKBENCH_BRANCH, candidates)
+        resolvable = tuple(
+            path
+            for path in candidates
+            if workbench_version_was_delivered(
+                carried=carried[path], workbench_entry=workbench_entries.get(path)
+            )
+        )
+        blocking = tuple(path for path in predicted if path not in resolvable)
 
     remotes = (
         live_remote_branches(primary)
@@ -827,28 +878,440 @@ def build_cleanup_plan(
         base_oid_at_plan=local_base_oid,
         switch_required=switch_required,
         primary_conflicts=obstructing_entries(primary, at_risk),
+        delivered_paths=delivered,
+        carried_entries=MappingProxyType(carried),
+        resolvable_conflicts=resolvable,
+        blocking_conflicts=blocking,
     )
 
 
-def sync_workbench_with_base(
+SYNC_CONFLICT = "conflict-manual-resolution-required"
+SYNC_MERGED_RESOLVED = "merged-with-delivered-paths-from-base"
+SYNC_MERGE_FAILED = "merge-failed-manual-resolution-required"
+SYNC_INDEX_DIRTY = "workbench-index-not-clean"
+
+
+def _nul_separated(output: str) -> tuple[str, ...]:
+    return tuple(item for item in output.split("\0") if item)
+
+
+def _literal(path: str) -> str:
+    """A pathspec that names exactly this file.
+
+    Git treats a bare path as a pattern: ``*``, ``?``, ``[`` and a leading
+    ``:`` all have meaning, so a conflict proved for one file could otherwise
+    be resolved on several. The literal magic disables all of that.
+    """
+    return f":(literal){path}"
+
+
+def merge_commit_paths(workspace: Path, merge_oid: str | None) -> frozenset[str]:
+    """First-parent diff of a two-parent merge commit, both sides of renames.
+
+    Complete only for a true merge commit: a rebase-and-merge replays several
+    commits and the tip's parent is the previous replayed commit, not the
+    base, so anything with one parent yields nothing. ``--no-renames`` lists a
+    rename's source and destination separately, which is what a merge
+    conflict reports.
+    """
+    if merge_oid is None:
+        return frozenset()
+    parents = git(workspace, "rev-list", "--parents", "-n", "1", merge_oid, check=False)
+    if parents.returncode != 0 or len(parents.stdout.split()) != 3:
+        return frozenset()
+    result = git(
+        workspace,
+        "diff",
+        "--name-only",
+        "--no-renames",
+        "-z",
+        f"{merge_oid}^1",
+        merge_oid,
+        check=False,
+    )
+    if result.returncode != 0:
+        return frozenset()
+    return frozenset(_nul_separated(result.stdout))
+
+
+def merge_parents(workspace: Path, merge_oid: str | None) -> tuple[str, str] | None:
+    """(first, second) parent of a two-parent merge commit, else None.
+
+    Only a true merge keeps the pull request's commits reachable; a squash
+    or rebase merge yields None, so provenance cannot be established and
+    every delivered path fails closed.
+    """
+    if merge_oid is None:
+        return None
+    parents = git(workspace, "rev-list", "--parents", "-n", "1", merge_oid, check=False)
+    if parents.returncode != 0 or len(parents.stdout.split()) != 3:
+        return None
+    return f"{merge_oid}^1", f"{merge_oid}^2"
+
+
+def fork_points(workspace: Path, first: str, second: str) -> tuple[str, ...]:
+    """Every merge base of the two parents: a criss-cross history has several,
+    and a path's version at any of them is one the branch started from."""
+    result = git(workspace, "merge-base", "--all", first, second, check=False)
+    return tuple(result.stdout.split()) if result.returncode == 0 else ()
+
+
+# A tree entry is identified by mode and object id together: the same blob
+# under a different mode (chmod, regular file <-> symlink) is a different
+# version, and Git reports a conflict for that change too.
+TreeEntry = tuple[str, str]
+TREE_MODE = "040000"
+OBJECT_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+
+
+def entry_at(workspace: Path, revision: str, path: str) -> TreeEntry | None:
+    """(mode, oid) of path at revision, or None when the tree lacks it.
+
+    ``ls-tree`` distinguishes the two outcomes this code depends on: exit 0
+    with an entry means present, exit 0 with no output means absent, and any
+    other exit is a lookup failure that must not be mistaken for absence.
+    """
+    result = git(workspace, "ls-tree", "-z", revision, "--", _literal(path), check=False)
+    if result.returncode != 0:
+        raise CleanupError(
+            f"cannot read {path} at {revision}: "
+            + (result.stderr.strip() or f"git ls-tree exited {result.returncode}")
+        )
+    entries = _nul_separated(result.stdout)
+    if not entries:
+        return None
+    mode, _type, oid = entries[0].split("\t", 1)[0].split(" ", 2)
+    return (mode, oid)
+
+
+def stage_entry(workspace: Path, stage: int, path: str) -> TreeEntry | None:
+    """(mode, oid) of path at the given index stage during a merge, or None."""
+    result = git(workspace, "ls-files", "--stage", "-z", "--", _literal(path))
+    for record in _nul_separated(result.stdout):
+        mode, oid, found_stage = record.split("\t", 1)[0].split(" ", 2)
+        if int(found_stage) == stage:
+            return (mode, oid)
+    return None
+
+
+def entries_at(
+    workspace: Path, revision: str, paths: Sequence[str]
+) -> dict[str, TreeEntry]:
+    """(mode, oid) for each of paths present at revision, in one lookup.
+
+    Same exit-status contract as ``entry_at``; a path the tree lacks is simply
+    absent from the result.
+    """
+    if not paths:
+        return {}
+    result = git(
+        workspace,
+        "ls-tree",
+        "-z",
+        revision,
+        "--",
+        *(_literal(path) for path in paths),
+        check=False,
+    )
+    if result.returncode != 0:
+        raise CleanupError(
+            f"cannot read {len(paths)} path(s) at {revision}: "
+            + (result.stderr.strip() or f"git ls-tree exited {result.returncode}")
+        )
+    found: dict[str, TreeEntry] = {}
+    for record in _nul_separated(result.stdout):
+        meta, _tab, path = record.partition("\t")
+        mode, _type, oid = meta.split(" ", 2)
+        found[path] = (mode, oid)
+    return found
+
+
+def carried_entries_by_path(
+    workspace: Path, merge_oid: str | None, paths: Sequence[str]
+) -> dict[str, frozenset[TreeEntry]]:
+    """Every version of each path the pull request had at any of its commits.
+
+    Two lookups regardless of history length: one ``ls-tree`` per fork point
+    for the versions the branch started from, and one ``git log --raw`` over
+    the pull request's commit range for every version a commit introduced.
+    ``-m`` includes merge commits inside the range (a base synced into the
+    branch), ``--no-renames`` keeps both sides of a rename separate as a
+    conflict would report them, and ``--no-abbrev`` keeps object ids exact.
+    A deletion introduces no version. Without a two-parent merge the result
+    is empty for every path.
+    """
+    carried: dict[str, set[TreeEntry]] = {path: set() for path in paths}
+    parents = merge_parents(workspace, merge_oid)
+    if not paths or parents is None:
+        return {path: frozenset() for path in paths}
+    first, second = parents
+    for fork in fork_points(workspace, first, second):
+        for path, entry in entries_at(workspace, fork, paths).items():
+            carried[path].add(entry)
+    result = git(
+        workspace,
+        "log",
+        "-z",
+        "--raw",
+        "-m",
+        "--no-renames",
+        "--no-abbrev",
+        "--format=",
+        second,
+        f"^{first}",
+        "--",
+        *(_literal(path) for path in paths),
+        check=False,
+    )
+    if result.returncode != 0:
+        raise CleanupError(
+            "cannot read the pull request's history: git log exited "
+            f"{result.returncode}: " + result.stderr.strip()
+        )
+    # Records alternate: ":<oldmode> <newmode> <oldoid> <newoid> <status>", then the path.
+    records = _nul_separated(result.stdout)
+    for meta, path in zip(records[0::2], records[1::2]):
+        if not meta.startswith(":"):
+            raise CleanupError(f"unexpected git log --raw record: {meta!r}")
+        _old_mode, new_mode, _old_oid, new_oid, _status = meta[1:].split(" ", 4)
+        if path in carried and set(new_oid) != {"0"}:
+            carried[path].add((new_mode, new_oid))
+    return {path: frozenset(entries) for path, entries in carried.items()}
+
+
+def workbench_version_was_delivered(
+    *, carried: frozenset[TreeEntry], workbench_entry: TreeEntry | None
+) -> bool:
+    """True only when the workbench's version of a path is one the PR carried.
+
+    That is the provenance the resolution rests on: the workbench holds the
+    draft that was transferred (or the fork-point version), so the base's
+    reviewed copy supersedes it. Content or mode the PR never saw is later
+    workbench work, and a workbench-side deletion is undelivered intent; all
+    are False.
+    """
+    if workbench_entry is None:
+        return False
+    return workbench_entry in carried
+
+
+def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
+    """Paths the merged pull request changed.
+
+    The union of two sources, each covering what the other cannot. GitHub's
+    file list covers every merge method but names only a rename's
+    destination; the merge commit's first-parent diff names both sides of a
+    rename but is complete only for a two-parent merge. With neither — a
+    squash or rebase merge whose data carried no file list — the set is empty
+    and every conflict blocks, rather than risk resolving an undelivered path.
+    """
+    delivered: set[str] = set()
+    if pull_request.changed_files is not None:
+        delivered.update(pull_request.changed_files)
+    delivered.update(merge_commit_paths(workspace, pull_request.merge_oid))
+    return frozenset(delivered)
+
+
+def predict_sync_conflicts(
     workspace: Path, *, workbench_branch: str, base_branch: str
+) -> tuple[str, ...]:
+    """Paths that merging base_branch into workbench_branch would conflict on.
+
+    Uses ``git merge-tree --write-tree`` (Git 2.38 or newer, the documented
+    prerequisite for cleanup) so the plan can say what the sync would do
+    without touching the working tree. Exit 0 is a clean merge. Exit 1 is a
+    conflicted one — but also what a bad ref returns — so a conflict
+    prediction is accepted only when it begins with the written tree's id.
+    Anything else means no prediction was made (an older Git, a bad ref) and
+    is raised rather than reported as clean.
+    """
+    result = git(
+        workspace,
+        "merge-tree",
+        "--write-tree",
+        "--name-only",
+        "--no-messages",
+        "-z",
+        workbench_branch,
+        base_branch,
+        check=False,
+    )
+    if result.returncode == 0:
+        return ()
+    # Output is the tree id, then one conflicted path per NUL-terminated entry.
+    entries = _nul_separated(result.stdout)
+    if result.returncode != 1 or not entries or not OBJECT_ID.fullmatch(entries[0]):
+        raise CleanupError(
+            f"cannot predict the {workbench_branch} sync: git merge-tree exited "
+            f"{result.returncode} without a prediction (Git 2.38 or newer is "
+            "required): " + result.stderr.strip()
+        )
+    return entries[1:]
+
+
+def conflicted_paths(workspace: Path) -> tuple[str, ...]:
+    result = git(workspace, "diff", "--name-only", "--diff-filter=U", "-z")
+    return _nul_separated(result.stdout)
+
+
+def merge_in_progress(workspace: Path) -> bool:
+    """Whether MERGE_HEAD exists.
+
+    ``rev-parse --quiet --verify`` exits 0 when the ref exists and 1 when it
+    does not; any other status is a repository that cannot be read, which
+    must not pass for "no merge in progress".
+    """
+    result = git(workspace, "rev-parse", "--quiet", "--verify", "MERGE_HEAD", check=False)
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise CleanupError(
+        f"cannot read merge state: git rev-parse exited {result.returncode}: "
+        + result.stderr.strip()
+    )
+
+
+def abort_merge(workspace: Path) -> None:
+    """Abort an in-progress merge and prove it is gone.
+
+    ``git merge --abort`` exits nonzero when there was nothing to abort, which
+    is fine; what is not fine is MERGE_HEAD surviving the attempt. That is
+    checked directly, so a caller that reports "nothing left behind" is
+    telling the truth.
+    """
+    result = git(workspace, "merge", "--abort", check=False)
+    if merge_in_progress(workspace):
+        raise CleanupError(
+            "git merge --abort did not clear MERGE_HEAD; the workbench is still "
+            "mid-merge and needs manual attention: "
+            + (result.stderr.strip() or f"exit {result.returncode}")
+        )
+
+
+def resolve_delivered_conflicts(
+    workspace: Path,
+    *,
+    base_branch: str,
+    delivered: frozenset[str],
+    carried: Mapping[str, frozenset[TreeEntry]],
+) -> tuple[str, ...]:
+    """Take base_branch's version of every conflicted path the PR delivered.
+
+    A path qualifies only when it is in the delivered set *and* the
+    workbench's side of the conflict (index stage 2) is a version the PR
+    carried. Returns the conflicted paths it did not touch. A path that
+    base_branch deleted is removed; any other is checked out from
+    base_branch. Both are staged so the merge can be committed once nothing
+    else conflicts.
+    """
+    remaining = []
+    for path in conflicted_paths(workspace):
+        if path not in delivered:
+            remaining.append(path)
+            continue
+        if not workbench_version_was_delivered(
+            carried=carried.get(path, frozenset()),
+            workbench_entry=stage_entry(workspace, 2, path),
+        ):
+            remaining.append(path)
+            continue
+        # entry_at raises on a lookup failure rather than reporting absence,
+        # so a broken object store cannot masquerade as a deletion on the base.
+        base_entry = entry_at(workspace, base_branch, path)
+        if base_entry is not None and base_entry[0] == TREE_MODE:
+            # A file on the workbench where the base now has a directory is
+            # not a version to supersede; leave it for a human.
+            remaining.append(path)
+            continue
+        if base_entry is not None:
+            git(workspace, "checkout", base_branch, "--", _literal(path))
+            git(workspace, "add", "--", _literal(path))
+        else:
+            git(workspace, "rm", "--quiet", "--", _literal(path))
+    return tuple(remaining)
+
+
+def sync_workbench_with_base(
+    workspace: Path,
+    *,
+    workbench_branch: str,
+    base_branch: str,
+    delivered: frozenset[str] = frozenset(),
+    carried: Mapping[str, frozenset[TreeEntry]] = MappingProxyType({}),
+    blocking_out: list[str] | None = None,
 ) -> str:
     """Bring workbench_branch up to date with a freshly fast-forwarded base.
 
     Tries a fast-forward first, the common case when the workbench holds no
     commits of its own beyond the merged history. Falls back to a real merge
-    when it does. Never resolves a conflicting merge automatically: aborts and
-    reports instead, matching this repository's "deny rather than silently
-    allow" pattern for outcomes that cannot be verified safe.
+    when it does.
+
+    A conflict is resolved only on a path the merged pull request changed,
+    only when the workbench's version of it is one the pull request carried,
+    and only in favour of the base: the workbench then holds the draft that
+    was transferred and the base holds its reviewed, merged form. A conflict
+    anywhere else — an undelivered path, or a delivered path the workbench
+    edited again after transfer — is workbench work, so the merge is aborted
+    and reported rather than resolved, matching this repository's "deny
+    rather than silently allow" pattern for outcomes that cannot be verified
+    safe.
     """
     if is_ancestor(workspace, base_branch, workbench_branch):
         return "already-up-to-date"
     if git(workspace, "merge", "--ff-only", base_branch, check=False).returncode == 0:
         return "fast-forwarded"
-    if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
-        return "merged"
-    git(workspace, "merge", "--abort", check=False)
-    return "conflict-manual-resolution-required"
+    # A real merge ends in a commit of the whole index, so anything already
+    # staged would be folded into it. Git refuses such a merge today; this
+    # check keeps that guarantee ours rather than Git's. ``--quiet`` exits 1
+    # for staged changes and 0 for none; anything else is a probe failure.
+    staged = git(workspace, "diff", "--cached", "--quiet", check=False)
+    if staged.returncode == 1:
+        return SYNC_INDEX_DIRTY
+    if staged.returncode != 0:
+        raise CleanupError(
+            f"cannot read the {workbench_branch} index: git diff --cached exited "
+            f"{staged.returncode}: " + staged.stderr.strip()
+        )
+    # From the merge invocation onward everything runs under one guard: the
+    # merge itself can time out after writing MERGE_HEAD, and a probe, a
+    # checkout, or the final commit can each raise (index state, a hook,
+    # signing). Nothing here may leave MERGE_HEAD behind.
+    try:
+        # --commit overrides a branch.<name>.mergeOptions=--no-commit setting,
+        # which would otherwise let a "successful" merge stop before its
+        # commit; the state is checked afterwards regardless.
+        merged = git(workspace, "merge", "--no-edit", "--commit", base_branch, check=False)
+        if merged.returncode == 0:
+            if merge_in_progress(workspace):
+                raise CleanupError(
+                    "git merge reported success but left MERGE_HEAD in place"
+                )
+            return "merged"
+        # A nonzero merge is a conflict only when it left unmerged entries.
+        # Any other refusal must not be turned into a commit, so it is
+        # aborted and reported as its own outcome.
+        if not conflicted_paths(workspace):
+            abort_merge(workspace)
+            return SYNC_MERGE_FAILED
+        remaining = resolve_delivered_conflicts(
+            workspace, base_branch=base_branch, delivered=delivered, carried=carried
+        )
+        remaining = tuple(dict.fromkeys(remaining + conflicted_paths(workspace)))
+        if remaining:
+            if blocking_out is not None:
+                blocking_out.extend(remaining)
+            abort_merge(workspace)
+            return SYNC_CONFLICT
+        git(workspace, "commit", "--no-edit")
+    except CleanupError as error:
+        # Abort, but never let a failed abort hide the error that caused it.
+        try:
+            abort_merge(workspace)
+        except CleanupError as abort_error:
+            raise CleanupError(f"{error}; then {abort_error}") from error
+        raise
+    return SYNC_MERGED_RESOLVED
 
 
 def advance_base(plan: CleanupPlan) -> str:
@@ -953,7 +1416,9 @@ def remove_empty_canonical_container(
         ) from error
 
 
-def execute_cleanup(plan: CleanupPlan) -> str | None:
+def execute_cleanup(
+    plan: CleanupPlan, *, blocking_out: list[str] | None = None
+) -> str | None:
     primary = plan.primary_workspace
     pull_request = plan.pull_request
 
@@ -980,6 +1445,9 @@ def execute_cleanup(plan: CleanupPlan) -> str | None:
             primary,
             workbench_branch=WORKBENCH_BRANCH,
             base_branch=pull_request.base_branch,
+            delivered=plan.delivered_paths,
+            carried=plan.carried_entries,
+            blocking_out=blocking_out,
         )
 
     if branch_exists(primary, pull_request.head_branch):
@@ -1061,11 +1529,27 @@ def render_plan(
                 f"  Workbench sync: {WORKBENCH_BRANCH} is {state} with "
                 f"{plan.pull_request.base_branch}; execute will sync it automatically"
             )
+            if plan.resolvable_conflicts:
+                lines.append(
+                    "    conflicts on delivered paths, resolved from "
+                    f"{plan.pull_request.base_branch}:"
+                )
+                lines.extend(f"      {path}" for path in plan.resolvable_conflicts)
+            if plan.blocking_conflicts:
+                lines.append(
+                    "    BLOCKING conflicts that cannot be proven safe to resolve; "
+                    "the sync will abort:"
+                )
+                lines.extend(f"      {path}" for path in plan.blocking_conflicts)
     return "\n".join(lines)
 
 
 def cleanup_plan_as_json(
-    plan: CleanupPlan, *, executed: bool, workbench_sync: str | None = None
+    plan: CleanupPlan,
+    *,
+    executed: bool,
+    workbench_sync: str | None = None,
+    blocked_paths: Sequence[str] | None = None,
 ) -> str:
     """Emit lifecycle evidence consumable by the governed-delivery coordinator."""
     return json.dumps(
@@ -1084,6 +1568,11 @@ def cleanup_plan_as_json(
             "remoteBranch": "present" if plan.remote_branch_exists else "absent",
             "remoteDeletionAttempted": False,
             "workbenchSync": workbench_sync,
+            # Dry-run predictions, made before anything ran.
+            "workbenchPredictedResolvable": list(plan.resolvable_conflicts),
+            "workbenchPredictedBlocking": list(plan.blocking_conflicts),
+            # What the executed sync actually blocked on; null unless executed.
+            "workbenchBlockedPaths": list(blocked_paths or ()) if executed else None,
         },
         indent=2,
         sort_keys=True,
@@ -1187,22 +1676,43 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 remote_branches=remotes,
             )
             workbench_sync = None
+            blocking: list[str] = []
             if args.execute:
-                workbench_sync = execute_cleanup(plan)
+                workbench_sync = execute_cleanup(plan, blocking_out=blocking)
             if args.format == "json":
                 print(
                     cleanup_plan_as_json(
-                        plan, executed=args.execute, workbench_sync=workbench_sync
+                        plan,
+                        executed=args.execute,
+                        workbench_sync=workbench_sync,
+                        blocked_paths=blocking,
                     )
                 )
             else:
                 print(render_plan(plan, executed=args.execute, workbench_sync=workbench_sync))
-            if workbench_sync == "conflict-manual-resolution-required":
+            if workbench_sync == SYNC_CONFLICT:
+                # The paths the sync actually hit, not the dry-run prediction,
+                # which may be empty or stale by execution time.
+                named = ", ".join(blocking) or "unnamed paths"
                 print(
-                    f"Workbench sync blocked: {WORKBENCH_BRANCH} could not be merged "
-                    f"with {pull_request.base_branch} without conflicts. Resolve "
-                    f"manually with `git merge {pull_request.base_branch}` on "
-                    f"{WORKBENCH_BRANCH}.",
+                    f"Workbench sync blocked: {WORKBENCH_BRANCH} conflicts with "
+                    f"{pull_request.base_branch} on paths that cannot be proven safe "
+                    f"to resolve ({named}). Resolve manually with "
+                    f"`git merge {pull_request.base_branch}` on {WORKBENCH_BRANCH}.",
+                    file=sys.stderr,
+                )
+            elif workbench_sync == SYNC_INDEX_DIRTY:
+                print(
+                    f"Workbench sync skipped: {WORKBENCH_BRANCH} has staged changes, "
+                    "which a merge commit would fold in. Commit or unstage them, then "
+                    f"run `git merge {pull_request.base_branch}` on {WORKBENCH_BRANCH}.",
+                    file=sys.stderr,
+                )
+            elif workbench_sync == SYNC_MERGE_FAILED:
+                print(
+                    f"Workbench sync blocked: `git merge {pull_request.base_branch}` on "
+                    f"{WORKBENCH_BRANCH} was refused without leaving conflicts. The "
+                    "merge was aborted; run it manually to see Git's reason.",
                     file=sys.stderr,
                 )
             if not args.execute and args.format == "text":

@@ -134,10 +134,24 @@ class LoadPullRequestTests(unittest.TestCase):
         self.assertEqual(pull_request.number, 999)
         self.assertEqual(pull_request.merge_oid, "1234567890abcdef")
         self.assertEqual(pull_request.base_branch, "main")
+        self.assertIsNone(pull_request.changed_files)
+        self.assertIn("files", run_mock.call_args.args[0][-1])
         self.assertEqual(
             run_mock.call_args.kwargs["timeout"],
             MODULE.NETWORK_COMMAND_TIMEOUT_SECONDS,
         )
+
+    def test_load_pull_request_parses_changed_files(self):
+        payload = self.payload(files=[{"path": "a.txt"}, {"path": "dir/b.md"}])
+        with mock.patch.object(MODULE, "run", return_value=self.completed(payload)):
+            pull_request = MODULE.load_pull_request(Path("/mock/workspace"), 999)
+        self.assertEqual(pull_request.changed_files, ("a.txt", "dir/b.md"))
+
+    def test_load_pull_request_rejects_malformed_files(self):
+        payload = self.payload(files=[{"path": ""}])
+        with mock.patch.object(MODULE, "run", return_value=self.completed(payload)):
+            with self.assertRaisesRegex(MODULE.CleanupError, "invalid files"):
+                MODULE.load_pull_request(Path("/mock/workspace"), 999)
 
     def test_load_pull_request_rejects_invalid_json(self):
         result = subprocess.CompletedProcess(
@@ -443,26 +457,683 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         self.assertTrue((scenario.primary / "workbench-only.txt").exists())
         self.assertTrue((scenario.primary / "feature.txt").exists())
 
-    def test_workbench_return_branch_conflict_is_aborted_and_reported(self):
+    def _workbench_capture(self, scenario, path: str, content: str | None) -> None:
+        """Commit one workbench change: a write, or a deletion when content is None."""
+        target = scenario.primary / path
+        if content is None:
+            scenario.git(scenario.primary, "rm", "--quiet", path)
+        else:
+            target.write_text(content, encoding="utf-8")
+            scenario.git(scenario.primary, "add", path)
+        scenario.git(scenario.primary, "commit", "-m", f"Workbench capture of {path}")
+
+    def _push_main_change(self, scenario, path: str, content: str | None) -> None:
+        """Advance origin/main past the merge with one more change, so an
+        undelivered conflict is possible: the pull request never touched path."""
+        scenario.git(scenario.primary, "switch", "main")
+        target = scenario.primary / path
+        if content is None:
+            scenario.git(scenario.primary, "rm", "--quiet", path)
+        else:
+            target.write_text(content, encoding="utf-8")
+            scenario.git(scenario.primary, "add", path)
+        scenario.git(scenario.primary, "commit", "-m", f"Main change to {path}")
+        scenario.git(scenario.primary, "push", "origin", "main")
+
+    def _reviewed_pull_request(self, scenario, number: int, path: str, *,
+                               draft: str, reviewed: str | None, base: str = "main"):
+        """Deliver `path` through a branch that first carried `draft` (the
+        transferred workbench content) and was then changed in review to
+        `reviewed` (None deletes it). Returns the merged PullRequest."""
+        branch = f"chore/PROJ-{number}-reviewed"
+        scenario.git(scenario.primary, "switch", "-c", branch, base)
+        (scenario.primary / path).write_text(draft, encoding="utf-8")
+        scenario.git(scenario.primary, "add", path)
+        scenario.git(scenario.primary, "commit", "-m", f"Transfer {path}")
+        if reviewed is None:
+            scenario.git(scenario.primary, "rm", "--quiet", path)
+        else:
+            (scenario.primary / path).write_text(reviewed, encoding="utf-8")
+            scenario.git(scenario.primary, "add", path)
+        scenario.git(scenario.primary, "commit", "-m", f"Review fix for {path}")
+        head = scenario.rev_parse(branch)
+        scenario.git(scenario.primary, "push", "--set-upstream", "origin", branch)
+        scenario.git(scenario.primary, "switch", base)
+        scenario.git(scenario.primary, "merge", "--no-ff", branch, "-m", f"Merge {branch}")
+        scenario.git(scenario.primary, "push", "origin", base)
+        return MODULE.PullRequest(
+            number=number, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse(base), base_branch=base,
+            head_branch=branch, head_oid=head,
+            url=f"https://example.invalid/pull/{number}",
+        )
+
+    def test_workbench_conflict_on_a_delivered_path_is_resolved_from_base(self):
+        # The workbench holds the draft that was transferred; review changed
+        # it on the branch; main is authoritative for it.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1003, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertIn("feature.txt", plan.delivered_paths)
+        self.assertEqual(plan.resolvable_conflicts, ("feature.txt",))
+        self.assertEqual(plan.blocking_conflicts, ())
+        rendered = MODULE.render_plan(plan, executed=False)
+        self.assertIn("resolved from main", rendered)
+        self.assertIn("feature.txt", rendered)
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_MERGED_RESOLVED)
+        self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
+        self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
+        self.assertEqual(
+            (scenario.primary / "feature.txt").read_text(encoding="utf-8"), "reviewed\n"
+        )
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_a_later_workbench_edit_to_a_delivered_path_blocks_the_sync(self):
+        # The workbench transferred "draft", then kept working on the same
+        # file. That later version was never on the pull request, so taking
+        # main's copy would discard it: the sync must block.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1004, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        self._workbench_capture(scenario, "feature.txt", "draft\nplus a later idea\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertIn("feature.txt", plan.delivered_paths)
+        self.assertEqual(plan.resolvable_conflicts, ())
+        self.assertEqual(plan.blocking_conflicts, ("feature.txt",))
+
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
+
+        self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        self.assertEqual(blocking, ["feature.txt"])
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
+    def test_a_mode_change_on_a_delivered_path_blocks_even_with_the_same_content(self):
+        # The workbench holds the transferred draft's bytes but made it
+        # executable. Same blob, different entry: the PR never carried that
+        # mode, so the sync must not discard it.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1007, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        draft_file = scenario.primary / "feature.txt"
+        draft_file.write_text("draft\n", encoding="utf-8")
+        draft_file.chmod(0o755)
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Draft, made executable")
+        self.assertEqual(
+            MODULE.entry_at(scenario.primary, "workbench/local", "feature.txt")[0], "100755"
+        )
+        tip_before = scenario.rev_parse("workbench/local")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertEqual(plan.resolvable_conflicts, ())
+        self.assertEqual(plan.blocking_conflicts, ("feature.txt",))
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
+    def test_a_directory_on_the_base_where_the_workbench_has_a_file_blocks(self):
+        # The PR replaces feature.txt with a directory of the same name. The
+        # workbench holds the transferred draft as a file; checking out a
+        # directory over an unmerged file entry is not a resolution the
+        # cleanup performs.
+        scenario = self.scenario()
+        branch = "chore/PROJ-1008-dir"
+        scenario.git(scenario.primary, "switch", "-c", branch, "main")
+        (scenario.primary / "feature.txt").write_text("draft\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Transfer draft")
+        scenario.git(scenario.primary, "rm", "--quiet", "feature.txt")
+        (scenario.primary / "feature.txt").mkdir()
+        (scenario.primary / "feature.txt" / "inner.txt").write_text("x\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Turn feature into a directory")
+        head = scenario.rev_parse(branch)
+        scenario.git(scenario.primary, "push", "--set-upstream", "origin", branch)
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--no-ff", branch, "-m", f"Merge {branch}")
+        scenario.git(scenario.primary, "push", "origin", "main")
+        pr = MODULE.PullRequest(
+            number=1008, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse("main"), base_branch="main",
+            head_branch=branch, head_oid=head, url="https://example.invalid/pull/1008",
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
+
+        self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        # Git reports the file side of a directory/file conflict under a
+        # "~HEAD" suffix; either spelling must block, and nothing may move.
+        self.assertTrue(any(path.startswith("feature.txt") for path in blocking), blocking)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_carried_entries_cover_fork_point_and_every_introduced_version_in_two_lookups(self):
+        # The branch starts from "feature\n" (fork point), commits "draft\n",
+        # then makes it executable, then deletes it. Every non-deleted version
+        # must be carried, read with one ls-tree (fork) and one git log.
+        scenario = self.scenario()
+        branch = "chore/PROJ-1014-versions"
+        scenario.git(scenario.primary, "switch", "-c", branch, "main")
+        target = scenario.primary / "feature.txt"
+        target.write_text("draft\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Draft")
+        target.chmod(0o755)
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Executable")
+        scenario.git(scenario.primary, "rm", "--quiet", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Delete")
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--no-ff", branch, "-m", "Merge versions")
+        merge_oid = scenario.rev_parse("main")
+        fork_entry = MODULE.entry_at(scenario.primary, f"{merge_oid}^1", "feature.txt")
+        draft_oid = scenario.git(
+            scenario.primary, "rev-parse", f"{branch}~2:feature.txt"
+        ).stdout.strip()
+        real_git = MODULE.git
+        calls: list[tuple[str, ...]] = []
+
+        def counting_git(workspace, *arguments, **kwargs):
+            calls.append(arguments)
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=counting_git):
+            carried = MODULE.carried_entries_by_path(
+                scenario.primary, merge_oid, ["feature.txt", "tracked.txt"]
+            )
+
+        self.assertEqual(
+            carried["feature.txt"],
+            frozenset({fork_entry, ("100644", draft_oid), ("100755", draft_oid)}),
+        )
+        self.assertEqual(carried["tracked.txt"], {MODULE.entry_at(scenario.primary, "main", "tracked.txt")})
+        self.assertEqual(sum(1 for c in calls if c and c[0] == "ls-tree"), 1)
+        self.assertEqual(sum(1 for c in calls if c and c[0] == "log"), 1)
+
+    def test_carried_entries_are_empty_without_a_two_parent_merge(self):
+        scenario = self.scenario(squash=True)
+        carried = MODULE.carried_entries_by_path(
+            scenario.primary, scenario.merge_oid, ["feature.txt"]
+        )
+        self.assertEqual(carried, {"feature.txt": frozenset()})
+
+    def test_a_delivered_path_with_pathspec_magic_resolves_only_itself(self):
+        # "no*.txt" would, as a bare pattern, also match "note.txt". The PR
+        # delivers only "no*.txt"; the workbench holds its draft and an
+        # unrelated, undelivered edit to "note.txt" that must survive.
+        scenario = self.scenario()
+        (scenario.primary / "note.txt").write_text("original note\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "note.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Add note")
+        scenario.git(scenario.primary, "push", "origin", "main")
+        pr = self._reviewed_pull_request(
+            scenario, 1009, "no*.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "no*.txt", "draft\n")
+        self._workbench_capture(scenario, "note.txt", "workbench note edit\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertEqual(plan.resolvable_conflicts, ("no*.txt",))
+        self.assertEqual(plan.blocking_conflicts, ())
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_MERGED_RESOLVED)
+        self.assertEqual(
+            (scenario.primary / "no*.txt").read_text(encoding="utf-8"), "reviewed\n"
+        )
+        self.assertEqual(
+            (scenario.primary / "note.txt").read_text(encoding="utf-8"),
+            "workbench note edit\n",
+        )
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_staged_changes_on_the_workbench_skip_the_merge_without_committing(self):
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1010, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        (scenario.primary / "staged-only.txt").write_text("staged\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "staged-only.txt")
+
+        result = MODULE.sync_workbench_with_base(
+            scenario.primary, workbench_branch="workbench/local", base_branch="main",
+            delivered=frozenset({"feature.txt"}),
+            carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
+        )
+
+        self.assertEqual(result, MODULE.SYNC_INDEX_DIRTY)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "A  staged-only.txt")
+
+    def test_a_merge_that_raises_mid_flight_is_aborted_before_propagating(self):
+        # A timeout (or any CleanupError) from the merge invocation itself must
+        # not leave MERGE_HEAD behind. Simulate it by making the merge call
+        # raise after Git has started the merge.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1011, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        real_git = MODULE.git
+
+        def raising_merge(workspace, *arguments, **kwargs):
+            result = real_git(workspace, *arguments, **kwargs)
+            if arguments[:2] == ("merge", "--no-edit"):
+                raise MODULE.CleanupError("simulated timeout during merge")
+            return result
+
+        with mock.patch.object(MODULE, "git", side_effect=raising_merge):
+            with self.assertRaisesRegex(MODULE.CleanupError, "simulated timeout"):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local",
+                    base_branch="main", delivered=frozenset({"feature.txt"}),
+                    carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
+                )
+
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_an_abort_that_leaves_merge_head_is_reported_not_swallowed(self):
+        # Make `git merge --abort` a no-op so MERGE_HEAD survives; the sync
+        # must say so instead of returning a conflict outcome that claims a
+        # clean workbench.
+        scenario = self.scenario()
+        self._push_main_change(scenario, "tracked.txt", "main moved on\n")
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~2")
+        self._workbench_capture(scenario, "tracked.txt", "undelivered capture\n")
+        real_git = MODULE.git
+
+        def swallowed_abort(workspace, *arguments, **kwargs):
+            if arguments[:2] == ("merge", "--abort"):
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=1, stdout="", stderr="abort failed"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=swallowed_abort):
+            with self.assertRaisesRegex(MODULE.CleanupError, "did not clear MERGE_HEAD"):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local", base_branch="main"
+                )
+        # Leave the fixture consistent for teardown.
+        scenario.git(scenario.primary, "merge", "--abort")
+
+    def test_an_abort_failure_during_error_handling_chains_the_original_error(self):
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1013, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        hooks = scenario.primary / ".git" / "hooks"
+        hooks.mkdir(exist_ok=True)
+        hook = hooks / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o755)
+        real_git = MODULE.git
+
+        def swallowed_abort(workspace, *arguments, **kwargs):
+            if arguments[:2] == ("merge", "--abort"):
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=1, stdout="", stderr="abort failed"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=swallowed_abort):
+            with self.assertRaisesRegex(
+                MODULE.CleanupError,
+                r"(?s)git commit --no-edit.*; then .*did not clear MERGE_HEAD",
+            ):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local", base_branch="main",
+                    delivered=frozenset({"feature.txt"}),
+                    carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
+                )
+        hook.unlink()
+        scenario.git(scenario.primary, "merge", "--abort")
+
+    def test_merge_in_progress_raises_on_an_unreadable_repository(self):
+        scenario = self.scenario()
+        self.assertFalse(MODULE.merge_in_progress(scenario.primary))
+        real_git = MODULE.git
+
+        def broken_probe(workspace, *arguments, **kwargs):
+            if arguments[:1] == ("rev-parse",) and "MERGE_HEAD" in arguments:
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=128, stdout="", stderr="unreadable"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=broken_probe):
+            with self.assertRaisesRegex(MODULE.CleanupError, "cannot read merge state"):
+                MODULE.merge_in_progress(scenario.primary)
+
+    def test_a_no_commit_merge_option_cannot_leave_the_workbench_mid_merge(self):
+        # branch.<name>.mergeOptions=--no-commit makes a plain merge exit 0
+        # with MERGE_HEAD still present. The sync passes --commit explicitly
+        # and verifies the state, so this returns "merged" with a real commit.
         scenario = self.scenario()
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
-        (scenario.primary / "feature.txt").write_text(
-            "conflicting workbench content\n", encoding="utf-8"
+        self._workbench_capture(scenario, "unrelated.txt", "capture\n")
+        scenario.git(scenario.primary, "config", "branch.workbench/local.mergeOptions", "--no-commit")
+
+        result = MODULE.sync_workbench_with_base(
+            scenario.primary, workbench_branch="workbench/local", base_branch="main"
         )
-        scenario.git(scenario.primary, "add", "feature.txt")
-        scenario.git(scenario.primary, "commit", "-m", "Conflicting workbench capture")
+
+        self.assertEqual(result, "merged")
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_an_unreadable_index_probe_raises_rather_than_reporting_dirty(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        real_git = MODULE.git
+
+        def failing_probe(workspace, *arguments, **kwargs):
+            if arguments[:3] == ("diff", "--cached", "--quiet"):
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=128, stdout="", stderr="index broken"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=failing_probe):
+            with self.assertRaisesRegex(MODULE.CleanupError, "cannot read the workbench/local index"):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local", base_branch="main"
+                )
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
+    def test_predict_sync_conflicts_raises_when_no_prediction_was_made(self):
+        scenario = self.scenario()
+        with self.assertRaisesRegex(MODULE.CleanupError, "cannot predict"):
+            MODULE.predict_sync_conflicts(
+                scenario.primary, workbench_branch="no-such-branch", base_branch="main"
+            )
+
+    def test_entries_at_reads_several_paths_in_one_lookup_and_omits_absent_ones(self):
+        scenario = self.scenario()
+        (scenario.primary / "a*b").write_text("star\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "a*b")
+        scenario.git(scenario.primary, "commit", "-m", "Add star file")
+        real_git = MODULE.git
+        calls: list[tuple[str, ...]] = []
+
+        def counting_git(workspace, *arguments, **kwargs):
+            calls.append(arguments)
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=counting_git):
+            found = MODULE.entries_at(
+                scenario.primary, "HEAD", ["feature.txt", "a*b", "absent.txt"]
+            )
+        self.assertEqual(set(found), {"feature.txt", "a*b"})
+        self.assertEqual(found["feature.txt"][0], "100644")
+        self.assertEqual(len([c for c in calls if c and c[0] == "ls-tree"]), 1)
+        with self.assertRaisesRegex(MODULE.CleanupError, "cannot read 1 path"):
+            MODULE.entries_at(scenario.primary, "no-such-revision", ["feature.txt"])
+
+    def test_executed_json_reports_the_paths_the_sync_actually_blocked_on(self):
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1012, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        self._push_main_change(scenario, "tracked.txt", "main moved on\n")
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~2")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        self._workbench_capture(scenario, "tracked.txt", "undelivered capture\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
+        payload = json.loads(
+            MODULE.cleanup_plan_as_json(
+                plan, executed=True, workbench_sync=sync, blocked_paths=blocking
+            )
+        )
+        self.assertEqual(payload["workbenchSync"], MODULE.SYNC_CONFLICT)
+        self.assertEqual(payload["workbenchBlockedPaths"], ["tracked.txt"])
+        self.assertEqual(payload["workbenchPredictedBlocking"], ["tracked.txt"])
+        dry = json.loads(MODULE.cleanup_plan_as_json(plan, executed=False))
+        self.assertIsNone(dry["workbenchBlockedPaths"])
+
+    def test_entry_at_distinguishes_absence_from_lookup_failure(self):
+        scenario = self.scenario()
+        self.assertIsNone(MODULE.entry_at(scenario.primary, "main", "no-such-file.txt"))
+        entry = MODULE.entry_at(scenario.primary, "main", "feature.txt")
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry[0], "100644")
+        with self.assertRaisesRegex(MODULE.CleanupError, "cannot read feature.txt"):
+            MODULE.entry_at(scenario.primary, "no-such-revision", "feature.txt")
+
+    def test_workbench_conflict_on_an_undelivered_path_still_aborts_and_names_it(self):
+        # feature.txt is delivered and would resolve; tracked.txt was never in
+        # the pull request, so its conflict is undelivered workbench work.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1005, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        self._push_main_change(scenario, "tracked.txt", "main moved on\n")
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~2")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        self._workbench_capture(scenario, "tracked.txt", "undelivered capture\n")
         workbench_tip_before = scenario.rev_parse("workbench/local")
         scenario.git(scenario.primary, "switch", "main")
 
-        plan = MODULE.build_cleanup_plan(scenario.primary, scenario.pull_request)
-        sync = MODULE.execute_cleanup(plan)
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertEqual(plan.resolvable_conflicts, ("feature.txt",))
+        self.assertEqual(plan.blocking_conflicts, ("tracked.txt",))
+        rendered = MODULE.render_plan(plan, executed=False)
+        self.assertIn("BLOCKING", rendered)
+        self.assertIn("tracked.txt", rendered)
 
-        self.assertEqual(sync, "conflict-manual-resolution-required")
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
+
+        self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        self.assertEqual(blocking, ["tracked.txt"])
         self.assertEqual(MODULE.current_branch(scenario.primary), "workbench/local")
         self.assertEqual(scenario.rev_parse("workbench/local"), workbench_tip_before)
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
         self.assertEqual(status.strip(), "")
         self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
+    def test_delivered_paths_union_github_file_list_with_merge_diff(self):
+        scenario = self.scenario()
+        from_github = MODULE.PullRequest(
+            **{**scenario.pull_request.__dict__, "changed_files": ("from-github.txt",)}
+        )
+        self.assertEqual(
+            MODULE.delivered_paths(scenario.primary, from_github),
+            frozenset({"from-github.txt", "feature.txt"}),
+        )
+        self.assertEqual(
+            MODULE.delivered_paths(scenario.primary, scenario.pull_request),
+            frozenset({"feature.txt"}),
+        )
+
+    def test_a_merge_that_fails_without_conflicts_is_aborted_not_committed(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "unrelated.txt", "capture\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        hooks = scenario.primary / ".git" / "hooks"
+        hooks.mkdir(exist_ok=True)
+        hook = hooks / "pre-merge-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o755)
+
+        result = MODULE.sync_workbench_with_base(
+            scenario.primary, workbench_branch="workbench/local", base_branch="main",
+            delivered=frozenset({"feature.txt"}),
+        )
+
+        self.assertEqual(result, MODULE.SYNC_MERGE_FAILED)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_a_commit_failure_after_resolution_aborts_the_merge_and_reraises(self):
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1006, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        hooks = scenario.primary / ".git" / "hooks"
+        hooks.mkdir(exist_ok=True)
+        hook = hooks / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o755)
+
+        with self.assertRaises(MODULE.CleanupError):
+            MODULE.sync_workbench_with_base(
+                scenario.primary, workbench_branch="workbench/local", base_branch="main",
+                delivered=frozenset({"feature.txt"}),
+                carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
+            )
+
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_workbench_conflict_on_the_source_side_of_a_delivered_rename_is_resolved(self):
+        # The PR renames feature.txt -> renamed.txt and rewrites its content,
+        # so Git's rename detection does not pair them and the workbench's
+        # edit to feature.txt surfaces as a modify/delete conflict on the
+        # source path. GitHub's file list names only the destination.
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "chore/PROJ-1002-rename", "main")
+        (scenario.primary / "feature.txt").write_text("draft\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Transfer feature draft")
+        scenario.git(scenario.primary, "mv", "feature.txt", "renamed.txt")
+        (scenario.primary / "renamed.txt").write_text(
+            "entirely rewritten on the delivery branch\n" * 4, encoding="utf-8"
+        )
+        scenario.git(scenario.primary, "add", "renamed.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Rename and rewrite feature")
+        rename_head = scenario.rev_parse("chore/PROJ-1002-rename")
+        scenario.git(scenario.primary, "push", "--set-upstream", "origin", "chore/PROJ-1002-rename")
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--no-ff", "chore/PROJ-1002-rename", "-m", "Merge rename")
+        scenario.git(scenario.primary, "push", "origin", "main")
+        rename_pr = MODULE.PullRequest(
+            number=1002, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse("main"), base_branch="main",
+            head_branch="chore/PROJ-1002-rename", head_oid=rename_head,
+            url="https://example.invalid/pull/1002",
+            changed_files=("renamed.txt",),
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, rename_pr)
+        self.assertIn("feature.txt", plan.delivered_paths)
+        self.assertEqual(plan.blocking_conflicts, ())
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_MERGED_RESOLVED)
+        self.assertFalse((scenario.primary / "feature.txt").exists())
+        self.assertTrue((scenario.primary / "renamed.txt").exists())
+        self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
+
+    def test_delivered_paths_fail_closed_for_a_rebase_merge_without_a_file_list(self):
+        # Two PR commits replayed onto main: the tip's parent is the first
+        # replayed commit, so a parent diff would miss first.txt. Without
+        # GitHub's file list nothing is treated as delivered.
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "fix/PROJ-1001-rebase", "main")
+        for name in ("first.txt", "second.txt"):
+            (scenario.primary / name).write_text(f"{name}\n", encoding="utf-8")
+            scenario.git(scenario.primary, "add", name)
+            scenario.git(scenario.primary, "commit", "-m", f"Add {name}")
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--ff-only", "fix/PROJ-1001-rebase")
+        rebase_pr = MODULE.PullRequest(
+            number=1001, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse("main"), base_branch="main",
+            head_branch="fix/PROJ-1001-rebase", head_oid=scenario.rev_parse("main"),
+            url="https://example.invalid/pull/1001",
+        )
+        self.assertEqual(MODULE.delivered_paths(scenario.primary, rebase_pr), frozenset())
+
+    def test_workbench_conflict_where_base_deleted_a_delivered_path_is_resolved_by_removal(self):
+        # A second pull request deletes feature.txt on main; the workbench still
+        # edits it. Cleanup of that PR removes the file rather than keeping the
+        # workbench's draft.
+        scenario = self.scenario()
+        removal_pr = self._reviewed_pull_request(
+            scenario, 1000, "feature.txt", draft="draft\n", reviewed=None
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, removal_pr)
+        self.assertEqual(plan.resolvable_conflicts, ("feature.txt",))
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_MERGED_RESOLVED)
+        self.assertFalse((scenario.primary / "feature.txt").exists())
+        self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
 
     def test_sync_workbench_with_base_reports_already_up_to_date(self):
         scenario = self.scenario()
