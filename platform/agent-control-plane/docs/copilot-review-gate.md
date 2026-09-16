@@ -9,6 +9,13 @@ The repository uses two ordered checks for a pull request targeting
 3. `AEP Copilot Review Gate` evaluates Copilot's review of that SHA and reports
    `aep-copilot-review`.
 
+![External exact-head Copilot review](diagrams/external-copilot-review.svg)
+
+The diagram separates the implementing IDE session from the GitHub-hosted
+review session. The review remains context-aware, while the exact-head gate
+prevents an earlier verdict from carrying across a new push and leaves merge
+authority with the human.
+
 The check is intentionally exact-head. A new push creates a new pending check;
 an earlier review can never satisfy the new commit. The normalizer accepts
 line comments, review summaries, suppressed findings, and explicit disputes.
