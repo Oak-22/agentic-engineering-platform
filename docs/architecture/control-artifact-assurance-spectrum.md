@@ -60,8 +60,8 @@ underlies it.
 | --- | --- | --- | --- |
 | Interpretive | `AGENTS.md`, instructions, prompts | generation of intent — states the reason, depends on the model choosing to honor it | silently ignored by a confused, wrong, or prompt-injected agent |
 | Procedural | skills, workflows | generation of intent — fixes the step order, still depends on the agent executing it | agent deviates from or skips steps |
-| Machine-validated | JSON Schemas, asset registries and `validate_asset_registries.py` | the *form* of the artifact — guarantees a left-side output can be safely consumed by a right-side enforcer; detects malformed controls after the fact | well-formed but wrong-in-substance passes; the post-hoc catch needs a human loop |
-| Mechanically enforced | hook scripts (`protect_main_commit.py`, `agent_permission_gate.py`), generated adapters | execution of intent — removes the choice; behavior is run or blocked by something that is not a model | over-broad rule blocks legitimate work; a gap in the matcher lets a bad action through |
+| Machine-validated | JSON Schemas, asset registries and `validate_asset_registries.py` | the *form* of the artifact — guarantees a left-side output has the shape a right-side enforcer expects; detects malformed controls after the fact | well-formed but wrong-in-substance passes; the post-hoc catch needs a human loop |
+| Mechanically enforced | hook scripts (`protect_main_commit.py`, `agent_permission_gate.py`), required CI status checks | execution of intent — removes the choice; behavior is run or blocked by something that is not a model | over-broad rule blocks legitimate work; a gap in the matcher lets a bad action through |
 
 Two cases do not sit cleanly in a row:
 
@@ -126,8 +126,10 @@ request or rewritten history. Containment, not prevention.
 
 Instruction provenance is a partial control with two layers that are easy to
 conflate. A per-prompt instruction reference that is completely faithful
-proves that no independent, outside instruction was introduced for that
-turn. It does not prove that the referenced instructions were not themselves
+establishes which instruction sources governed that turn. It does not cover
+text that entered the context as subject matter — an issue body, a tool
+result, a source file — so it cannot rule out an injected instruction there,
+and it does not prove that the referenced instructions were not themselves
 mutated: altering `AGENTS.md` or an instruction file in a way that survives
 review is a separate attack surface, addressed by source-control review,
 pinned or signed assets, and registry validation, not by the manifest.
@@ -171,12 +173,16 @@ a pull request or rewrite history.
   validates the *shape* of `generalist-engineering-agent.policy.json`; the
   gate below enforces its *content*.
 - **Mechanically enforced** — hook scripts such as
-  `scripts/protect_main_commit.py` and generated adapters produced by
-  `scripts/generate_instruction_adapters.py` take the outcome out of the
-  agent's hands entirely. The generalist agent identity lives here: its
-  boundary is the `generalist-engineering-agent.policy.json` document, and
+  `scripts/protect_main_commit.py` take the outcome out of the agent's hands
+  entirely. The generalist agent identity lives here: its boundary is the
+  `generalist-engineering-agent.policy.json` document, and
   `scripts/agent_permission_gate.py`, registered as a pre-execution hook,
-  denies or forces human approval on every action a policy statement names.
-  The policy document is the boundary; the gate is the mechanism carrying the
+  resolves every action a policy statement names to one of three outcomes —
+  deny, human approval, or affirmative allow — while an action no statement
+  addresses falls through to the runtime's own permission handling. The
+  policy document is the boundary; the gate is the mechanism carrying the
   guarantee, bounded by matcher coverage and by which runtimes fire the hook.
-  Repository CI is not yet part of this tier.
+  Repository CI belongs to this tier for merges to `main`: the `protect-main`
+  ruleset requires the `control-plane-guards` and `aep-copilot-review` status
+  checks, so a failing check blocks the merge regardless of what any agent
+  reports.
