@@ -26,7 +26,7 @@ mechanical enforcement using the definition as its rule; the tier itself
 guarantees only that the check exists, not that anything acts on its result.
 A mechanically enforced artifact
 removes the choice: the behavior is executed or blocked by something that is
-not a model. Its assurance is only as strong as its coverage is complete —
+not a model. Its assurance extends exactly as far as its coverage —
 `agent_permission_gate.py` evaluating
 `generalist-engineering-agent.policy.json` is a hard gate for every action
 its matchers recognize and every runtime whose pre-execution hook fires, and
@@ -82,7 +82,8 @@ Two cases do not sit cleanly in a row:
 
 The spectrum places one control. Composition is the separate question of why
 a requirement is worth stating at more than one tier, and the answer is not
-redundancy: the tiers fail on non-overlapping classes.
+redundancy: the tiers fail on different classes, and no class contains
+another.
 
 - Interpretive and procedural artifacts fail when the agent is confused,
   wrong, or prompt-injected.
@@ -91,8 +92,10 @@ redundancy: the tiers fail on non-overlapping classes.
 - Mechanically enforced artifacts fail when a matcher misses a variant, or
   when no statement enumerates the action at all.
 
-No one tier's failure set contains another's, so stacking tiers adds
-coverage rather than reinforcing a single point.
+One incident can land in more than one class — an injected instruction can
+also yield a well-formed but wrong artifact — but no tier's failure set
+contains another's, so stacking tiers adds coverage rather than reinforcing
+a single point.
 
 One asymmetry is load-bearing. The mechanically enforced tier acts by
 enumeration — a recognized action or condition resolves to a decision and
@@ -136,8 +139,8 @@ text that entered the context as subject matter — an issue body, a tool
 result, a source file — so it cannot rule out an injected instruction there,
 and it does not prove that the referenced instructions were not themselves
 mutated: altering `AGENTS.md` or an instruction file in a way that survives
-review is a separate attack surface, addressed by source-control review,
-pinned or signed assets, and registry validation, not by the manifest.
+review is a separate attack surface, addressed by source-control review and
+by pinned or signed assets, not by the manifest.
 
 ### Trust postures
 
@@ -151,11 +154,12 @@ step removes one assumption the platform makes about the agent.
    itself and denies, asks, or allows regardless of what the agent intended.
    `agent_permission_gate.py` is this step — containment, not persuasion.
 3. **Stop trusting the report.** "The agent says it followed the lifecycle"
-   is not evidence. An observer the agent cannot author — a hook-seeded
-   evidence record, an independent review, CI — establishes what happened.
-   The instruction manifest is an early, narrow instrument here: its
-   hook-seeded ledger line records which instruction sources loaded, not
-   what the agent did with them, and it audits rather than intercepts.
+   is not evidence. An observer the agent cannot author — an independent
+   review, CI — establishes what happened. The instruction manifest is a
+   step toward this posture rather than an instance of it: its hook-seeded
+   ledger records which instruction sources loaded, not what the agent did
+   with them, and it lives in local runtime storage the agent could in
+   principle alter, so it audits provenance rather than proving execution.
 
 The steps are additive, not sequential replacements. Step 1's guidance stays
 because it is the only layer with reach into the unenumerated tail. Step 2's
@@ -197,6 +201,7 @@ permission flow and the destination's controls are what remain.
   `main`: the `protect-main` ruleset requires the `control-plane-guards` and
   `aep-copilot-review` status checks, so a failing check blocks the merge
   regardless of what any agent reports. The first is deterministic; the
-  second is a non-model ruleset enforcing a model-derived signal, which
+  second is a model-derived signal — the ruleset enforcing its conclusion is
+  not a model, but the review that produced it is — which
   [ADR-0006](adr/0006-treat-copilot-review-as-contextual-corroboration.md)
   treats as contextual corroboration rather than independent verification.
