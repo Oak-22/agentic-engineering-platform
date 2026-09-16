@@ -39,6 +39,9 @@ class PullRequest:
     head_branch: str
     head_oid: str
     url: str
+    # Paths the pull request changed, as GitHub reports them; None when the
+    # data did not carry them (hermetic tests, older callers).
+    changed_files: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -200,6 +203,18 @@ def pull_request_from_data(
     else:
         raise CleanupError("GitHub pull-request data has invalid mergeCommit")
 
+    files = data.get("files")
+    changed_files: tuple[str, ...] | None
+    if files is None:
+        changed_files = None
+    elif isinstance(files, list) and all(
+        isinstance(item, dict) and isinstance(item.get("path"), str) and item["path"]
+        for item in files
+    ):
+        changed_files = tuple(item["path"] for item in files)
+    else:
+        raise CleanupError("GitHub pull-request data has invalid files")
+
     return PullRequest(
         number=returned_number,
         state=required_string("state").upper(),
@@ -209,6 +224,7 @@ def pull_request_from_data(
         head_branch=required_string("headRefName"),
         head_oid=required_string("headRefOid"),
         url=required_string("url"),
+        changed_files=changed_files,
     )
 
 
@@ -220,7 +236,7 @@ def load_pull_request(workspace: Path, number: int) -> PullRequest:
             "view",
             str(number),
             "--json",
-            "number,state,mergedAt,mergeCommit,baseRefName,headRefName,headRefOid,url",
+            "number,state,mergedAt,mergeCommit,baseRefName,headRefName,headRefOid,url,files",
         ],
         cwd=workspace,
         timeout=NETWORK_COMMAND_TIMEOUT_SECONDS,
@@ -854,21 +870,34 @@ SYNC_MERGED_RESOLVED = "merged-with-delivered-paths-from-base"
 
 
 def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
-    """Paths the merged pull request changed, read from the merge result.
+    """Paths the merged pull request changed.
 
-    The first-parent diff of the merge commit is the pull request's net change
-    for both merge and squash merges, and it needs no network call: the merge
-    result is reachable from the fetched base. ``--no-renames`` keeps both
-    sides of a rename so a delete/add conflict on either path is covered.
+    GitHub's own file list is authoritative and covers every merge method, so
+    it is used whenever the pull-request data carried it. Without it, the
+    merge commit's first-parent diff is a complete substitute only for a true
+    merge commit (two parents): a squash is one commit whose parent diff is
+    complete too, but a rebase-and-merge replays several commits and the last
+    one's parent is the previous replayed commit, not the base — so anything
+    other than a two-parent merge fails closed with an empty set, which makes
+    every conflict block rather than risk resolving an undelivered path.
+    ``--no-renames`` keeps both sides of a rename so a delete/add conflict on
+    either path is covered.
     """
+    if pull_request.changed_files is not None:
+        return frozenset(pull_request.changed_files)
     if pull_request.merge_oid is None:
+        return frozenset()
+    parents = git(
+        workspace, "rev-list", "--parents", "-n", "1", pull_request.merge_oid, check=False
+    )
+    if parents.returncode != 0 or len(parents.stdout.split()) != 3:
         return frozenset()
     result = git(
         workspace,
         "diff",
         "--name-only",
         "--no-renames",
-        f"{pull_request.merge_oid}^",
+        f"{pull_request.merge_oid}^1",
         pull_request.merge_oid,
         check=False,
     )

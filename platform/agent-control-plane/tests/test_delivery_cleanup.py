@@ -134,10 +134,24 @@ class LoadPullRequestTests(unittest.TestCase):
         self.assertEqual(pull_request.number, 999)
         self.assertEqual(pull_request.merge_oid, "1234567890abcdef")
         self.assertEqual(pull_request.base_branch, "main")
+        self.assertIsNone(pull_request.changed_files)
+        self.assertIn("files", run_mock.call_args.args[0][-1])
         self.assertEqual(
             run_mock.call_args.kwargs["timeout"],
             MODULE.NETWORK_COMMAND_TIMEOUT_SECONDS,
         )
+
+    def test_load_pull_request_parses_changed_files(self):
+        payload = self.payload(files=[{"path": "a.txt"}, {"path": "dir/b.md"}])
+        with mock.patch.object(MODULE, "run", return_value=self.completed(payload)):
+            pull_request = MODULE.load_pull_request(Path("/mock/workspace"), 999)
+        self.assertEqual(pull_request.changed_files, ("a.txt", "dir/b.md"))
+
+    def test_load_pull_request_rejects_malformed_files(self):
+        payload = self.payload(files=[{"path": ""}])
+        with mock.patch.object(MODULE, "run", return_value=self.completed(payload)):
+            with self.assertRaisesRegex(MODULE.CleanupError, "invalid files"):
+                MODULE.load_pull_request(Path("/mock/workspace"), 999)
 
     def test_load_pull_request_rejects_invalid_json(self):
         result = subprocess.CompletedProcess(
@@ -519,6 +533,40 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
         self.assertEqual(status.strip(), "")
         self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
+    def test_delivered_paths_prefer_github_file_list_over_merge_diff(self):
+        scenario = self.scenario()
+        from_github = MODULE.PullRequest(
+            **{**scenario.pull_request.__dict__, "changed_files": ("from-github.txt",)}
+        )
+        self.assertEqual(
+            MODULE.delivered_paths(scenario.primary, from_github),
+            frozenset({"from-github.txt"}),
+        )
+        self.assertEqual(
+            MODULE.delivered_paths(scenario.primary, scenario.pull_request),
+            frozenset({"feature.txt"}),
+        )
+
+    def test_delivered_paths_fail_closed_for_a_rebase_merge_without_a_file_list(self):
+        # Two PR commits replayed onto main: the tip's parent is the first
+        # replayed commit, so a parent diff would miss first.txt. Without
+        # GitHub's file list nothing is treated as delivered.
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "fix/PROJ-1001-rebase", "main")
+        for name in ("first.txt", "second.txt"):
+            (scenario.primary / name).write_text(f"{name}\n", encoding="utf-8")
+            scenario.git(scenario.primary, "add", name)
+            scenario.git(scenario.primary, "commit", "-m", f"Add {name}")
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--ff-only", "fix/PROJ-1001-rebase")
+        rebase_pr = MODULE.PullRequest(
+            number=1001, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse("main"), base_branch="main",
+            head_branch="fix/PROJ-1001-rebase", head_oid=scenario.rev_parse("main"),
+            url="https://example.invalid/pull/1001",
+        )
+        self.assertEqual(MODULE.delivered_paths(scenario.primary, rebase_pr), frozenset())
 
     def test_workbench_conflict_where_base_deleted_a_delivered_path_is_resolved_by_removal(self):
         # A second pull request deletes feature.txt on main; the workbench still
