@@ -1,0 +1,90 @@
+{
+  "countermeasures": [
+    "traceable-change plan template",
+    "decay-rate convention / future/ deletion rule",
+    "check_links.py (machine-local)",
+    "prompt-instruction manifest evidence labels",
+    "negative verification (ADR-0005)"
+  ],
+  "instances": [
+    {
+      "id": 1,
+      "confirmed": "unlabelled",
+      "found": "2026-09-14",
+      "foundBy": "claude:2130d90a",
+      "where": "`future/governed-delivery-cardinality-latency-adr.md:54` (since deleted)",
+      "asserted": "\"Trace check — validate the ADR frontmatter\"",
+      "actual": "No ADR frontmatter validator has ever existed in the repository",
+      "direction": "never",
+      "countermeasure": "traceable-change plan template",
+      "countermeasureNote": "falsifiable units",
+      "caught": "no",
+      "caughtNote": "form complied with, rule not applied",
+      "fixed": "file deleted 2026-09-14; validator judged not worth building"
+    },
+    {
+      "id": 2,
+      "confirmed": "unlabelled",
+      "found": "2026-09-14",
+      "foundBy": "claude:2130d90a",
+      "where": "`README.md:23-25` and `docs/diagrams/agentic-engineering-platform-diagram.svg`",
+      "asserted": "\"Telemetry findings and validated learning feed back into the Agent Control Plane\"",
+      "actual": "No artifact names a return mechanism; the diagram draws the return arcs dotted; the actual path is a maintainer editing an instruction by PR",
+      "direction": "never",
+      "countermeasure": "none",
+      "countermeasureNote": "no mechanism checks prose against diagram",
+      "caught": "no",
+      "caughtNote": "surfaced by an outside reader's six questions",
+      "fixed": "open; `future/close-the-feedback-loop.md`"
+    },
+    {
+      "id": 3,
+      "confirmed": "unlabelled",
+      "found": "2026-09-14",
+      "foundBy": "claude:2130d90a",
+      "where": "`platform/agent-control-plane/agent-assets/skills/shape-readme-entrypoint/SKILL.md:19`",
+      "asserted": "Routes content to `docs/product-thesis.md`",
+      "actual": "File does not exist at repository or component root",
+      "direction": "undetermined",
+      "countermeasure": "check_links.py (machine-local)",
+      "countermeasureNote": "external checker outside this repository",
+      "caught": "yes",
+      "caughtNote": "on first run; the tool postdates the instance by weeks",
+      "fixed": "open"
+    },
+    {
+      "id": 4,
+      "confirmed": "unlabelled",
+      "found": "2026-08-30",
+      "recorded": "2026-09-14",
+      "foundBy": "unrecorded",
+      "where": "Atlassian connector `createIssueLink` tool description (vendor artifact)",
+      "asserted": "`inwardIssue` is the blocking or duplicating side",
+      "actual": "Inverted relative to Jira; six links created reversed, no connector-side deletion",
+      "direction": "never",
+      "countermeasure": "none",
+      "countermeasureNote": "tool descriptions are consumed at face value",
+      "caught": "no",
+      "caughtNote": "found when the links were inspected in Jira",
+      "fixed": "TODO recorded in `manage-jira-confluence/SKILL.md`; links removed by hand"
+    },
+    {
+      "id": 5,
+      "confirmed": "unlabelled",
+      "found": "2026-09-14",
+      "foundBy": "claude:2130d90a",
+      "where": "`future/` as a directory",
+      "asserted": "Each file: \"delete when the work lands\"",
+      "actual": "Six files added 2026-08-06 → 2026-09-05; zero deletions in git history before 2026-09-14",
+      "direction": "expired",
+      "countermeasure": "decay-rate convention / future/ deletion rule",
+      "countermeasureNote": "`artifact-formatting.md`",
+      "caught": "no",
+      "caughtNote": "the rule had no enforcement and no reader",
+      "fixed": "four files deleted, one promoted to ADR-0006, on 2026-09-14"
+    }
+  ],
+  "readingNotes": [
+    "Five instances, four found in one session and one recorded retrospectively from an earlier observation, is enough to state the mechanism and not enough to state a rate. Countermeasures with zero instances have not been exercised, not shown to work. Instances with no countermeasure are the current gaps."
+  ]
+}
