@@ -843,15 +843,14 @@ def build_cleanup_plan(
         predicted = predict_sync_conflicts(
             primary, workbench_branch=WORKBENCH_BRANCH, base_branch=remote_base
         )
+        candidates = [path for path in predicted if path in delivered]
+        carried = carried_entries_by_path(primary, commits, candidates)
+        workbench_entries = entries_at(primary, WORKBENCH_BRANCH, candidates)
         resolvable = tuple(
             path
-            for path in predicted
-            if path in delivered
-            and workbench_version_was_delivered(
-                primary,
-                commits=commits,
-                path=path,
-                workbench_entry=entry_at(primary, WORKBENCH_BRANCH, path),
+            for path in candidates
+            if workbench_version_was_delivered(
+                carried=carried[path], workbench_entry=workbench_entries.get(path)
             )
         )
         blocking = tuple(path for path in predicted if path not in resolvable)
@@ -990,22 +989,57 @@ def stage_entry(workspace: Path, stage: int, path: str) -> TreeEntry | None:
     return None
 
 
-def carried_entries(
-    workspace: Path, commits: Sequence[str], path: str
-) -> frozenset[TreeEntry]:
-    """Every version of path the pull request had at any of its commits."""
-    entries = {entry_at(workspace, commit, path) for commit in commits}
-    return frozenset(entry for entry in entries if entry)
+def entries_at(
+    workspace: Path, revision: str, paths: Sequence[str]
+) -> dict[str, TreeEntry]:
+    """(mode, oid) for each of paths present at revision, in one lookup.
+
+    Same exit-status contract as ``entry_at``; a path the tree lacks is simply
+    absent from the result.
+    """
+    if not paths:
+        return {}
+    result = git(
+        workspace,
+        "ls-tree",
+        "-z",
+        revision,
+        "--",
+        *(_literal(path) for path in paths),
+        check=False,
+    )
+    if result.returncode != 0:
+        raise CleanupError(
+            f"cannot read {len(paths)} path(s) at {revision}: "
+            + (result.stderr.strip() or f"git ls-tree exited {result.returncode}")
+        )
+    found: dict[str, TreeEntry] = {}
+    for record in _nul_separated(result.stdout):
+        meta, _tab, path = record.partition("\t")
+        mode, _type, oid = meta.split(" ", 2)
+        found[path] = (mode, oid)
+    return found
+
+
+def carried_entries_by_path(
+    workspace: Path, commits: Sequence[str], paths: Sequence[str]
+) -> dict[str, frozenset[TreeEntry]]:
+    """Every version of each path the pull request had at any of its commits.
+
+    One ``ls-tree`` per commit covers every path, so the cost is the number
+    of commits rather than commits times conflicts.
+    """
+    carried: dict[str, set[TreeEntry]] = {path: set() for path in paths}
+    for commit in commits:
+        for path, entry in entries_at(workspace, commit, paths).items():
+            carried[path].add(entry)
+    return {path: frozenset(entries) for path, entries in carried.items()}
 
 
 def workbench_version_was_delivered(
-    workspace: Path,
-    *,
-    commits: Sequence[str],
-    path: str,
-    workbench_entry: TreeEntry | None,
+    *, carried: frozenset[TreeEntry], workbench_entry: TreeEntry | None
 ) -> bool:
-    """True only when the workbench's version of path is one the PR carried.
+    """True only when the workbench's version of a path is one the PR carried.
 
     That is the provenance the resolution rests on: the workbench holds the
     draft that was transferred (or the fork-point version), so the base's
@@ -1013,9 +1047,9 @@ def workbench_version_was_delivered(
     workbench work, and a workbench-side deletion is undelivered intent; all
     are False.
     """
-    if workbench_entry is None or not commits:
+    if workbench_entry is None:
         return False
-    return workbench_entry in carried_entries(workspace, commits, path)
+    return workbench_entry in carried
 
 
 def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
@@ -1093,15 +1127,15 @@ def resolve_delivered_conflicts(
     else conflicts.
     """
     remaining = []
-    for path in conflicted_paths(workspace):
+    conflicted = conflicted_paths(workspace)
+    candidates = [path for path in conflicted if path in delivered]
+    carried = carried_entries_by_path(workspace, commits, candidates)
+    for path in conflicted:
         if path not in delivered:
             remaining.append(path)
             continue
         if not workbench_version_was_delivered(
-            workspace,
-            commits=commits,
-            path=path,
-            workbench_entry=stage_entry(workspace, 2, path),
+            carried=carried[path], workbench_entry=stage_entry(workspace, 2, path)
         ):
             remaining.append(path)
             continue
@@ -1422,7 +1456,11 @@ def render_plan(
 
 
 def cleanup_plan_as_json(
-    plan: CleanupPlan, *, executed: bool, workbench_sync: str | None = None
+    plan: CleanupPlan,
+    *,
+    executed: bool,
+    workbench_sync: str | None = None,
+    blocked_paths: Sequence[str] | None = None,
 ) -> str:
     """Emit lifecycle evidence consumable by the governed-delivery coordinator."""
     return json.dumps(
@@ -1441,8 +1479,11 @@ def cleanup_plan_as_json(
             "remoteBranch": "present" if plan.remote_branch_exists else "absent",
             "remoteDeletionAttempted": False,
             "workbenchSync": workbench_sync,
-            "workbenchResolvableConflicts": list(plan.resolvable_conflicts),
-            "workbenchBlockingConflicts": list(plan.blocking_conflicts),
+            # Dry-run predictions, made before anything ran.
+            "workbenchPredictedResolvable": list(plan.resolvable_conflicts),
+            "workbenchPredictedBlocking": list(plan.blocking_conflicts),
+            # What the executed sync actually blocked on; null unless executed.
+            "workbenchBlockedPaths": list(blocked_paths or ()) if executed else None,
         },
         indent=2,
         sort_keys=True,
@@ -1552,7 +1593,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
             if args.format == "json":
                 print(
                     cleanup_plan_as_json(
-                        plan, executed=args.execute, workbench_sync=workbench_sync
+                        plan,
+                        executed=args.execute,
+                        workbench_sync=workbench_sync,
+                        blocked_paths=blocking,
                     )
                 )
             else:

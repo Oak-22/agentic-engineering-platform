@@ -174,9 +174,10 @@ traceability easy to inspect and does not serve as a numerical quality target.
   sync it with the newly fast-forwarded base — fast-forward when possible,
   otherwise merge — instead of leaving it to drift out of date. The script
   resolves a resulting conflict only when it can prove the workbench holds a
-  version the merged pull request carried (see the cleanup contract in
-  `manage-git-workflow`); every other conflict aborts the merge and is
-  reported for manual resolution.
+  version the merged pull request carried at one of its commits, or the
+  version at the point the branch forked from the base (see the cleanup
+  contract in `manage-git-workflow`); every other conflict aborts the merge
+  and is reported for manual resolution.
 - Remove a linked worktree only when it is a verified secondary-worktree
   exception, then delete its local feature branch.
 - For squash merges, use the verified pull-request state, head identifier,

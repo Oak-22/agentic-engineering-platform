@@ -320,7 +320,8 @@ After a verified merge and authorized local cleanup:
    workbench holding a stale draft of the same paths, so this merge conflicts
    routinely. The cleanup resolves those conflicts from the base, but only on
    paths the merged pull request changed and only when the workbench's
-   version is one the pull request carried; a conflict anywhere else —
+   version is one the pull request carried at one of its commits or at the
+   point the branch forked from the base; a conflict anywhere else —
    including a delivered path the workbench edited again after transfer — is
    workbench work and aborts the merge for manual resolution.
 

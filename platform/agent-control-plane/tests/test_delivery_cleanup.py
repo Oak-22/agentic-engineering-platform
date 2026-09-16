@@ -764,6 +764,53 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
                 scenario.primary, workbench_branch="no-such-branch", base_branch="main"
             )
 
+    def test_entries_at_reads_several_paths_in_one_lookup_and_omits_absent_ones(self):
+        scenario = self.scenario()
+        (scenario.primary / "a*b").write_text("star\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "a*b")
+        scenario.git(scenario.primary, "commit", "-m", "Add star file")
+        real_git = MODULE.git
+        calls: list[tuple[str, ...]] = []
+
+        def counting_git(workspace, *arguments, **kwargs):
+            calls.append(arguments)
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=counting_git):
+            found = MODULE.entries_at(
+                scenario.primary, "HEAD", ["feature.txt", "a*b", "absent.txt"]
+            )
+        self.assertEqual(set(found), {"feature.txt", "a*b"})
+        self.assertEqual(found["feature.txt"][0], "100644")
+        self.assertEqual(len([c for c in calls if c and c[0] == "ls-tree"]), 1)
+        with self.assertRaisesRegex(MODULE.CleanupError, "cannot read 1 path"):
+            MODULE.entries_at(scenario.primary, "no-such-revision", ["feature.txt"])
+
+    def test_executed_json_reports_the_paths_the_sync_actually_blocked_on(self):
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1012, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        self._push_main_change(scenario, "tracked.txt", "main moved on\n")
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~2")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        self._workbench_capture(scenario, "tracked.txt", "undelivered capture\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
+        payload = json.loads(
+            MODULE.cleanup_plan_as_json(
+                plan, executed=True, workbench_sync=sync, blocked_paths=blocking
+            )
+        )
+        self.assertEqual(payload["workbenchSync"], MODULE.SYNC_CONFLICT)
+        self.assertEqual(payload["workbenchBlockedPaths"], ["tracked.txt"])
+        self.assertEqual(payload["workbenchPredictedBlocking"], ["tracked.txt"])
+        dry = json.loads(MODULE.cleanup_plan_as_json(plan, executed=False))
+        self.assertIsNone(dry["workbenchBlockedPaths"])
+
     def test_entry_at_distinguishes_absence_from_lookup_failure(self):
         scenario = self.scenario()
         self.assertIsNone(MODULE.entry_at(scenario.primary, "main", "no-such-file.txt"))
