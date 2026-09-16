@@ -314,12 +314,13 @@ The script applies the following contract:
    undelivered path, a delivered path the workbench edited or re-moded after
    transfer, a workbench-side deletion, a path the base turned into a
    directory, or any path when the merge method left no reachable
-   pull-request commits — is workbench work: the merge is aborted and the
-   path is named,
-   and `workbench/local` still needs a manual `git merge <base>`. The plan
-   lists which predicted conflicts fall on each side before anything runs.
-   The base branch and feature-branch cleanup complete correctly regardless
-   of this outcome.
+   pull-request commits — cannot be proven safe: the merge is aborted and
+   the path is named, and `workbench/local` still needs a manual
+   `git merge <base>`. A real merge is not attempted at all while the
+   workbench index holds staged changes, since the merge commit would fold
+   them in. The plan lists which predicted conflicts fall on each side before
+   anything runs. The base branch and feature-branch cleanup complete
+   correctly regardless of this outcome.
 11. Report whether GitHub already deleted the remote branch. Delete it only
     when remote cleanup was explicitly authorized.
 

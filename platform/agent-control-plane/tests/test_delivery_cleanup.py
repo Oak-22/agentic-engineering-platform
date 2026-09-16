@@ -648,6 +648,70 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         self.assertIn(scenario.head_oid, commits)
         self.assertIn(fork, commits)
 
+    def test_a_delivered_path_with_pathspec_magic_resolves_only_itself(self):
+        # "no*.txt" would, as a bare pattern, also match "note.txt". The PR
+        # delivers only "no*.txt"; the workbench holds its draft and an
+        # unrelated, undelivered edit to "note.txt" that must survive.
+        scenario = self.scenario()
+        (scenario.primary / "note.txt").write_text("original note\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "note.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Add note")
+        scenario.git(scenario.primary, "push", "origin", "main")
+        pr = self._reviewed_pull_request(
+            scenario, 1009, "no*.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "no*.txt", "draft\n")
+        self._workbench_capture(scenario, "note.txt", "workbench note edit\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertEqual(plan.resolvable_conflicts, ("no*.txt",))
+        self.assertEqual(plan.blocking_conflicts, ())
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_MERGED_RESOLVED)
+        self.assertEqual(
+            (scenario.primary / "no*.txt").read_text(encoding="utf-8"), "reviewed\n"
+        )
+        self.assertEqual(
+            (scenario.primary / "note.txt").read_text(encoding="utf-8"),
+            "workbench note edit\n",
+        )
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_staged_changes_on_the_workbench_skip_the_merge_without_committing(self):
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1010, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        (scenario.primary / "staged-only.txt").write_text("staged\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "staged-only.txt")
+
+        result = MODULE.sync_workbench_with_base(
+            scenario.primary, workbench_branch="workbench/local", base_branch="main",
+            delivered=frozenset({"feature.txt"}),
+            commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
+        )
+
+        self.assertEqual(result, MODULE.SYNC_INDEX_DIRTY)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "A  staged-only.txt")
+
+    def test_predict_sync_conflicts_raises_when_no_prediction_was_made(self):
+        scenario = self.scenario()
+        with self.assertRaisesRegex(MODULE.CleanupError, "cannot predict"):
+            MODULE.predict_sync_conflicts(
+                scenario.primary, workbench_branch="no-such-branch", base_branch="main"
+            )
+
     def test_entry_at_distinguishes_absence_from_lookup_failure(self):
         scenario = self.scenario()
         self.assertIsNone(MODULE.entry_at(scenario.primary, "main", "no-such-file.txt"))

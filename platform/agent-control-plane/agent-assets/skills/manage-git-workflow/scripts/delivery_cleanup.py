@@ -884,10 +884,21 @@ def build_cleanup_plan(
 SYNC_CONFLICT = "conflict-manual-resolution-required"
 SYNC_MERGED_RESOLVED = "merged-with-delivered-paths-from-base"
 SYNC_MERGE_FAILED = "merge-failed-manual-resolution-required"
+SYNC_INDEX_DIRTY = "workbench-index-not-clean"
 
 
 def _nul_separated(output: str) -> tuple[str, ...]:
     return tuple(item for item in output.split("\0") if item)
+
+
+def _literal(path: str) -> str:
+    """A pathspec that names exactly this file.
+
+    Git treats a bare path as a pattern: ``*``, ``?``, ``[`` and a leading
+    ``:`` all have meaning, so a conflict proved for one file could otherwise
+    be resolved on several. The literal magic disables all of that.
+    """
+    return f":(literal){path}"
 
 
 def merge_commit_paths(workspace: Path, merge_oid: str | None) -> frozenset[str]:
@@ -946,6 +957,7 @@ def pull_request_commits(workspace: Path, merge_oid: str | None) -> tuple[str, .
 # version, and Git reports a conflict for that change too.
 TreeEntry = tuple[str, str]
 TREE_MODE = "040000"
+OBJECT_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 
 
 def entry_at(workspace: Path, revision: str, path: str) -> TreeEntry | None:
@@ -955,7 +967,7 @@ def entry_at(workspace: Path, revision: str, path: str) -> TreeEntry | None:
     with an entry means present, exit 0 with no output means absent, and any
     other exit is a lookup failure that must not be mistaken for absence.
     """
-    result = git(workspace, "ls-tree", "-z", revision, "--", path, check=False)
+    result = git(workspace, "ls-tree", "-z", revision, "--", _literal(path), check=False)
     if result.returncode != 0:
         raise CleanupError(
             f"cannot read {path} at {revision}: "
@@ -970,7 +982,7 @@ def entry_at(workspace: Path, revision: str, path: str) -> TreeEntry | None:
 
 def stage_entry(workspace: Path, stage: int, path: str) -> TreeEntry | None:
     """(mode, oid) of path at the given index stage during a merge, or None."""
-    result = git(workspace, "ls-files", "--stage", "-z", "--", path)
+    result = git(workspace, "ls-files", "--stage", "-z", "--", _literal(path))
     for record in _nul_separated(result.stdout):
         mode, oid, found_stage = record.split("\t", 1)[0].split(" ", 2)
         if int(found_stage) == stage:
@@ -1029,8 +1041,11 @@ def predict_sync_conflicts(
     """Paths that merging base_branch into workbench_branch would conflict on.
 
     Uses ``git merge-tree --write-tree`` so the plan can say what the sync
-    would do without touching the working tree. Empty when the merge is clean
-    or when the local Git predates that mode; execute still checks for real.
+    would do without touching the working tree. Exit 0 is a clean merge.
+    Exit 1 is a conflicted one — but also what a bad ref returns — so a
+    conflict prediction is accepted only when it begins with the written
+    tree's id. Anything else means no prediction was made (a Git older than
+    2.38, a bad ref) and is raised rather than reported as clean.
     """
     result = git(
         workspace,
@@ -1043,10 +1058,17 @@ def predict_sync_conflicts(
         base_branch,
         check=False,
     )
-    if result.returncode != 1:
+    if result.returncode == 0:
         return ()
     # Output is the tree id, then one conflicted path per NUL-terminated entry.
-    return _nul_separated(result.stdout)[1:]
+    entries = _nul_separated(result.stdout)
+    if result.returncode != 1 or not entries or not OBJECT_ID.fullmatch(entries[0]):
+        raise CleanupError(
+            f"cannot predict the {workbench_branch} sync: git merge-tree exited "
+            f"{result.returncode} without a prediction (Git 2.38 or newer is "
+            "required): " + result.stderr.strip()
+        )
+    return entries[1:]
 
 
 def conflicted_paths(workspace: Path) -> tuple[str, ...]:
@@ -1092,10 +1114,10 @@ def resolve_delivered_conflicts(
             remaining.append(path)
             continue
         if base_entry is not None:
-            git(workspace, "checkout", base_branch, "--", path)
-            git(workspace, "add", "--", path)
+            git(workspace, "checkout", base_branch, "--", _literal(path))
+            git(workspace, "add", "--", _literal(path))
         else:
-            git(workspace, "rm", "--quiet", "--", path)
+            git(workspace, "rm", "--quiet", "--", _literal(path))
     return tuple(remaining)
 
 
@@ -1128,6 +1150,11 @@ def sync_workbench_with_base(
         return "already-up-to-date"
     if git(workspace, "merge", "--ff-only", base_branch, check=False).returncode == 0:
         return "fast-forwarded"
+    # A real merge ends in a commit of the whole index, so anything already
+    # staged would be folded into it. Git refuses such a merge today; this
+    # check keeps that guarantee ours rather than Git's.
+    if git(workspace, "diff", "--cached", "--quiet", check=False).returncode != 0:
+        return SYNC_INDEX_DIRTY
     if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
         return "merged"
     # Everything after a failed merge runs under one guard: a probe, a
@@ -1379,8 +1406,8 @@ def render_plan(
                 lines.extend(f"      {path}" for path in plan.resolvable_conflicts)
             if plan.blocking_conflicts:
                 lines.append(
-                    "    BLOCKING conflicts on undelivered paths or later workbench "
-                    "edits; the sync will abort:"
+                    "    BLOCKING conflicts that cannot be proven safe to resolve; "
+                    "the sync will abort:"
                 )
                 lines.extend(f"      {path}" for path in plan.blocking_conflicts)
     return "\n".join(lines)
@@ -1525,12 +1552,19 @@ def main(arguments: Sequence[str] | None = None) -> int:
             if workbench_sync == SYNC_CONFLICT:
                 # The paths the sync actually hit, not the dry-run prediction,
                 # which may be empty or stale by execution time.
-                named = ", ".join(blocking) or "paths outside the pull request"
+                named = ", ".join(blocking) or "unnamed paths"
                 print(
                     f"Workbench sync blocked: {WORKBENCH_BRANCH} conflicts with "
-                    f"{pull_request.base_branch} on undelivered work ({named}). "
-                    f"Resolve manually with `git merge {pull_request.base_branch}` on "
-                    f"{WORKBENCH_BRANCH}.",
+                    f"{pull_request.base_branch} on paths that cannot be proven safe "
+                    f"to resolve ({named}). Resolve manually with "
+                    f"`git merge {pull_request.base_branch}` on {WORKBENCH_BRANCH}.",
+                    file=sys.stderr,
+                )
+            elif workbench_sync == SYNC_INDEX_DIRTY:
+                print(
+                    f"Workbench sync skipped: {WORKBENCH_BRANCH} has staged changes, "
+                    "which a merge commit would fold in. Commit or unstage them, then "
+                    f"run `git merge {pull_request.base_branch}` on {WORKBENCH_BRANCH}.",
                     file=sys.stderr,
                 )
             elif workbench_sync == SYNC_MERGE_FAILED:
