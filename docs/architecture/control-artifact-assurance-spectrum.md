@@ -59,9 +59,9 @@ underlies it.
 | Assurance tier | Example artifacts | Acts on | Failure mode |
 | --- | --- | --- | --- |
 | Interpretive | `AGENTS.md`, instructions, prompts | generation of intent — states the reason, depends on the model choosing to honor it | silently ignored by a confused, wrong, or prompt-injected agent |
-| Procedural | skills, workflows | generation of intent — fixes the step order, still depends on the agent executing it | agent deviates from or skips steps |
+| Procedural | skills, agent-run workflows | generation of intent — fixes the step order, still depends on the agent executing it | agent deviates from or skips steps |
 | Machine-validated | JSON Schemas, asset registries and `validate_asset_registries.py` | the *form* of the artifact — guarantees a left-side output has the shape a right-side enforcer expects; detects malformed controls after the fact | well-formed but wrong-in-substance passes; the post-hoc catch needs a human loop |
-| Mechanically enforced | hook scripts (`protect_main_commit.py`, `agent_permission_gate.py`), required CI status checks | execution of intent — removes the choice; behavior is run or blocked by something that is not a model | over-broad rule blocks legitimate work; a gap in the matcher lets a bad action through |
+| Mechanically enforced | hook scripts (`protect_main_commit.py`, `agent_permission_gate.py`), required deterministic CI checks such as `control-plane-guards` | execution of intent — removes the choice; behavior is run or blocked by something that is not a model | over-broad rule blocks legitimate work; a gap in the matcher lets a bad action through |
 
 Two cases do not sit cleanly in a row:
 
@@ -95,8 +95,11 @@ No one tier's failure set contains another's, so stacking tiers adds
 coverage rather than reinforcing a single point.
 
 One asymmetry is load-bearing. The mechanically enforced tier acts by
-enumeration — a recognized action resolves to a decision and everything else
-gets no opinion — so the set it governs is closed by construction. The
+enumeration — a recognized action or condition resolves to a decision and
+everything else gets no opinion, whether the enforcer is the permission
+gate's matcher, a hook keyed on the checked-out branch, or a CI script
+checking the properties it was written to check — so the set it governs is
+closed by construction. The
 interpretive tier acts by generalization: a stated principle applies to
 situations no one enumerated. That gives the left side weak but non-zero
 purchase on a failure class the right side structurally cannot reach: the
@@ -121,8 +124,10 @@ tokens came from a trusted instruction source versus untrusted content read
 as subject matter — not identity. Because the interpretive tier cannot be
 made injection-proof, the mechanically enforced tier is what limits a
 successful injection: a scoped policy, human-approval tiers, and global
-immutable denies keep a planted instruction from becoming a merged pull
-request or rewritten history. Containment, not prevention.
+immutable denies limit what a planted instruction can turn into — a merged
+pull request, rewritten history — along the paths the gate recognizes and
+the refs the ruleset protects. Containment, not prevention, and containment
+only within that coverage.
 
 Instruction provenance is a partial control with two layers that are easy to
 conflate. A per-prompt instruction reference that is completely faithful
@@ -148,15 +153,18 @@ step removes one assumption the platform makes about the agent.
 3. **Stop trusting the report.** "The agent says it followed the lifecycle"
    is not evidence. An observer the agent cannot author — a hook-seeded
    evidence record, an independent review, CI — establishes what happened.
-   The instruction manifest is an early instrument here: its ledger line is
-   hook-seeded, though it still only audits rather than intercepts.
+   The instruction manifest is an early, narrow instrument here: its
+   hook-seeded ledger line records which instruction sources loaded, not
+   what the agent did with them, and it audits rather than intercepts.
 
 The steps are additive, not sequential replacements. Step 1's guidance stays
 because it is the only layer with reach into the unenumerated tail. Step 2's
 containment stays because a model's reasoning cannot be fully verified, so a
 residual of untrusted cooperation always remains — which is why containment
-carries more weight than verification: an unfaithful agent still cannot merge
-a pull request or rewrite history.
+carries more weight than verification: on the paths the gate recognizes and
+the refs the ruleset protects, an unfaithful agent still cannot merge a pull
+request or rewrite history. Outside that coverage the runtime's own
+permission flow and the destination's controls are what remain.
 
 ## Existing instances
 
@@ -172,17 +180,23 @@ a pull request or rewrite history.
   detectable rather than merely discouraged. `agent-permission-policy.schema.json`
   validates the *shape* of `generalist-engineering-agent.policy.json`; the
   gate below enforces its *content*.
-- **Mechanically enforced** — hook scripts such as
-  `scripts/protect_main_commit.py` take the outcome out of the agent's hands
-  entirely. The generalist agent identity lives here: its boundary is the
-  `generalist-engineering-agent.policy.json` document, and
+- **Mechanically enforced** — hook scripts take the outcome out of the
+  agent's hands within their stated coverage. `scripts/protect_main_commit.py`
+  blocks ordinary commits on checked-out `main`, on clones that opt into
+  `.githooks` and absent the explicit `AEP_ALLOW_MAIN_COMMIT=1` bypass: a
+  local, bypassable guard. The generalist agent identity lives here: its
+  boundary is the `generalist-engineering-agent.policy.json` document, and
   `scripts/agent_permission_gate.py`, registered as a pre-execution hook,
-  resolves every action a policy statement names to one of three outcomes —
-  deny, human approval, or affirmative allow — while an action no statement
-  addresses falls through to the runtime's own permission handling. The
-  policy document is the boundary; the gate is the mechanism carrying the
-  guarantee, bounded by matcher coverage and by which runtimes fire the hook.
-  Repository CI belongs to this tier for merges to `main`: the `protect-main`
-  ruleset requires the `control-plane-guards` and `aep-copilot-review` status
-  checks, so a failing check blocks the merge regardless of what any agent
-  reports.
+  resolves a matched action and resource pair to deny, human approval, or
+  affirmative allow — human approval rendered as `ask` on Claude Code and
+  GitHub Copilot and as a deny with reason on Codex, whose `ask` fails open
+  — while a pair no statement addresses falls through to the runtime's own
+  permission handling. The policy document is the boundary; the gate is the
+  mechanism carrying the guarantee, bounded by matcher coverage and by which
+  runtimes fire the hook. Repository CI belongs to this tier for merges to
+  `main`: the `protect-main` ruleset requires the `control-plane-guards` and
+  `aep-copilot-review` status checks, so a failing check blocks the merge
+  regardless of what any agent reports. The first is deterministic; the
+  second is a non-model ruleset enforcing a model-derived signal, which
+  [ADR-0006](adr/0006-treat-copilot-review-as-contextual-corroboration.md)
+  treats as contextual corroboration rather than independent verification.
