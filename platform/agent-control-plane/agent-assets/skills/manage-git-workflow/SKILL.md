@@ -319,8 +319,9 @@ The script applies the following contract:
    `git merge <base>`. A real merge is not attempted at all while the
    workbench index holds staged changes, since the merge commit would fold
    them in. The plan lists which predicted conflicts fall on each side before
-   anything runs. The base branch and feature-branch cleanup complete
-   correctly regardless of this outcome.
+   anything runs; that prediction needs Git 2.38 or newer, and the plan
+   reports rather than guesses when it cannot be made. The base branch and
+   feature-branch cleanup complete correctly regardless of this outcome.
 11. Report whether GitHub already deleted the remote branch. Delete it only
     when remote cleanup was explicitly authorized.
 

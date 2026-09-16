@@ -1074,12 +1074,13 @@ def predict_sync_conflicts(
 ) -> tuple[str, ...]:
     """Paths that merging base_branch into workbench_branch would conflict on.
 
-    Uses ``git merge-tree --write-tree`` so the plan can say what the sync
-    would do without touching the working tree. Exit 0 is a clean merge.
-    Exit 1 is a conflicted one — but also what a bad ref returns — so a
-    conflict prediction is accepted only when it begins with the written
-    tree's id. Anything else means no prediction was made (a Git older than
-    2.38, a bad ref) and is raised rather than reported as clean.
+    Uses ``git merge-tree --write-tree`` (Git 2.38 or newer, the documented
+    prerequisite for cleanup) so the plan can say what the sync would do
+    without touching the working tree. Exit 0 is a clean merge. Exit 1 is a
+    conflicted one — but also what a bad ref returns — so a conflict
+    prediction is accepted only when it begins with the written tree's id.
+    Anything else means no prediction was made (an older Git, a bad ref) and
+    is raised rather than reported as clean.
     """
     result = git(
         workspace,
@@ -1111,10 +1112,20 @@ def conflicted_paths(workspace: Path) -> tuple[str, ...]:
 
 
 def merge_in_progress(workspace: Path) -> bool:
-    return (
-        git(workspace, "rev-parse", "--quiet", "--verify", "MERGE_HEAD", check=False)
-        .returncode
-        == 0
+    """Whether MERGE_HEAD exists.
+
+    ``rev-parse --quiet --verify`` exits 0 when the ref exists and 1 when it
+    does not; any other status is a repository that cannot be read, which
+    must not pass for "no merge in progress".
+    """
+    result = git(workspace, "rev-parse", "--quiet", "--verify", "MERGE_HEAD", check=False)
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise CleanupError(
+        f"cannot read merge state: git rev-parse exited {result.returncode}: "
+        + result.stderr.strip()
     )
 
 
@@ -1226,7 +1237,15 @@ def sync_workbench_with_base(
     # checkout, or the final commit can each raise (index state, a hook,
     # signing). Nothing here may leave MERGE_HEAD behind.
     try:
-        if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
+        # --commit overrides a branch.<name>.mergeOptions=--no-commit setting,
+        # which would otherwise let a "successful" merge stop before its
+        # commit; the state is checked afterwards regardless.
+        merged = git(workspace, "merge", "--no-edit", "--commit", base_branch, check=False)
+        if merged.returncode == 0:
+            if merge_in_progress(workspace):
+                raise CleanupError(
+                    "git merge reported success but left MERGE_HEAD in place"
+                )
             return "merged"
         # A nonzero merge is a conflict only when it left unmerged entries.
         # Any other refusal must not be turned into a commit, so it is

@@ -796,6 +796,41 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         hook.unlink()
         scenario.git(scenario.primary, "merge", "--abort")
 
+    def test_merge_in_progress_raises_on_an_unreadable_repository(self):
+        scenario = self.scenario()
+        self.assertFalse(MODULE.merge_in_progress(scenario.primary))
+        real_git = MODULE.git
+
+        def broken_probe(workspace, *arguments, **kwargs):
+            if arguments[:1] == ("rev-parse",) and "MERGE_HEAD" in arguments:
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=128, stdout="", stderr="unreadable"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=broken_probe):
+            with self.assertRaisesRegex(MODULE.CleanupError, "cannot read merge state"):
+                MODULE.merge_in_progress(scenario.primary)
+
+    def test_a_no_commit_merge_option_cannot_leave_the_workbench_mid_merge(self):
+        # branch.<name>.mergeOptions=--no-commit makes a plain merge exit 0
+        # with MERGE_HEAD still present. The sync passes --commit explicitly
+        # and verifies the state, so this returns "merged" with a real commit.
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "unrelated.txt", "capture\n")
+        scenario.git(scenario.primary, "config", "branch.workbench/local.mergeOptions", "--no-commit")
+
+        result = MODULE.sync_workbench_with_base(
+            scenario.primary, workbench_branch="workbench/local", base_branch="main"
+        )
+
+        self.assertEqual(result, "merged")
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
     def test_an_unreadable_index_probe_raises_rather_than_reporting_dirty(self):
         scenario = self.scenario()
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")

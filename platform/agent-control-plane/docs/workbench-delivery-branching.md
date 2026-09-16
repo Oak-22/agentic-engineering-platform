@@ -323,7 +323,8 @@ After a verified merge and authorized local cleanup:
    version is one the pull request carried at one of its commits or at the
    point the branch forked from the base; a conflict anywhere else —
    including a delivered path the workbench edited again after transfer — is
-   workbench work and aborts the merge for manual resolution.
+   workbench work and aborts the merge for manual resolution. Predicting
+   those conflicts in the plan requires Git 2.38 or newer.
 
 Never delete the primary checkout directory during delivery cleanup.
 
