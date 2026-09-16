@@ -1110,6 +1110,31 @@ def conflicted_paths(workspace: Path) -> tuple[str, ...]:
     return _nul_separated(result.stdout)
 
 
+def merge_in_progress(workspace: Path) -> bool:
+    return (
+        git(workspace, "rev-parse", "--quiet", "--verify", "MERGE_HEAD", check=False)
+        .returncode
+        == 0
+    )
+
+
+def abort_merge(workspace: Path) -> None:
+    """Abort an in-progress merge and prove it is gone.
+
+    ``git merge --abort`` exits nonzero when there was nothing to abort, which
+    is fine; what is not fine is MERGE_HEAD surviving the attempt. That is
+    checked directly, so a caller that reports "nothing left behind" is
+    telling the truth.
+    """
+    result = git(workspace, "merge", "--abort", check=False)
+    if merge_in_progress(workspace):
+        raise CleanupError(
+            "git merge --abort did not clear MERGE_HEAD; the workbench is still "
+            "mid-merge and needs manual attention: "
+            + (result.stderr.strip() or f"exit {result.returncode}")
+        )
+
+
 def resolve_delivered_conflicts(
     workspace: Path,
     *,
@@ -1207,7 +1232,7 @@ def sync_workbench_with_base(
         # Any other refusal must not be turned into a commit, so it is
         # aborted and reported as its own outcome.
         if not conflicted_paths(workspace):
-            git(workspace, "merge", "--abort", check=False)
+            abort_merge(workspace)
             return SYNC_MERGE_FAILED
         remaining = resolve_delivered_conflicts(
             workspace, base_branch=base_branch, delivered=delivered, commits=commits
@@ -1216,11 +1241,15 @@ def sync_workbench_with_base(
         if remaining:
             if blocking_out is not None:
                 blocking_out.extend(remaining)
-            git(workspace, "merge", "--abort", check=False)
+            abort_merge(workspace)
             return SYNC_CONFLICT
         git(workspace, "commit", "--no-edit")
-    except CleanupError:
-        git(workspace, "merge", "--abort", check=False)
+    except CleanupError as error:
+        # Abort, but never let a failed abort hide the error that caused it.
+        try:
+            abort_merge(workspace)
+        except CleanupError as abort_error:
+            raise CleanupError(f"{error}; then {abort_error}") from error
         raise
     return SYNC_MERGED_RESOLVED
 

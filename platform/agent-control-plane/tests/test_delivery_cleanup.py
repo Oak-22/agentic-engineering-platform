@@ -737,6 +737,65 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
         self.assertEqual(status.strip(), "")
 
+    def test_an_abort_that_leaves_merge_head_is_reported_not_swallowed(self):
+        # Make `git merge --abort` a no-op so MERGE_HEAD survives; the sync
+        # must say so instead of returning a conflict outcome that claims a
+        # clean workbench.
+        scenario = self.scenario()
+        self._push_main_change(scenario, "tracked.txt", "main moved on\n")
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~2")
+        self._workbench_capture(scenario, "tracked.txt", "undelivered capture\n")
+        real_git = MODULE.git
+
+        def swallowed_abort(workspace, *arguments, **kwargs):
+            if arguments[:2] == ("merge", "--abort"):
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=1, stdout="", stderr="abort failed"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=swallowed_abort):
+            with self.assertRaisesRegex(MODULE.CleanupError, "did not clear MERGE_HEAD"):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local", base_branch="main"
+                )
+        # Leave the fixture consistent for teardown.
+        scenario.git(scenario.primary, "merge", "--abort")
+
+    def test_an_abort_failure_during_error_handling_chains_the_original_error(self):
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1013, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        hooks = scenario.primary / ".git" / "hooks"
+        hooks.mkdir(exist_ok=True)
+        hook = hooks / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o755)
+        real_git = MODULE.git
+
+        def swallowed_abort(workspace, *arguments, **kwargs):
+            if arguments[:2] == ("merge", "--abort"):
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=1, stdout="", stderr="abort failed"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=swallowed_abort):
+            with self.assertRaisesRegex(
+                MODULE.CleanupError,
+                r"(?s)git commit --no-edit.*; then .*did not clear MERGE_HEAD",
+            ):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local", base_branch="main",
+                    delivered=frozenset({"feature.txt"}),
+                    commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
+                )
+        hook.unlink()
+        scenario.git(scenario.primary, "merge", "--abort")
+
     def test_an_unreadable_index_probe_raises_rather_than_reporting_dirty(self):
         scenario = self.scenario()
         scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
