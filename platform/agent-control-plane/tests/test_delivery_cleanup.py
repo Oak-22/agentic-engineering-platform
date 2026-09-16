@@ -705,6 +705,58 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
         self.assertEqual(status.strip(), "A  staged-only.txt")
 
+    def test_a_merge_that_raises_mid_flight_is_aborted_before_propagating(self):
+        # A timeout (or any CleanupError) from the merge invocation itself must
+        # not leave MERGE_HEAD behind. Simulate it by making the merge call
+        # raise after Git has started the merge.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1011, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        real_git = MODULE.git
+
+        def raising_merge(workspace, *arguments, **kwargs):
+            result = real_git(workspace, *arguments, **kwargs)
+            if arguments[:2] == ("merge", "--no-edit"):
+                raise MODULE.CleanupError("simulated timeout during merge")
+            return result
+
+        with mock.patch.object(MODULE, "git", side_effect=raising_merge):
+            with self.assertRaisesRegex(MODULE.CleanupError, "simulated timeout"):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local",
+                    base_branch="main", delivered=frozenset({"feature.txt"}),
+                    commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
+                )
+
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_an_unreadable_index_probe_raises_rather_than_reporting_dirty(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        real_git = MODULE.git
+
+        def failing_probe(workspace, *arguments, **kwargs):
+            if arguments[:3] == ("diff", "--cached", "--quiet"):
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments], returncode=128, stdout="", stderr="index broken"
+                )
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=failing_probe):
+            with self.assertRaisesRegex(MODULE.CleanupError, "cannot read the workbench/local index"):
+                MODULE.sync_workbench_with_base(
+                    scenario.primary, workbench_branch="workbench/local", base_branch="main"
+                )
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
     def test_predict_sync_conflicts_raises_when_no_prediction_was_made(self):
         scenario = self.scenario()
         with self.assertRaisesRegex(MODULE.CleanupError, "cannot predict"):

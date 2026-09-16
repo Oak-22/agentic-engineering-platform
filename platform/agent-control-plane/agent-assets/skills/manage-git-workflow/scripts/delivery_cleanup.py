@@ -1152,15 +1152,23 @@ def sync_workbench_with_base(
         return "fast-forwarded"
     # A real merge ends in a commit of the whole index, so anything already
     # staged would be folded into it. Git refuses such a merge today; this
-    # check keeps that guarantee ours rather than Git's.
-    if git(workspace, "diff", "--cached", "--quiet", check=False).returncode != 0:
+    # check keeps that guarantee ours rather than Git's. ``--quiet`` exits 1
+    # for staged changes and 0 for none; anything else is a probe failure.
+    staged = git(workspace, "diff", "--cached", "--quiet", check=False)
+    if staged.returncode == 1:
         return SYNC_INDEX_DIRTY
-    if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
-        return "merged"
-    # Everything after a failed merge runs under one guard: a probe, a
+    if staged.returncode != 0:
+        raise CleanupError(
+            f"cannot read the {workbench_branch} index: git diff --cached exited "
+            f"{staged.returncode}: " + staged.stderr.strip()
+        )
+    # From the merge invocation onward everything runs under one guard: the
+    # merge itself can time out after writing MERGE_HEAD, and a probe, a
     # checkout, or the final commit can each raise (index state, a hook,
-    # signing), and nothing here may leave MERGE_HEAD behind.
+    # signing). Nothing here may leave MERGE_HEAD behind.
     try:
+        if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
+            return "merged"
         # A nonzero merge is a conflict only when it left unmerged entries.
         # Any other refusal must not be turned into a commit, so it is
         # aborted and reported as its own outcome.
