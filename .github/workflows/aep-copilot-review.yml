@@ -43,6 +43,9 @@ jobs:
     runs-on: ubuntu-latest
     # Covers the two waits below plus checkout and normalization.
     timeout-minutes: 30
+    env:
+      COPILOT_REVIEW_WAIVED: ''
+      HEAD_SHA: ''
     steps:
       - name: Resolve the pull request under evaluation
         env:
