@@ -67,6 +67,13 @@ class CleanupPlan:
     base_oid_at_plan: str
     switch_required: bool
     primary_conflicts: tuple[str, ...]
+    # Paths the merged pull request changed: the proof that main is authoritative
+    # for them when the workbench sync conflicts.
+    delivered_paths: frozenset[str] = frozenset()
+    # Predicted workbench-sync conflicts, split by whether the cleanup may resolve
+    # them (delivered) or must stop (undelivered workbench work).
+    resolvable_conflicts: tuple[str, ...] = ()
+    blocking_conflicts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -806,8 +813,17 @@ def build_cleanup_plan(
             remote_base if return_branch == pull_request.base_branch else return_branch
         )
         at_risk |= paths_written_between(primary, "HEAD", landing)
+    delivered: frozenset[str] = frozenset()
+    resolvable: tuple[str, ...] = ()
+    blocking: tuple[str, ...] = ()
     if workbench_sync_needed:
         at_risk |= paths_written_between(primary, WORKBENCH_BRANCH, remote_base)
+        delivered = delivered_paths(primary, pull_request)
+        predicted = predict_sync_conflicts(
+            primary, workbench_branch=WORKBENCH_BRANCH, base_branch=remote_base
+        )
+        resolvable = tuple(path for path in predicted if path in delivered)
+        blocking = tuple(path for path in predicted if path not in delivered)
 
     remotes = (
         live_remote_branches(primary)
@@ -827,18 +843,116 @@ def build_cleanup_plan(
         base_oid_at_plan=local_base_oid,
         switch_required=switch_required,
         primary_conflicts=obstructing_entries(primary, at_risk),
+        delivered_paths=delivered,
+        resolvable_conflicts=resolvable,
+        blocking_conflicts=blocking,
     )
 
 
-def sync_workbench_with_base(
+SYNC_CONFLICT = "conflict-manual-resolution-required"
+SYNC_MERGED_RESOLVED = "merged-with-delivered-paths-from-base"
+
+
+def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
+    """Paths the merged pull request changed, read from the merge result.
+
+    The first-parent diff of the merge commit is the pull request's net change
+    for both merge and squash merges, and it needs no network call: the merge
+    result is reachable from the fetched base. ``--no-renames`` keeps both
+    sides of a rename so a delete/add conflict on either path is covered.
+    """
+    if pull_request.merge_oid is None:
+        return frozenset()
+    result = git(
+        workspace,
+        "diff",
+        "--name-only",
+        "--no-renames",
+        f"{pull_request.merge_oid}^",
+        pull_request.merge_oid,
+        check=False,
+    )
+    if result.returncode != 0:
+        return frozenset()
+    return frozenset(line for line in result.stdout.splitlines() if line)
+
+
+def predict_sync_conflicts(
     workspace: Path, *, workbench_branch: str, base_branch: str
+) -> tuple[str, ...]:
+    """Paths that merging base_branch into workbench_branch would conflict on.
+
+    Uses ``git merge-tree --write-tree`` so the plan can say what the sync
+    would do without touching the working tree. Empty when the merge is clean
+    or when the local Git predates that mode; execute still checks for real.
+    """
+    result = git(
+        workspace,
+        "merge-tree",
+        "--write-tree",
+        "--name-only",
+        "--no-messages",
+        workbench_branch,
+        base_branch,
+        check=False,
+    )
+    if result.returncode != 1:
+        return ()
+    # Output is the tree id, then one conflicted path per line.
+    return tuple(line for line in result.stdout.splitlines()[1:] if line)
+
+
+def conflicted_paths(workspace: Path) -> tuple[str, ...]:
+    result = git(workspace, "diff", "--name-only", "--diff-filter=U")
+    return tuple(line for line in result.stdout.splitlines() if line)
+
+
+def resolve_delivered_conflicts(
+    workspace: Path, *, base_branch: str, delivered: frozenset[str]
+) -> tuple[str, ...]:
+    """Take base_branch's version of every conflicted path the PR delivered.
+
+    Returns the conflicted paths it did not touch. A path that base_branch
+    deleted is removed; any other is checked out from base_branch. Both are
+    staged so the merge can be committed once nothing else conflicts.
+    """
+    remaining = []
+    for path in conflicted_paths(workspace):
+        if path not in delivered:
+            remaining.append(path)
+            continue
+        exists_on_base = (
+            git(workspace, "cat-file", "-e", f"{base_branch}:{path}", check=False)
+            .returncode
+            == 0
+        )
+        if exists_on_base:
+            git(workspace, "checkout", base_branch, "--", path)
+            git(workspace, "add", "--", path)
+        else:
+            git(workspace, "rm", "--quiet", "--", path)
+    return tuple(remaining)
+
+
+def sync_workbench_with_base(
+    workspace: Path,
+    *,
+    workbench_branch: str,
+    base_branch: str,
+    delivered: frozenset[str] = frozenset(),
 ) -> str:
     """Bring workbench_branch up to date with a freshly fast-forwarded base.
 
     Tries a fast-forward first, the common case when the workbench holds no
     commits of its own beyond the merged history. Falls back to a real merge
-    when it does. Never resolves a conflicting merge automatically: aborts and
-    reports instead, matching this repository's "deny rather than silently
+    when it does.
+
+    A conflict is resolved only on a path the merged pull request changed, and
+    only in favour of the base: the workbench then holds the pre-review draft
+    of something the base holds in its reviewed, merged form, and the pull
+    request's own file list is the proof. A conflict on any other path is
+    undelivered workbench work, so the merge is aborted and reported rather
+    than resolved — matching this repository's "deny rather than silently
     allow" pattern for outcomes that cannot be verified safe.
     """
     if is_ancestor(workspace, base_branch, workbench_branch):
@@ -847,8 +961,14 @@ def sync_workbench_with_base(
         return "fast-forwarded"
     if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
         return "merged"
-    git(workspace, "merge", "--abort", check=False)
-    return "conflict-manual-resolution-required"
+    remaining = resolve_delivered_conflicts(
+        workspace, base_branch=base_branch, delivered=delivered
+    )
+    if remaining or conflicted_paths(workspace):
+        git(workspace, "merge", "--abort", check=False)
+        return SYNC_CONFLICT
+    git(workspace, "commit", "--no-edit")
+    return SYNC_MERGED_RESOLVED
 
 
 def advance_base(plan: CleanupPlan) -> str:
@@ -980,6 +1100,7 @@ def execute_cleanup(plan: CleanupPlan) -> str | None:
             primary,
             workbench_branch=WORKBENCH_BRANCH,
             base_branch=pull_request.base_branch,
+            delivered=plan.delivered_paths,
         )
 
     if branch_exists(primary, pull_request.head_branch):
@@ -1061,6 +1182,17 @@ def render_plan(
                 f"  Workbench sync: {WORKBENCH_BRANCH} is {state} with "
                 f"{plan.pull_request.base_branch}; execute will sync it automatically"
             )
+            if plan.resolvable_conflicts:
+                lines.append(
+                    "    conflicts on delivered paths, resolved from "
+                    f"{plan.pull_request.base_branch}:"
+                )
+                lines.extend(f"      {path}" for path in plan.resolvable_conflicts)
+            if plan.blocking_conflicts:
+                lines.append(
+                    "    BLOCKING conflicts on undelivered paths; the sync will abort:"
+                )
+                lines.extend(f"      {path}" for path in plan.blocking_conflicts)
     return "\n".join(lines)
 
 
@@ -1084,6 +1216,8 @@ def cleanup_plan_as_json(
             "remoteBranch": "present" if plan.remote_branch_exists else "absent",
             "remoteDeletionAttempted": False,
             "workbenchSync": workbench_sync,
+            "workbenchResolvableConflicts": list(plan.resolvable_conflicts),
+            "workbenchBlockingConflicts": list(plan.blocking_conflicts),
         },
         indent=2,
         sort_keys=True,
@@ -1197,11 +1331,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 )
             else:
                 print(render_plan(plan, executed=args.execute, workbench_sync=workbench_sync))
-            if workbench_sync == "conflict-manual-resolution-required":
+            if workbench_sync == SYNC_CONFLICT:
+                blocking = ", ".join(plan.blocking_conflicts) or "paths outside the pull request"
                 print(
-                    f"Workbench sync blocked: {WORKBENCH_BRANCH} could not be merged "
-                    f"with {pull_request.base_branch} without conflicts. Resolve "
-                    f"manually with `git merge {pull_request.base_branch}` on "
+                    f"Workbench sync blocked: {WORKBENCH_BRANCH} conflicts with "
+                    f"{pull_request.base_branch} on undelivered work ({blocking}). "
+                    f"Resolve manually with `git merge {pull_request.base_branch}` on "
                     f"{WORKBENCH_BRANCH}.",
                     file=sys.stderr,
                 )
