@@ -139,8 +139,13 @@ text that entered the context as subject matter — an issue body, a tool
 result, a source file — so it cannot rule out an injected instruction there,
 and it does not prove that the referenced instructions were not themselves
 mutated: altering `AGENTS.md` or an instruction file in a way that survives
-review is a separate attack surface, addressed by source-control review and
-by pinned or signed assets, not by the manifest.
+review is a separate attack surface. Source-control review is the control
+that exists for it, with the limit
+[ADR-0006](adr/0006-treat-copilot-review-as-contextual-corroboration.md)
+records: a pull request that edits the instruction files Copilot reads is
+reviewed under criteria it wrote itself. Closing that gap would take a
+separately trusted boundary such as pinned or signed assets, which the
+repository does not provide. The manifest addresses none of it.
 
 ### Trust postures
 
@@ -155,11 +160,13 @@ step removes one assumption the platform makes about the agent.
    `agent_permission_gate.py` is this step — containment, not persuasion.
 3. **Stop trusting the report.** "The agent says it followed the lifecycle"
    is not evidence. An observer the agent cannot author — an independent
-   review, CI — establishes what happened. The instruction manifest is a
-   step toward this posture rather than an instance of it: its hook-seeded
-   ledger records which instruction sources loaded, not what the agent did
-   with them, and it lives in local runtime storage the agent could in
-   principle alter, so it audits provenance rather than proving execution.
+   review, CI — establishes properties of the resulting change without
+   relying on the agent's account of how it got there. The instruction
+   manifest is a step toward this posture rather than an instance of it:
+   its hook-seeded ledger records which instruction sources loaded, not
+   what the agent did with them, and it lives in local runtime storage the
+   agent could in principle alter, so it audits provenance rather than
+   proving execution.
 
 The steps are additive, not sequential replacements. Step 1's guidance stays
 because it is the only layer with reach into the unenumerated tail. Step 2's
