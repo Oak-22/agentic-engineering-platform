@@ -639,14 +639,55 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
         self.assertEqual(status.strip(), "")
 
-    def test_pull_request_commits_include_every_merge_base(self):
+    def test_carried_entries_cover_fork_point_and_every_introduced_version_in_two_lookups(self):
+        # The branch starts from "feature\n" (fork point), commits "draft\n",
+        # then makes it executable, then deletes it. Every non-deleted version
+        # must be carried, read with one ls-tree (fork) and one git log.
         scenario = self.scenario()
-        commits = MODULE.pull_request_commits(scenario.primary, scenario.merge_oid)
-        fork = scenario.git(
-            scenario.primary, "merge-base", f"{scenario.merge_oid}^1", f"{scenario.merge_oid}^2"
+        branch = "chore/PROJ-1014-versions"
+        scenario.git(scenario.primary, "switch", "-c", branch, "main")
+        target = scenario.primary / "feature.txt"
+        target.write_text("draft\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Draft")
+        target.chmod(0o755)
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Executable")
+        scenario.git(scenario.primary, "rm", "--quiet", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Delete")
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--no-ff", branch, "-m", "Merge versions")
+        merge_oid = scenario.rev_parse("main")
+        fork_entry = MODULE.entry_at(scenario.primary, f"{merge_oid}^1", "feature.txt")
+        draft_oid = scenario.git(
+            scenario.primary, "rev-parse", f"{branch}~2:feature.txt"
         ).stdout.strip()
-        self.assertIn(scenario.head_oid, commits)
-        self.assertIn(fork, commits)
+        real_git = MODULE.git
+        calls: list[tuple[str, ...]] = []
+
+        def counting_git(workspace, *arguments, **kwargs):
+            calls.append(arguments)
+            return real_git(workspace, *arguments, **kwargs)
+
+        with mock.patch.object(MODULE, "git", side_effect=counting_git):
+            carried = MODULE.carried_entries_by_path(
+                scenario.primary, merge_oid, ["feature.txt", "tracked.txt"]
+            )
+
+        self.assertEqual(
+            carried["feature.txt"],
+            frozenset({fork_entry, ("100644", draft_oid), ("100755", draft_oid)}),
+        )
+        self.assertEqual(carried["tracked.txt"], {MODULE.entry_at(scenario.primary, "main", "tracked.txt")})
+        self.assertEqual(sum(1 for c in calls if c and c[0] == "ls-tree"), 1)
+        self.assertEqual(sum(1 for c in calls if c and c[0] == "log"), 1)
+
+    def test_carried_entries_are_empty_without_a_two_parent_merge(self):
+        scenario = self.scenario(squash=True)
+        carried = MODULE.carried_entries_by_path(
+            scenario.primary, scenario.merge_oid, ["feature.txt"]
+        )
+        self.assertEqual(carried, {"feature.txt": frozenset()})
 
     def test_a_delivered_path_with_pathspec_magic_resolves_only_itself(self):
         # "no*.txt" would, as a bare pattern, also match "note.txt". The PR
@@ -696,7 +737,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         result = MODULE.sync_workbench_with_base(
             scenario.primary, workbench_branch="workbench/local", base_branch="main",
             delivered=frozenset({"feature.txt"}),
-            commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
+            carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
         )
 
         self.assertEqual(result, MODULE.SYNC_INDEX_DIRTY)
@@ -729,7 +770,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
                 MODULE.sync_workbench_with_base(
                     scenario.primary, workbench_branch="workbench/local",
                     base_branch="main", delivered=frozenset({"feature.txt"}),
-                    commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
+                    carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
                 )
 
         self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
@@ -791,7 +832,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
                 MODULE.sync_workbench_with_base(
                     scenario.primary, workbench_branch="workbench/local", base_branch="main",
                     delivered=frozenset({"feature.txt"}),
-                    commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
+                    carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
                 )
         hook.unlink()
         scenario.git(scenario.primary, "merge", "--abort")
@@ -1000,7 +1041,7 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
             MODULE.sync_workbench_with_base(
                 scenario.primary, workbench_branch="workbench/local", base_branch="main",
                 delivered=frozenset({"feature.txt"}),
-                commits=MODULE.pull_request_commits(scenario.primary, pr.merge_oid),
+                carried=MODULE.carried_entries_by_path(scenario.primary, pr.merge_oid, ["feature.txt"]),
             )
 
         self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)

@@ -9,9 +9,10 @@ import os
 import re
 import subprocess
 import sys
+from types import MappingProxyType
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 
 WORKBENCH_BRANCH = "workbench/local"
@@ -73,9 +74,10 @@ class CleanupPlan:
     # Paths the merged pull request changed: the proof that main is authoritative
     # for them when the workbench sync conflicts.
     delivered_paths: frozenset[str] = frozenset()
-    # The PR's own commits plus its fork point; the versions of a delivered
-    # path that the workbench may hold and still be safely superseded.
-    pull_request_commits: tuple[str, ...] = ()
+    # For every delivered path, the versions the pull request carried at any
+    # of its commits or fork points: what the workbench may hold and still be
+    # safely superseded. Computed once here and reused by execution.
+    carried_entries: Mapping[str, frozenset[TreeEntry]] = MappingProxyType({})
     # Predicted workbench-sync conflicts, split by whether the cleanup may resolve
     # them (delivered) or must stop (undelivered workbench work).
     resolvable_conflicts: tuple[str, ...] = ()
@@ -833,18 +835,21 @@ def build_cleanup_plan(
         )
         at_risk |= paths_written_between(primary, "HEAD", landing)
     delivered: frozenset[str] = frozenset()
-    commits: tuple[str, ...] = ()
+    carried: dict[str, frozenset[TreeEntry]] = {}
     resolvable: tuple[str, ...] = ()
     blocking: tuple[str, ...] = ()
     if workbench_sync_needed:
         at_risk |= paths_written_between(primary, WORKBENCH_BRANCH, remote_base)
         delivered = delivered_paths(primary, pull_request)
-        commits = pull_request_commits(primary, pull_request.merge_oid)
+        # Every delivered path, not only the predicted conflicts: execution
+        # reuses this and the real conflict set may differ from the prediction.
+        carried = carried_entries_by_path(
+            primary, pull_request.merge_oid, sorted(delivered)
+        )
         predicted = predict_sync_conflicts(
             primary, workbench_branch=WORKBENCH_BRANCH, base_branch=remote_base
         )
         candidates = [path for path in predicted if path in delivered]
-        carried = carried_entries_by_path(primary, commits, candidates)
         workbench_entries = entries_at(primary, WORKBENCH_BRANCH, candidates)
         resolvable = tuple(
             path
@@ -874,7 +879,7 @@ def build_cleanup_plan(
         switch_required=switch_required,
         primary_conflicts=obstructing_entries(primary, at_risk),
         delivered_paths=delivered,
-        pull_request_commits=commits,
+        carried_entries=MappingProxyType(carried),
         resolvable_conflicts=resolvable,
         blocking_conflicts=blocking,
     )
@@ -929,26 +934,26 @@ def merge_commit_paths(workspace: Path, merge_oid: str | None) -> frozenset[str]
     return frozenset(_nul_separated(result.stdout))
 
 
-def pull_request_commits(workspace: Path, merge_oid: str | None) -> tuple[str, ...]:
-    """Commits the pull request carried, plus its fork point from the base.
+def merge_parents(workspace: Path, merge_oid: str | None) -> tuple[str, str] | None:
+    """(first, second) parent of a two-parent merge commit, else None.
 
-    Only a two-parent merge keeps them reachable; a squash or rebase merge
-    yields nothing, so provenance cannot be established and every delivered
-    path fails closed.
+    Only a true merge keeps the pull request's commits reachable; a squash
+    or rebase merge yields None, so provenance cannot be established and
+    every delivered path fails closed.
     """
     if merge_oid is None:
-        return ()
+        return None
     parents = git(workspace, "rev-list", "--parents", "-n", "1", merge_oid, check=False)
     if parents.returncode != 0 or len(parents.stdout.split()) != 3:
-        return ()
-    first, second = f"{merge_oid}^1", f"{merge_oid}^2"
-    listed = git(workspace, "rev-list", second, f"^{first}", check=False)
-    # --all: a criss-cross history has several merge bases, and the version
-    # of a path at any of them is one the branch legitimately started from.
-    forks = git(workspace, "merge-base", "--all", first, second, check=False)
-    if listed.returncode != 0 or forks.returncode != 0:
-        return ()
-    return tuple(listed.stdout.split()) + tuple(forks.stdout.split())
+        return None
+    return f"{merge_oid}^1", f"{merge_oid}^2"
+
+
+def fork_points(workspace: Path, first: str, second: str) -> tuple[str, ...]:
+    """Every merge base of the two parents: a criss-cross history has several,
+    and a path's version at any of them is one the branch started from."""
+    result = git(workspace, "merge-base", "--all", first, second, check=False)
+    return tuple(result.stdout.split()) if result.returncode == 0 else ()
 
 
 # A tree entry is identified by mode and object id together: the same blob
@@ -1022,17 +1027,55 @@ def entries_at(
 
 
 def carried_entries_by_path(
-    workspace: Path, commits: Sequence[str], paths: Sequence[str]
+    workspace: Path, merge_oid: str | None, paths: Sequence[str]
 ) -> dict[str, frozenset[TreeEntry]]:
     """Every version of each path the pull request had at any of its commits.
 
-    One ``ls-tree`` per commit covers every path, so the cost is the number
-    of commits rather than commits times conflicts.
+    Two lookups regardless of history length: one ``ls-tree`` per fork point
+    for the versions the branch started from, and one ``git log --raw`` over
+    the pull request's commit range for every version a commit introduced.
+    ``-m`` includes merge commits inside the range (a base synced into the
+    branch), ``--no-renames`` keeps both sides of a rename separate as a
+    conflict would report them, and ``--no-abbrev`` keeps object ids exact.
+    A deletion introduces no version. Without a two-parent merge the result
+    is empty for every path.
     """
     carried: dict[str, set[TreeEntry]] = {path: set() for path in paths}
-    for commit in commits:
-        for path, entry in entries_at(workspace, commit, paths).items():
+    parents = merge_parents(workspace, merge_oid)
+    if not paths or parents is None:
+        return {path: frozenset() for path in paths}
+    first, second = parents
+    for fork in fork_points(workspace, first, second):
+        for path, entry in entries_at(workspace, fork, paths).items():
             carried[path].add(entry)
+    result = git(
+        workspace,
+        "log",
+        "-z",
+        "--raw",
+        "-m",
+        "--no-renames",
+        "--no-abbrev",
+        "--format=",
+        second,
+        f"^{first}",
+        "--",
+        *(_literal(path) for path in paths),
+        check=False,
+    )
+    if result.returncode != 0:
+        raise CleanupError(
+            "cannot read the pull request's history: git log exited "
+            f"{result.returncode}: " + result.stderr.strip()
+        )
+    # Records alternate: ":<oldmode> <newmode> <oldoid> <newoid> <status>", then the path.
+    records = _nul_separated(result.stdout)
+    for meta, path in zip(records[0::2], records[1::2]):
+        if not meta.startswith(":"):
+            raise CleanupError(f"unexpected git log --raw record: {meta!r}")
+        _old_mode, new_mode, _old_oid, new_oid, _status = meta[1:].split(" ", 4)
+        if path in carried and set(new_oid) != {"0"}:
+            carried[path].add((new_mode, new_oid))
     return {path: frozenset(entries) for path, entries in carried.items()}
 
 
@@ -1151,7 +1194,7 @@ def resolve_delivered_conflicts(
     *,
     base_branch: str,
     delivered: frozenset[str],
-    commits: Sequence[str] = (),
+    carried: Mapping[str, frozenset[TreeEntry]],
 ) -> tuple[str, ...]:
     """Take base_branch's version of every conflicted path the PR delivered.
 
@@ -1163,15 +1206,13 @@ def resolve_delivered_conflicts(
     else conflicts.
     """
     remaining = []
-    conflicted = conflicted_paths(workspace)
-    candidates = [path for path in conflicted if path in delivered]
-    carried = carried_entries_by_path(workspace, commits, candidates)
-    for path in conflicted:
+    for path in conflicted_paths(workspace):
         if path not in delivered:
             remaining.append(path)
             continue
         if not workbench_version_was_delivered(
-            carried=carried[path], workbench_entry=stage_entry(workspace, 2, path)
+            carried=carried.get(path, frozenset()),
+            workbench_entry=stage_entry(workspace, 2, path),
         ):
             remaining.append(path)
             continue
@@ -1197,7 +1238,7 @@ def sync_workbench_with_base(
     workbench_branch: str,
     base_branch: str,
     delivered: frozenset[str] = frozenset(),
-    commits: Sequence[str] = (),
+    carried: Mapping[str, frozenset[TreeEntry]] = MappingProxyType({}),
     blocking_out: list[str] | None = None,
 ) -> str:
     """Bring workbench_branch up to date with a freshly fast-forwarded base.
@@ -1254,7 +1295,7 @@ def sync_workbench_with_base(
             abort_merge(workspace)
             return SYNC_MERGE_FAILED
         remaining = resolve_delivered_conflicts(
-            workspace, base_branch=base_branch, delivered=delivered, commits=commits
+            workspace, base_branch=base_branch, delivered=delivered, carried=carried
         )
         remaining = tuple(dict.fromkeys(remaining + conflicted_paths(workspace)))
         if remaining:
@@ -1405,7 +1446,7 @@ def execute_cleanup(
             workbench_branch=WORKBENCH_BRANCH,
             base_branch=pull_request.base_branch,
             delivered=plan.delivered_paths,
-            commits=plan.pull_request_commits,
+            carried=plan.carried_entries,
             blocking_out=blocking_out,
         )
 
