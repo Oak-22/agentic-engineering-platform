@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1060" viewBox="0 0 1200 1060" role="img" aria-labelledby="title desc">
+  <title id="title">External exact-head Copilot review</title>
+  <desc id="desc">An IDE agent produces a pull request. GitHub runs deterministic guards, requests a separate Copilot review for the exact head commit, normalizes the result into a review gate, and leaves merge authority with a human.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f3f0e8; }
+      .panel { fill: #fffdfa; stroke: #d8d2c6; stroke-width: 2; }
+      .soft { fill: #f1efe9; }
+      .navy { fill: #121b2e; }
+      .blue { fill: #2f67ee; }
+      .green { fill: #16865f; }
+      .amber { fill: #bd6508; }
+      .purple { fill: #7251b5; }
+      .ink { fill: #121b2e; }
+      .muted { fill: #57657a; }
+      .white { fill: #ffffff; }
+      .line { fill: none; stroke: #516074; stroke-width: 2.5; marker-end: url(#arrow); }
+      .return { fill: none; stroke: #7251b5; stroke-width: 2.5; stroke-dasharray: 8 7; marker-end: url(#arrow-purple); }
+      .divider { stroke: #d8d2c6; stroke-width: 2; stroke-dasharray: 8 8; }
+      text { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .eyebrow { font-size: 15px; font-weight: 800; letter-spacing: 2.2px; }
+      .h1 { font-family: Georgia, serif; font-size: 49px; font-weight: 700; }
+      .lead { font-size: 20px; }
+      .h2 { font-size: 26px; font-weight: 800; }
+      .h3 { font-size: 19px; font-weight: 800; }
+      .body { font-size: 16px; }
+      .small { font-size: 14px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 700; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0l10 5-10 5z" fill="#516074"/></marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0l10 5-10 5z" fill="#7251b5"/></marker>
+  </defs>
+
+  <rect class="bg" width="1200" height="1060"/>
+  <text class="eyebrow blue" x="70" y="65">REVIEW ARCHITECTURE</text>
+  <text class="h1 ink" x="70" y="125">External exact-head Copilot review</text>
+  <text class="lead muted" x="70" y="169">A separate GitHub-hosted reviewer evaluates the precise commit produced from the IDE,</text>
+  <text class="lead muted" x="70" y="198">while deterministic checks and a human-controlled merge boundary preserve delivery authority.</text>
+
+  <rect class="panel" x="50" y="240" width="1100" height="590" rx="20"/>
+  <text class="h2 ink" x="80" y="290">One change, two execution surfaces</text>
+  <line class="divider" x1="580" y1="315" x2="580" y2="790"/>
+
+  <rect class="navy" x="80" y="320" width="470" height="48" rx="10"/>
+  <text class="eyebrow white" x="103" y="351">IDE / LOCAL EXECUTION</text>
+  <rect class="soft" x="100" y="405" width="430" height="118" rx="12"/>
+  <rect class="blue" x="100" y="405" width="7" height="118" rx="4"/>
+  <text class="h3 ink" x="128" y="443">Implementing agent session</text>
+  <text class="body muted" x="128" y="476">Codex, Claude, or Copilot works in the IDE</text>
+  <text class="body muted" x="128" y="500">through the Agentic Engineering Platform.</text>
+
+  <rect class="soft" x="100" y="585" width="430" height="118" rx="12"/>
+  <rect class="purple" x="100" y="585" width="7" height="118" rx="4"/>
+  <text class="h3 ink" x="128" y="623">Remediation</text>
+  <text class="body muted" x="128" y="656">Actionable findings return to the producer;</text>
+  <text class="body muted" x="128" y="680">a new push creates a new exact-head review.</text>
+
+  <rect class="navy" x="610" y="320" width="510" height="48" rx="10"/>
+  <text class="eyebrow white" x="633" y="351">GITHUB-HOSTED EXECUTION</text>
+
+  <rect x="630" y="398" width="210" height="100" rx="12" fill="#eef3ff" stroke="#2f67ee" stroke-width="2"/>
+  <text class="h3 ink" x="650" y="430">Pull request</text>
+  <text class="mono blue" x="650" y="460">exact head SHA</text>
+  <text class="small muted" x="650" y="482">visible in PR UI</text>
+
+  <rect x="890" y="398" width="210" height="100" rx="12" fill="#fff5e7" stroke="#bd6508" stroke-width="2"/>
+  <text class="h3 ink" x="910" y="430">Control-plane</text>
+  <text class="h3 ink" x="910" y="455">guards</text>
+  <text class="small muted" x="910" y="480">deterministic checks</text>
+  <path class="line" d="M840 448H888"/>
+
+  <rect x="630" y="555" width="210" height="118" rx="12" fill="#ecf8f3" stroke="#16865f" stroke-width="2"/>
+  <text class="h3 ink" x="650" y="589">Copilot review</text>
+  <text class="body muted" x="650" y="619">Separate session in</text>
+  <text class="body muted" x="650" y="643">GitHub PR + Actions</text>
+  <path class="line" d="M995 500V525H735V553"/>
+
+  <rect x="890" y="555" width="210" height="118" rx="12" fill="#f4effb" stroke="#7251b5" stroke-width="2"/>
+  <text class="h3 ink" x="910" y="589">Review gate</text>
+  <text class="mono purple" x="910" y="619">aep-copilot-review</text>
+  <text class="small muted" x="910" y="647">normalizes findings</text>
+  <path class="line" d="M840 614H888"/>
+
+  <rect x="760" y="720" width="210" height="70" rx="35" fill="#121b2e"/>
+  <text class="h3 white" x="804" y="763">Human merge</text>
+  <path class="line" d="M995 675V755H972"/>
+
+  <path class="line" d="M530 464H570V448H628"/>
+  <text class="small muted" x="545" y="431">open PR</text>
+  <path class="return" d="M890 620H865V745H555V644H532"/>
+  <text class="small purple" x="617" y="733">actionable finding</text>
+
+  <rect class="panel" x="50" y="860" width="1100" height="145" rx="20"/>
+  <rect class="green" x="70" y="883" width="8" height="95" rx="4"/>
+  <text class="h3 ink" x="100" y="913">What “separate” establishes</text>
+  <text class="body muted" x="100" y="943">The reviewer runs outside the implementing IDE session, and the producer cannot grant itself a passing review.</text>
+  <text class="body muted" x="100" y="969">It remains context-aware rather than blind; merge authority stays with the human.</text>
+</svg>
