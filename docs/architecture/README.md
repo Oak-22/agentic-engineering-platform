@@ -10,9 +10,9 @@ belong here.
   canonical, deepest-applicable source, with shallower layers linking inward
   instead of copying mechanics outward.
 - [`control-artifact-assurance-spectrum.md`](control-artifact-assurance-spectrum.md)
-  places every behavior-constraining artifact on a spectrum from interpretive
-  to mechanically enforced, and states how strong an assurance a given control
-  should carry.
+  places every control artifact — anything that constrains agent behavior —
+  on a spectrum from interpretive to mechanically enforced, and states how
+  strong an assurance a given control should carry.
 - [`engineering-knowledge-base.md`](engineering-knowledge-base.md) defines the
   planned portable contract for durable engineering knowledge.
 - [`destination-communication-boundaries.md`](destination-communication-boundaries.md)
