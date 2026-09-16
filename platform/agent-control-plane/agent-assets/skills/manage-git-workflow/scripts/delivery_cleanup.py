@@ -851,7 +851,7 @@ def build_cleanup_plan(
                 primary,
                 commits=commits,
                 path=path,
-                workbench_blob=blob_at(primary, WORKBENCH_BRANCH, path),
+                workbench_entry=entry_at(primary, WORKBENCH_BRANCH, path),
             )
         )
         blocking = tuple(path for path in predicted if path not in resolvable)
@@ -933,36 +933,77 @@ def pull_request_commits(workspace: Path, merge_oid: str | None) -> tuple[str, .
         return ()
     first, second = f"{merge_oid}^1", f"{merge_oid}^2"
     listed = git(workspace, "rev-list", second, f"^{first}", check=False)
-    fork = git(workspace, "merge-base", first, second, check=False)
-    if listed.returncode != 0 or fork.returncode != 0:
+    # --all: a criss-cross history has several merge bases, and the version
+    # of a path at any of them is one the branch legitimately started from.
+    forks = git(workspace, "merge-base", "--all", first, second, check=False)
+    if listed.returncode != 0 or forks.returncode != 0:
         return ()
-    return tuple(listed.stdout.split()) + (fork.stdout.strip(),)
+    return tuple(listed.stdout.split()) + tuple(forks.stdout.split())
 
 
-def blob_at(workspace: Path, revision: str, path: str) -> str | None:
-    result = git(workspace, "rev-parse", "--verify", "--quiet", f"{revision}:{path}", check=False)
-    return result.stdout.strip() or None if result.returncode == 0 else None
+# A tree entry is identified by mode and object id together: the same blob
+# under a different mode (chmod, regular file <-> symlink) is a different
+# version, and Git reports a conflict for that change too.
+TreeEntry = tuple[str, str]
+TREE_MODE = "040000"
 
 
-def carried_blobs(workspace: Path, commits: Sequence[str], path: str) -> frozenset[str]:
+def entry_at(workspace: Path, revision: str, path: str) -> TreeEntry | None:
+    """(mode, oid) of path at revision, or None when the tree lacks it.
+
+    ``ls-tree`` distinguishes the two outcomes this code depends on: exit 0
+    with an entry means present, exit 0 with no output means absent, and any
+    other exit is a lookup failure that must not be mistaken for absence.
+    """
+    result = git(workspace, "ls-tree", "-z", revision, "--", path, check=False)
+    if result.returncode != 0:
+        raise CleanupError(
+            f"cannot read {path} at {revision}: "
+            + (result.stderr.strip() or f"git ls-tree exited {result.returncode}")
+        )
+    entries = _nul_separated(result.stdout)
+    if not entries:
+        return None
+    mode, _type, oid = entries[0].split("\t", 1)[0].split(" ", 2)
+    return (mode, oid)
+
+
+def stage_entry(workspace: Path, stage: int, path: str) -> TreeEntry | None:
+    """(mode, oid) of path at the given index stage during a merge, or None."""
+    result = git(workspace, "ls-files", "--stage", "-z", "--", path)
+    for record in _nul_separated(result.stdout):
+        mode, oid, found_stage = record.split("\t", 1)[0].split(" ", 2)
+        if int(found_stage) == stage:
+            return (mode, oid)
+    return None
+
+
+def carried_entries(
+    workspace: Path, commits: Sequence[str], path: str
+) -> frozenset[TreeEntry]:
     """Every version of path the pull request had at any of its commits."""
-    blobs = {blob_at(workspace, commit, path) for commit in commits}
-    return frozenset(blob for blob in blobs if blob)
+    entries = {entry_at(workspace, commit, path) for commit in commits}
+    return frozenset(entry for entry in entries if entry)
 
 
 def workbench_version_was_delivered(
-    workspace: Path, *, commits: Sequence[str], path: str, workbench_blob: str | None
+    workspace: Path,
+    *,
+    commits: Sequence[str],
+    path: str,
+    workbench_entry: TreeEntry | None,
 ) -> bool:
     """True only when the workbench's version of path is one the PR carried.
 
     That is the provenance the resolution rests on: the workbench holds the
     draft that was transferred (or the fork-point version), so the base's
-    reviewed copy supersedes it. Content the PR never saw is later workbench
-    work, and a workbench-side deletion is undelivered intent; both are False.
+    reviewed copy supersedes it. Content or mode the PR never saw is later
+    workbench work, and a workbench-side deletion is undelivered intent; all
+    are False.
     """
-    if workbench_blob is None or not commits:
+    if workbench_entry is None or not commits:
         return False
-    return workbench_blob in carried_blobs(workspace, commits, path)
+    return workbench_entry in carried_entries(workspace, commits, path)
 
 
 def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
@@ -1035,16 +1076,22 @@ def resolve_delivered_conflicts(
             remaining.append(path)
             continue
         if not workbench_version_was_delivered(
-            workspace, commits=commits, path=path, workbench_blob=blob_at(workspace, ":2", path)
+            workspace,
+            commits=commits,
+            path=path,
+            workbench_entry=stage_entry(workspace, 2, path),
         ):
             remaining.append(path)
             continue
-        exists_on_base = (
-            git(workspace, "cat-file", "-e", f"{base_branch}:{path}", check=False)
-            .returncode
-            == 0
-        )
-        if exists_on_base:
+        # entry_at raises on a lookup failure rather than reporting absence,
+        # so a broken object store cannot masquerade as a deletion on the base.
+        base_entry = entry_at(workspace, base_branch, path)
+        if base_entry is not None and base_entry[0] == TREE_MODE:
+            # A file on the workbench where the base now has a directory is
+            # not a version to supersede; leave it for a human.
+            remaining.append(path)
+            continue
+        if base_entry is not None:
             git(workspace, "checkout", base_branch, "--", path)
             git(workspace, "add", "--", path)
         else:
@@ -1088,7 +1135,7 @@ def sync_workbench_with_base(
     # signing), and nothing here may leave MERGE_HEAD behind.
     try:
         # A nonzero merge is a conflict only when it left unmerged entries.
-        # Any other failure must not be turned into a commit, so it is
+        # Any other refusal must not be turned into a commit, so it is
         # aborted and reported as its own outcome.
         if not conflicted_paths(workspace):
             git(workspace, "merge", "--abort", check=False)
@@ -1489,9 +1536,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
             elif workbench_sync == SYNC_MERGE_FAILED:
                 print(
                     f"Workbench sync blocked: `git merge {pull_request.base_branch}` on "
-                    f"{WORKBENCH_BRANCH} failed without leaving conflicts (a hook, "
-                    "signing, or configuration error). The merge was aborted; run it "
-                    "manually to see the error.",
+                    f"{WORKBENCH_BRANCH} was refused without leaving conflicts. The "
+                    "merge was aborted; run it manually to see Git's reason.",
                     file=sys.stderr,
                 )
             if not args.execute and args.format == "text":

@@ -307,13 +307,15 @@ The script applies the following contract:
    advanced base rather than leaving it to drift: fast-forward it when
    possible, otherwise merge. A conflict is resolved only on a path the
    merged pull request changed, only when the workbench's version of that
-   path is one the pull request itself carried at some commit (the
-   transferred draft or the fork-point version), and only in favour of the
-   base — that provenance is the proof the workbench holds nothing the base
-   has not superseded. A conflict anywhere else — an undelivered path, a
-   delivered path the workbench edited again after transfer, a workbench-side
-   deletion, or any path when the merge method left no reachable pull-request
-   commits — is workbench work: the merge is aborted and the path is named,
+   path — content and mode together — is one the pull request itself carried
+   at some commit (the transferred draft or the fork-point version), and only
+   in favour of the base — that provenance is the proof the workbench holds
+   nothing the base has not superseded. A conflict anywhere else — an
+   undelivered path, a delivered path the workbench edited or re-moded after
+   transfer, a workbench-side deletion, a path the base turned into a
+   directory, or any path when the merge method left no reachable
+   pull-request commits — is workbench work: the merge is aborted and the
+   path is named,
    and `workbench/local` still needs a manual `git merge <base>`. The plan
    lists which predicted conflicts fall on each side before anything runs.
    The base branch and feature-branch cleanup complete correctly regardless

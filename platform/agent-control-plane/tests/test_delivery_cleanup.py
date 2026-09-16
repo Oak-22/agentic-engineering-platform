@@ -565,6 +565,98 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
         self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
 
+    def test_a_mode_change_on_a_delivered_path_blocks_even_with_the_same_content(self):
+        # The workbench holds the transferred draft's bytes but made it
+        # executable. Same blob, different entry: the PR never carried that
+        # mode, so the sync must not discard it.
+        scenario = self.scenario()
+        pr = self._reviewed_pull_request(
+            scenario, 1007, "feature.txt", draft="draft\n", reviewed="reviewed\n"
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        draft_file = scenario.primary / "feature.txt"
+        draft_file.write_text("draft\n", encoding="utf-8")
+        draft_file.chmod(0o755)
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Draft, made executable")
+        self.assertEqual(
+            MODULE.entry_at(scenario.primary, "workbench/local", "feature.txt")[0], "100755"
+        )
+        tip_before = scenario.rev_parse("workbench/local")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        self.assertEqual(plan.resolvable_conflicts, ())
+        self.assertEqual(plan.blocking_conflicts, ("feature.txt",))
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+
+    def test_a_directory_on_the_base_where_the_workbench_has_a_file_blocks(self):
+        # The PR replaces feature.txt with a directory of the same name. The
+        # workbench holds the transferred draft as a file; checking out a
+        # directory over an unmerged file entry is not a resolution the
+        # cleanup performs.
+        scenario = self.scenario()
+        branch = "chore/PROJ-1008-dir"
+        scenario.git(scenario.primary, "switch", "-c", branch, "main")
+        (scenario.primary / "feature.txt").write_text("draft\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Transfer draft")
+        scenario.git(scenario.primary, "rm", "--quiet", "feature.txt")
+        (scenario.primary / "feature.txt").mkdir()
+        (scenario.primary / "feature.txt" / "inner.txt").write_text("x\n", encoding="utf-8")
+        scenario.git(scenario.primary, "add", "feature.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Turn feature into a directory")
+        head = scenario.rev_parse(branch)
+        scenario.git(scenario.primary, "push", "--set-upstream", "origin", branch)
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--no-ff", branch, "-m", f"Merge {branch}")
+        scenario.git(scenario.primary, "push", "origin", "main")
+        pr = MODULE.PullRequest(
+            number=1008, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse("main"), base_branch="main",
+            head_branch=branch, head_oid=head, url="https://example.invalid/pull/1008",
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "draft\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, pr)
+        blocking: list[str] = []
+        sync = MODULE.execute_cleanup(plan, blocking_out=blocking)
+
+        self.assertEqual(sync, MODULE.SYNC_CONFLICT)
+        # Git reports the file side of a directory/file conflict under a
+        # "~HEAD" suffix; either spelling must block, and nothing may move.
+        self.assertTrue(any(path.startswith("feature.txt") for path in blocking), blocking)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_pull_request_commits_include_every_merge_base(self):
+        scenario = self.scenario()
+        commits = MODULE.pull_request_commits(scenario.primary, scenario.merge_oid)
+        fork = scenario.git(
+            scenario.primary, "merge-base", f"{scenario.merge_oid}^1", f"{scenario.merge_oid}^2"
+        ).stdout.strip()
+        self.assertIn(scenario.head_oid, commits)
+        self.assertIn(fork, commits)
+
+    def test_entry_at_distinguishes_absence_from_lookup_failure(self):
+        scenario = self.scenario()
+        self.assertIsNone(MODULE.entry_at(scenario.primary, "main", "no-such-file.txt"))
+        entry = MODULE.entry_at(scenario.primary, "main", "feature.txt")
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry[0], "100644")
+        with self.assertRaisesRegex(MODULE.CleanupError, "cannot read feature.txt"):
+            MODULE.entry_at(scenario.primary, "no-such-revision", "feature.txt")
+
     def test_workbench_conflict_on_an_undelivered_path_still_aborts_and_names_it(self):
         # feature.txt is delivered and would resolve; tracked.txt was never in
         # the pull request, so its conflict is undelivered workbench work.
