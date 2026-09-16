@@ -534,19 +534,81 @@ class CleanupMergedDeliveryTests(unittest.TestCase):
         self.assertEqual(status.strip(), "")
         self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
 
-    def test_delivered_paths_prefer_github_file_list_over_merge_diff(self):
+    def test_delivered_paths_union_github_file_list_with_merge_diff(self):
         scenario = self.scenario()
         from_github = MODULE.PullRequest(
             **{**scenario.pull_request.__dict__, "changed_files": ("from-github.txt",)}
         )
         self.assertEqual(
             MODULE.delivered_paths(scenario.primary, from_github),
-            frozenset({"from-github.txt"}),
+            frozenset({"from-github.txt", "feature.txt"}),
         )
         self.assertEqual(
             MODULE.delivered_paths(scenario.primary, scenario.pull_request),
             frozenset({"feature.txt"}),
         )
+
+    def test_a_merge_that_fails_without_conflicts_is_aborted_not_committed(self):
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "unrelated.txt", "capture\n")
+        tip_before = scenario.rev_parse("workbench/local")
+        hooks = scenario.primary / ".git" / "hooks"
+        hooks.mkdir(exist_ok=True)
+        hook = hooks / "pre-merge-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o755)
+
+        result = MODULE.sync_workbench_with_base(
+            scenario.primary, workbench_branch="workbench/local", base_branch="main",
+            delivered=frozenset({"feature.txt"}),
+        )
+
+        self.assertEqual(result, MODULE.SYNC_MERGE_FAILED)
+        self.assertEqual(scenario.rev_parse("workbench/local"), tip_before)
+        self.assertFalse((scenario.primary / ".git" / "MERGE_HEAD").exists())
+        status = scenario.git(scenario.primary, "status", "--porcelain=v1").stdout
+        self.assertEqual(status.strip(), "")
+
+    def test_workbench_conflict_on_the_source_side_of_a_delivered_rename_is_resolved(self):
+        # The PR renames feature.txt -> renamed.txt and rewrites its content,
+        # so Git's rename detection does not pair them and the workbench's
+        # edit to feature.txt surfaces as a modify/delete conflict on the
+        # source path. GitHub's file list names only the destination.
+        scenario = self.scenario()
+        scenario.git(scenario.primary, "switch", "-c", "chore/PROJ-1002-rename", "main")
+        scenario.git(scenario.primary, "mv", "feature.txt", "renamed.txt")
+        (scenario.primary / "renamed.txt").write_text(
+            "entirely rewritten on the delivery branch\n" * 4, encoding="utf-8"
+        )
+        scenario.git(scenario.primary, "add", "renamed.txt")
+        scenario.git(scenario.primary, "commit", "-m", "Rename and rewrite feature")
+        rename_head = scenario.rev_parse("chore/PROJ-1002-rename")
+        scenario.git(scenario.primary, "push", "--set-upstream", "origin", "chore/PROJ-1002-rename")
+        scenario.git(scenario.primary, "switch", "main")
+        scenario.git(scenario.primary, "merge", "--no-ff", "chore/PROJ-1002-rename", "-m", "Merge rename")
+        scenario.git(scenario.primary, "push", "origin", "main")
+        rename_pr = MODULE.PullRequest(
+            number=1002, state="MERGED", merged_at="2026-08-04T00:00:00Z",
+            merge_oid=scenario.rev_parse("main"), base_branch="main",
+            head_branch="chore/PROJ-1002-rename", head_oid=rename_head,
+            url="https://example.invalid/pull/1002",
+            changed_files=("renamed.txt",),
+        )
+        scenario.git(scenario.primary, "switch", "-c", "workbench/local", "main~1")
+        self._workbench_capture(scenario, "feature.txt", "workbench edit before rename\n")
+        scenario.git(scenario.primary, "switch", "main")
+
+        plan = MODULE.build_cleanup_plan(scenario.primary, rename_pr)
+        self.assertIn("feature.txt", plan.delivered_paths)
+        self.assertEqual(plan.blocking_conflicts, ())
+
+        sync = MODULE.execute_cleanup(plan)
+
+        self.assertEqual(sync, MODULE.SYNC_MERGED_RESOLVED)
+        self.assertFalse((scenario.primary / "feature.txt").exists())
+        self.assertTrue((scenario.primary / "renamed.txt").exists())
+        self.assertTrue(MODULE.is_ancestor(scenario.primary, "main", "workbench/local"))
 
     def test_delivered_paths_fail_closed_for_a_rebase_merge_without_a_file_list(self):
         # Two PR commits replayed onto main: the tip's parent is the first

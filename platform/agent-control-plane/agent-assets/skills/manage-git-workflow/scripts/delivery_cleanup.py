@@ -867,29 +867,25 @@ def build_cleanup_plan(
 
 SYNC_CONFLICT = "conflict-manual-resolution-required"
 SYNC_MERGED_RESOLVED = "merged-with-delivered-paths-from-base"
+SYNC_MERGE_FAILED = "merge-failed-manual-resolution-required"
 
 
-def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
-    """Paths the merged pull request changed.
+def _nul_separated(output: str) -> tuple[str, ...]:
+    return tuple(item for item in output.split("\0") if item)
 
-    GitHub's own file list is authoritative and covers every merge method, so
-    it is used whenever the pull-request data carried it. Without it, the
-    merge commit's first-parent diff is a complete substitute only for a true
-    merge commit (two parents): a squash is one commit whose parent diff is
-    complete too, but a rebase-and-merge replays several commits and the last
-    one's parent is the previous replayed commit, not the base — so anything
-    other than a two-parent merge fails closed with an empty set, which makes
-    every conflict block rather than risk resolving an undelivered path.
-    ``--no-renames`` keeps both sides of a rename so a delete/add conflict on
-    either path is covered.
+
+def merge_commit_paths(workspace: Path, merge_oid: str | None) -> frozenset[str]:
+    """First-parent diff of a two-parent merge commit, both sides of renames.
+
+    Complete only for a true merge commit: a rebase-and-merge replays several
+    commits and the tip's parent is the previous replayed commit, not the
+    base, so anything with one parent yields nothing. ``--no-renames`` lists a
+    rename's source and destination separately, which is what a merge
+    conflict reports.
     """
-    if pull_request.changed_files is not None:
-        return frozenset(pull_request.changed_files)
-    if pull_request.merge_oid is None:
+    if merge_oid is None:
         return frozenset()
-    parents = git(
-        workspace, "rev-list", "--parents", "-n", "1", pull_request.merge_oid, check=False
-    )
+    parents = git(workspace, "rev-list", "--parents", "-n", "1", merge_oid, check=False)
     if parents.returncode != 0 or len(parents.stdout.split()) != 3:
         return frozenset()
     result = git(
@@ -897,13 +893,31 @@ def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str
         "diff",
         "--name-only",
         "--no-renames",
-        f"{pull_request.merge_oid}^1",
-        pull_request.merge_oid,
+        "-z",
+        f"{merge_oid}^1",
+        merge_oid,
         check=False,
     )
     if result.returncode != 0:
         return frozenset()
-    return frozenset(line for line in result.stdout.splitlines() if line)
+    return frozenset(_nul_separated(result.stdout))
+
+
+def delivered_paths(workspace: Path, pull_request: PullRequest) -> frozenset[str]:
+    """Paths the merged pull request changed.
+
+    The union of two sources, each covering what the other cannot. GitHub's
+    file list covers every merge method but names only a rename's
+    destination; the merge commit's first-parent diff names both sides of a
+    rename but is complete only for a two-parent merge. With neither — a
+    squash or rebase merge whose data carried no file list — the set is empty
+    and every conflict blocks, rather than risk resolving an undelivered path.
+    """
+    delivered: set[str] = set()
+    if pull_request.changed_files is not None:
+        delivered.update(pull_request.changed_files)
+    delivered.update(merge_commit_paths(workspace, pull_request.merge_oid))
+    return frozenset(delivered)
 
 
 def predict_sync_conflicts(
@@ -921,19 +935,20 @@ def predict_sync_conflicts(
         "--write-tree",
         "--name-only",
         "--no-messages",
+        "-z",
         workbench_branch,
         base_branch,
         check=False,
     )
     if result.returncode != 1:
         return ()
-    # Output is the tree id, then one conflicted path per line.
-    return tuple(line for line in result.stdout.splitlines()[1:] if line)
+    # Output is the tree id, then one conflicted path per NUL-terminated entry.
+    return _nul_separated(result.stdout)[1:]
 
 
 def conflicted_paths(workspace: Path) -> tuple[str, ...]:
-    result = git(workspace, "diff", "--name-only", "--diff-filter=U")
-    return tuple(line for line in result.stdout.splitlines() if line)
+    result = git(workspace, "diff", "--name-only", "--diff-filter=U", "-z")
+    return _nul_separated(result.stdout)
 
 
 def resolve_delivered_conflicts(
@@ -990,6 +1005,12 @@ def sync_workbench_with_base(
         return "fast-forwarded"
     if git(workspace, "merge", "--no-edit", base_branch, check=False).returncode == 0:
         return "merged"
+    # A nonzero merge is a conflict only when it left unmerged entries. Any
+    # other failure (a hook, a signing or configuration error) must not be
+    # turned into a commit, so it is aborted and reported as its own outcome.
+    if not conflicted_paths(workspace):
+        git(workspace, "merge", "--abort", check=False)
+        return SYNC_MERGE_FAILED
     remaining = resolve_delivered_conflicts(
         workspace, base_branch=base_branch, delivered=delivered
     )
@@ -1367,6 +1388,14 @@ def main(arguments: Sequence[str] | None = None) -> int:
                     f"{pull_request.base_branch} on undelivered work ({blocking}). "
                     f"Resolve manually with `git merge {pull_request.base_branch}` on "
                     f"{WORKBENCH_BRANCH}.",
+                    file=sys.stderr,
+                )
+            elif workbench_sync == SYNC_MERGE_FAILED:
+                print(
+                    f"Workbench sync blocked: `git merge {pull_request.base_branch}` on "
+                    f"{WORKBENCH_BRANCH} failed without leaving conflicts (a hook, "
+                    "signing, or configuration error). The merge was aborted; run it "
+                    "manually to see the error.",
                     file=sys.stderr,
                 )
             if not args.execute and args.format == "text":
