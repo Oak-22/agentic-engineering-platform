@@ -77,16 +77,18 @@ pr_for() {
 # in GitHub rather than in the session, so it can be shown even while the main thread is
 # idle behind a monitor. One `gh pr checks` call costs about a second, so it is cached in
 # the state file as {gate, gateAt} and re-queried only when there is no cached state, when
-# the cached state is pending and older than 60 s, or when it is settled and older than
-# 10 min (a new push reopens the gate). Prints one glyph, or nothing when unknown.
+# the cached state is pending or unknown and older than 60 s, or when it is settled and
+# older than 10 min (a new push reopens the gate). An unknown state (no checks yet, or
+# GitHub unreachable) is cached like a pending one, so an outage costs one call per minute
+# rather than one per prompt. Prints one glyph, or nothing when unknown.
 gate_for() {
   local pr="$1" cached gate at now age ttl state
   cached=$(jq -r '.gatePr // ""' "$STATE")
   gate=$(jq -r '.gate // ""' "$STATE")
   at=$(jq -r '.gateAt // 0' "$STATE")
   now=$(date +%s); age=$((now - at))
-  ttl=600; [ "$gate" = "pending" ] && ttl=60
-  if [ "$cached" = "$pr" ] && [ -n "$gate" ] && [ "$age" -lt "$ttl" ]; then
+  ttl=600; { [ "$gate" = "pending" ] || [ -z "$gate" ]; } && ttl=60
+  if [ "$cached" = "$pr" ] && [ "$at" -gt 0 ] && [ "$age" -lt "$ttl" ]; then
     state="$gate"
   else
     state=$(gh pr checks "${pr#\#}" --json name,bucket --jq \

@@ -48,10 +48,11 @@ behind a monitor, and the tab's own activity glyph reports only the main turn �
 the tab strip an in-flight delivery and a finished one look the same. The PR's check
 state lives in GitHub, not in the session, so the hook can show it regardless. One
 `gh pr checks` call costs about a second, so it is cached as `gatePr`/`gate`/`gateAt`
-and re-queried only when there is no cached state, when the cached state is pending and
-older than 60 s, or when it is settled and older than 10 min (a new push reopens the
-gate). While a gate is in flight that bounds the cost to one call per minute per
-session; once green it is near zero.
+and re-queried only when there is no cached state, when the cached state is pending or
+unknown and older than 60 s, or when it is settled and older than 10 min (a new push
+reopens the gate). An unknown state — no checks yet, or GitHub unreachable — is cached
+like a pending one. While a gate is in flight that bounds the cost to one call per minute
+per session; once green it is near zero.
 
 The lookup runs the `delivery_worktrees.py` that sits next to the hook script, against the
 current repository's toplevel. It never executes the copy the current repository ships:
