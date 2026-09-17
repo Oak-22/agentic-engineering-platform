@@ -53,6 +53,12 @@ older than 60 s, or when it is settled and older than 10 min (a new push reopens
 gate). While a gate is in flight that bounds the cost to one call per minute per
 session; once green it is near zero.
 
+The lookup runs the `delivery_worktrees.py` that sits next to the hook script, against the
+current repository's toplevel. It never executes the copy the current repository ships:
+the hook fires in every repository the user opens, so running repository-local code would
+let any cloned repository execute code on session start. The current repository's copy is
+only tested for existence, as the signal that it carries a claim registry.
+
 Sessions with no claim, and repositories without the registry script, fall back to the
 branch-or-folder title unchanged.
 

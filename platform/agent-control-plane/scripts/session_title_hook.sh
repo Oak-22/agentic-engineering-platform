@@ -31,17 +31,25 @@ where() {
   echo "$w"
 }
 
+# The registry is read by the lister that sits next to this hook, never by the copy the
+# current repository ships. The hook is user-scope and fires in every repository the user
+# opens, so running repository-local code here would let any cloned repository execute code
+# on session start. The current repository's copy is only tested for existence, as the
+# signal that it carries a claim registry at all.
+HOOK_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+LISTER="$HOOK_DIR/delivery_worktrees.py"
+
 # The primary checkout stays pinned to the workbench during governed delivery, so its branch
 # says nothing about what this session is delivering. The worktree claim registry does: it
 # records the delivery branch per owning agent, and the owner id is this session's id. Prints
 # the claimed branch, or nothing when this session owns no active claim or the repository
 # has no registry (the hook is user-scope and fires in every repository).
 claimed_branch() {
-  local cwd="$1" top script
+  local cwd="$1" top
   top=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || return 0
-  script="$top/platform/agent-control-plane/scripts/delivery_worktrees.py"
-  [ -f "$script" ] || return 0
-  (cd "$top" && python3 "$script" list --format json 2>/dev/null) \
+  [ -f "$top/platform/agent-control-plane/scripts/delivery_worktrees.py" ] || return 0
+  [ -f "$LISTER" ] || return 0
+  (cd "$top" && python3 "$LISTER" list --format json 2>/dev/null) \
     | jq -r --arg a "claude:${SESSION_ID:0:8}" \
         '[.[] | select(.status == "active" and .agent == $a)][0].branch // empty'
 }
