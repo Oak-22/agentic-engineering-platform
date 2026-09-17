@@ -212,7 +212,7 @@ agentic-engineering-platform/
 │   ├── diagrams/
 │   ├── operations/
 │   └── glossary.md
-├── future/                           # Shaped but not implemented change plans
+├── future/                           # Provisional design-doc store
 └── scripts/                          # Repository-wide automation
 ```
 
@@ -242,7 +242,10 @@ agentic-engineering-platform/
   component. Potential reuse alone is not enough; at least two pillars must
   share the artifact's lifecycle or interface.
 - [`docs/`](docs/) separates architecture, diagrams, and operations material;
-  [`future/`](future/) holds shaped change plans that are not implemented.
+  [`future/`](future/) is the provisional design-doc store: repository-coupled
+  intent captured before Jira activation and kept there until its intended
+  state reaches `main` (see
+  [ADR-0007](docs/architecture/adr/0007-define-the-lifecycle-of-deferred-intent-in-future.md)).
 - [`scripts/`](scripts/) is reserved for repository-wide integration and
   maintenance automation. Component-specific scripts remain with their owning
   platform pillar.

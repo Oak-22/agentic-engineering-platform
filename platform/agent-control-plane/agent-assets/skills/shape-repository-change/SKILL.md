@@ -68,18 +68,22 @@ request, review, or other lifecycle state.
 
 ## Associate candidates with captured plans
 
-`future/` holds shaped change plans whose intended state has not reached
-`main`. A candidate whose change a plan already describes is that plan being
-realized, whether or not a Jira work item exists for it yet. Check before
-returning:
+`future/` is the provisional design-doc store: shaped intent captured before
+Jira activation and kept there, once activated, until its intended state
+reaches `main` (see
+[ADR-0007](../../../../../docs/architecture/adr/0007-define-the-lifecycle-of-deferred-intent-in-future.md)).
+A candidate whose change a plan already describes is that plan being
+realized, whether or not anyone has activated it yet. Check before returning:
 
 1. For each candidate, search every `future/*.md` for the candidate's
    relative paths, their basenames, and the names of the skills, packages, or
    components those paths belong to. Read a matching plan far enough to
    confirm the overlap is the plan's intended change and not an incidental
    mention.
-2. Record the match on the candidate so the work item created for it can
-   reference the plan as its scope brief instead of restating the outcome.
+2. Record the match on the candidate. Its Jira work item activates the plan
+   and carries it as scope brief rather than restating the outcome, and the
+   delivering pull request owes the plan a terminal disposition: promote,
+   delete, or split.
 3. A candidate with no match is unplanned work and is shaped from the
    evidence alone. A plan with no candidate is untouched captured intent and
    needs no mention.
