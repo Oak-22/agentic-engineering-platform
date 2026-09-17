@@ -20,8 +20,8 @@ def load(relative: str) -> dict:
         raise ValueError(f"cannot load {relative}: {error}") from error
 
 
-def require_file(relative: str, label: str) -> None:
-    if relative.startswith("~/"):
+def require_file(relative: str, label: str, *, allow_user_scope: bool = False) -> None:
+    if allow_user_scope and relative.startswith("~/"):
         # user-scope registration: machine-local, absent in CI by design
         return
     if not (ROOT / relative).is_file():
@@ -38,7 +38,11 @@ def validate_hooks() -> int:
         if "registration" in hook:
             registrations = [hook]
         for registration in registrations:
-            require_file(registration["registration"], f"hook {hook['id']} registration")
+            require_file(
+                registration["registration"],
+                f"hook {hook['id']} registration",
+                allow_user_scope=True,
+            )
         count += 1
     return count
 

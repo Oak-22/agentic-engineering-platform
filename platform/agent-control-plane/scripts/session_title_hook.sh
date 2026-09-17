@@ -16,7 +16,10 @@
 
 STATE_DIR=~/.claude/hooks/state
 INPUT=$(cat)
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+# The id names a file under STATE_DIR, so anything outside the control plane's filename
+# alphabet (see safe_session_id in instruction_manifest_hook.py) is replaced before use;
+# a real Claude Code session id is a UUID and passes through unchanged.
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' | tr -c 'A-Za-z0-9_.\-\n' '_')
 STATE="$STATE_DIR/$SESSION_ID.json"
 
 emit_none() { echo '{}'; exit 0; }
@@ -87,7 +90,7 @@ gate_for() {
     state="$gate"
   else
     state=$(gh pr checks "${pr#\#}" --json name,bucket --jq \
-      'if length==0 then "" elif any(.[]; .bucket=="fail") then "fail"
+      'if length==0 then "" elif any(.[]; .bucket=="fail" or .bucket=="cancel") then "fail"
        elif any(.[]; .bucket=="pending") then "pending"
        elif all(.[]; .bucket=="pass" or .bucket=="skipping") then "pass" else "" end' 2>/dev/null)
     jq --arg p "$pr" --arg g "$state" --argjson t "$now" '.gatePr = $p | .gate = $g | .gateAt = $t' \
@@ -148,8 +151,15 @@ start)
     emit_none
   fi
 
-  # Seed the state before deriving the title, since pr_for caches into it.
-  jq -n --arg m "$MODEL" '{model: $m, title: "", userOwned: false}' > "$STATE"
+  # Seed the state before deriving the title, since pr_for caches into it. On a resume or
+  # fork the prior file's PR and gate cache is still valid, so it is carried over rather
+  # than re-queried.
+  if [ -f "$STATE" ]; then
+    jq --arg m "$MODEL" '.model = $m | .title = "" | .userOwned = false' "$STATE" > "$STATE.tmp" \
+      && mv "$STATE.tmp" "$STATE"
+  else
+    jq -n --arg m "$MODEL" '{model: $m, title: "", userOwned: false}' > "$STATE"
+  fi
   TITLE=$(title_for_session "$MODEL" "$CWD")
   jq --arg t "$TITLE" '.title = $t' "$STATE" > "$STATE.tmp" && mv "$STATE.tmp" "$STATE"
   jq -n --arg t "$TITLE" '{hookSpecificOutput: {hookEventName: "SessionStart", sessionTitle: $t}}'

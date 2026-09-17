@@ -74,14 +74,17 @@ still the hook's; any other non-empty title means the user renamed the tab, and
 
 ```json
 "hooks": {
-  "SessionStart":     [{"matcher": "startup|resume|fork", "hooks": [{"type": "command", "command": "~/Projects/dev/agentic-engineering-platform/platform/agent-control-plane/scripts/session_title_hook.sh start"}]}],
-  "UserPromptSubmit": [{"matcher": "*", "hooks": [{"type": "command", "command": "~/Projects/dev/agentic-engineering-platform/platform/agent-control-plane/scripts/session_title_hook.sh refresh"}]}],
-  "PostModelSwitch":  [{"matcher": ".*", "hooks": [{"type": "command", "command": "~/Projects/dev/agentic-engineering-platform/platform/agent-control-plane/scripts/session_title_hook.sh model-switch"}]}],
-  "SessionEnd":       [{"matcher": "*", "hooks": [{"type": "command", "command": "~/Projects/dev/agentic-engineering-platform/platform/agent-control-plane/scripts/session_title_hook.sh cleanup"}]}]
+  "SessionStart":     [{"matcher": "startup|resume|fork", "hooks": [{"type": "command", "command": "<repository-root>/platform/agent-control-plane/scripts/session_title_hook.sh start"}]}],
+  "UserPromptSubmit": [{"matcher": "*", "hooks": [{"type": "command", "command": "<repository-root>/platform/agent-control-plane/scripts/session_title_hook.sh refresh"}]}],
+  "PostModelSwitch":  [{"matcher": ".*", "hooks": [{"type": "command", "command": "<repository-root>/platform/agent-control-plane/scripts/session_title_hook.sh model-switch"}]}],
+  "SessionEnd":       [{"matcher": "*", "hooks": [{"type": "command", "command": "<repository-root>/platform/agent-control-plane/scripts/session_title_hook.sh cleanup"}]}]
 }
 ```
 
-The command references the canonical script path directly, per the hook adapter rule in
+`<repository-root>` stands for the developer's local checkout of this repository; each
+developer substitutes their own path when adding the block to `~/.claude/settings.json`,
+which is why the registration is user-scope and never committed. The command references
+the canonical script path directly, per the hook adapter rule in
 `../instructions/agent-context-routing.md`. Guards (`verify_hook_registrations.py`,
 `validate_asset_registries.py`) check this registration on a machine where
 `~/.claude/settings.json` exists and report it as unconfirmed elsewhere.
