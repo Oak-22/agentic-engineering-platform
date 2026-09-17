@@ -106,14 +106,15 @@ gate_for() {
 }
 
 # "<model> | <branch-or-folder>" outside delivery; with a claim, the Jira key (the branch's
-# second segment), the PR and its gate state when known, then the branch.
+# second segment, in the grammar JIRA_KEY_PATTERN in delivery_worktrees.py accepts), the PR
+# and its gate state when known, then the branch.
 title_for_session() {
   local model="$1" cwd="$2" branch key pr gate
   branch=$(claimed_branch "$cwd")
   if [ -z "$branch" ]; then
     title_for "$model" "$(where "$cwd")"; return 0
   fi
-  key=$(echo "$branch" | cut -d/ -f2 | grep -oE '^[A-Z][A-Z0-9]+-[0-9]+')
+  key=$(echo "$branch" | cut -d/ -f2 | grep -oE '^[A-Z][A-Z0-9_]*-[1-9][0-9]*')
   pr=$(pr_for "$branch")
   [ -n "$pr" ] && gate=$(gate_for "$pr")
   echo "${model#claude-} | ${key:-?}${pr:+ | $pr${gate:+ $gate}} | $branch"
