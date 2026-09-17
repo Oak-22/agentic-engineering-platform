@@ -578,6 +578,14 @@ class ReadUsageTests(unittest.TestCase):
         ]
         self.assertEqual(self._samples(lines, "codex")[0].git_branch, "agent/AEPI-33-x")
 
+    def test_claude_never_backfills_the_branch_from_the_session_header(self):
+        first = self._claude_line()
+        later = self._claude_line()
+        del later["gitBranch"]
+        samples = self._samples([first, later], "claude")
+        self.assertEqual(samples[0].git_branch, "feature/AEPI-7-x")
+        self.assertIsNone(samples[1].git_branch)
+
     def test_unknown_runtime_raises(self):
         with self.assertRaises(ValueError):
             self._samples([], "gemini")

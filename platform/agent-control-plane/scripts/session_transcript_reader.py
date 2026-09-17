@@ -268,8 +268,9 @@ class UsageSample:
     always zero.
 
     git_branch is the join key onto a governed engineering outcome, and it
-    is runtime-specific evidence: Claude records it per line, Codex records
-    it once per session, so read_usage backfills it from the session header.
+    is runtime-specific evidence: Claude records it per line, so each sample
+    carries its own; Codex records it once per session, so read_usage
+    backfills Codex samples from the session header and never Claude's.
 
     cache_write_1h_tokens is the portion of cache_creation_tokens written at
     the one-hour TTL, which bills at a different multiple of the base input
@@ -453,7 +454,13 @@ def read_usage(path: Path, runtime: str) -> Iterator[UsageSample]:
         raise ValueError(f"unknown runtime: {runtime}")
     sample_of = _claude_usage_sample if runtime == "claude" else _codex_usage_sample
     session_id = _session_id_from_path(path, runtime)
-    session_branch = read_session_context(path, runtime).git_branch
+    # Only Codex leaves the branch off its samples: it records it once, in
+    # session_meta. Claude records it on every line, so a Claude sample
+    # without one is evidence of its own and must not inherit the branch the
+    # session started on.
+    session_branch = (
+        read_session_context(path, runtime).git_branch if runtime == "codex" else None
+    )
 
     with path.open("r", encoding="utf-8") as handle:
         for line in handle:
