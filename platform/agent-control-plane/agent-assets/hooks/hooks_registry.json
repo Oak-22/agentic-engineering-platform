@@ -119,6 +119,24 @@
       "events": ["PostToolUse"],
       "matcher": "Artifact",
       "documentation": ".claude/hooks/README.md"
+    },
+    {
+      "id": "session-title",
+      "ownership": "runtime-owned",
+      "runtime": "claude",
+      "scope": "user",
+      "portableEquivalent": false,
+      "implementation": "platform/agent-control-plane/scripts/session_title_hook.sh",
+      "invocation": "start | refresh | model-switch | cleanup (one subcommand per event, in that order)",
+      "registration": "~/.claude/settings.json",
+      "events": [
+        "SessionStart",
+        "UserPromptSubmit",
+        "PostModelSwitch",
+        "SessionEnd"
+      ],
+      "documentation": "platform/agent-control-plane/agent-assets/hooks/session-title.md",
+      "note": "User-scope: registered in the machine-local ~/.claude/settings.json, so it fires in every Claude Code session on the machine, not per repository. Guards verify it where that file exists and report it as unconfirmed where it does not (CI)."
     }
   ]
 }
