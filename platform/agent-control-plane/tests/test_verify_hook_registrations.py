@@ -3,9 +3,12 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT_PATH = (
@@ -49,11 +52,20 @@ class LiveRegistryTests(unittest.TestCase):
     def test_unverified_legs_are_reported_without_failing(self):
         findings = verifier.verify(self.registry)
         self.assertEqual(errors(findings), [])
-        reported = unconfirmed(findings)
-        self.assertEqual(len(reported), 2)
-        for message in reported:
+        declared = [m for m in unconfirmed(findings) if "verified: false" in m]
+        self.assertEqual(len(declared), 2)
+        for message in declared:
             self.assertIn("github-copilot", message)
-            self.assertIn("verified: false", message)
+
+    def test_a_user_scope_registration_is_unconfirmed_where_absent(self):
+        """A `~/`-prefixed registration exists only on a developer machine, never in CI."""
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {"HOME": home}):
+            findings = verifier.verify(self.registry)
+        self.assertEqual(errors(findings), [])
+        messages = [m for m in unconfirmed(findings) if "user-scope" in m]
+        self.assertEqual(len(messages), 1)
+        self.assertIn("session-title", messages[0])
+        self.assertIn("~/.claude/settings.json", messages[0])
 
 
 class MismatchTests(unittest.TestCase):
