@@ -72,3 +72,4 @@ the earlier record under `supersedes`.
 - [ADR-0004: Move the GitHub MCP surface to a remote transport](0004-move-github-mcp-to-a-remote-transport.md)
 - [ADR-0005: Stop agent delivery at human acceptance](0005-stop-agent-delivery-at-human-acceptance.md)
 - [ADR-0006: Treat Copilot review as contextual corroboration](0006-treat-copilot-review-as-contextual-corroboration.md)
+- [ADR-0007: Define the lifecycle of deferred intent in future/](0007-define-the-lifecycle-of-deferred-intent-in-future.md)

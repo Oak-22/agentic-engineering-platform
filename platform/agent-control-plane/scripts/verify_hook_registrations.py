@@ -26,8 +26,20 @@ REGISTRY = "platform/agent-control-plane/agent-assets/hooks/hooks_registry.json"
 # Every control-plane hook implementation is invoked by its repository-relative
 # path, however the surrounding command spells the repository root.
 IMPLEMENTATION_PATTERN = re.compile(
-    r"platform/agent-control-plane/scripts/[A-Za-z0-9_./-]+\.py"
+    r"platform/agent-control-plane/scripts/[A-Za-z0-9_./-]+\.(?:py|sh)"
 )
+
+
+def registration_path(registration: str) -> Path:
+    """Resolve a registration file: repository-relative, or a user-scope `~/...` path.
+
+    A user-scope registration lives in the machine-local runtime config (e.g.
+    `~/.claude/settings.json`) and so exists only on a developer machine, never
+    in CI. Its absence is therefore reported as unconfirmed, not as an error.
+    """
+    if registration.startswith("~/"):
+        return Path(registration).expanduser()
+    return ROOT / registration
 
 
 class Registration(NamedTuple):
@@ -147,7 +159,7 @@ def legs(registry: dict) -> list[Leg]:
 
 def read_registrations(leg: Leg) -> list[Registration]:
     """Parse one registration file in whichever format its runtime requires."""
-    path = ROOT / leg.registration
+    path = registration_path(leg.registration)
     if path.suffix == ".json":
         return read_json_command_registrations(path)
     return read_shell_registrations(path, leg.events)
@@ -160,9 +172,18 @@ def verify(registry: dict) -> list[Finding]:
     declared: set[tuple[str, str, str]] = set()
 
     for leg in legs(registry):
-        path = ROOT / leg.registration
+        path = registration_path(leg.registration)
         location = f"hook '{leg.hook_id}' runtime '{leg.runtime}'"
 
+        if not path.is_file() and leg.registration.startswith("~/"):
+            findings.append(
+                Finding(
+                    "unconfirmed",
+                    f"{location}: user-scope registration file is not present "
+                    f"on this machine: {leg.registration}",
+                )
+            )
+            continue
         if not path.is_file():
             findings.append(
                 Finding(

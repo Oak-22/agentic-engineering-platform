@@ -9,7 +9,9 @@ Jira-keyed sibling worktree for every scoped delivery, created from current
 `main`. When an outcome is already bounded, skip workbench shaping and create
 the delivery worktree directly from current `main`. Shape coherent
 workbench outcomes and transfer them, in dependency order, to delivery
-branches. Reviewed pull requests
+branches. Keep well-developed intent whose delivery is deliberately
+postponed in `future/`, the provisional design-doc store, and activate it
+into Jira when its time comes. Reviewed pull requests
 advance `main`; the workbench does not.
 
 Keep integrated terminals in the primary VS Code window scoped to its
@@ -57,8 +59,11 @@ delivery practices. It inherits the DORA fundamentals of:
 - running fast automated checks; and
 - avoiding prolonged stabilization and integration phases.
 
-The workbench may be long-lived; independently deliverable work within it
-should not be. See DORA's guidance on
+The workbench branch persists across delivery cycles, but its rest state is
+equality with `main`: after post-merge cleanup,
+`git diff --quiet main..workbench/local` exits 0. Anything the workbench
+holds that `main` lacks is undelivered work, including a `future/` plan,
+which reaches `main` through its own pull request. See DORA's guidance on
 [trunk-based development](https://dora.dev/capabilities/trunk-based-development/)
 and [continuous integration](https://dora.dev/capabilities/continuous-integration/).
 
@@ -69,6 +74,7 @@ and [continuous integration](https://dora.dev/capabilities/continuous-integratio
 | `workbench/local` (recommended for agent co-programming; optional) | Evolving developer-intent state | Atomic checkpoints for experiments, reports, semantic cleanup, and other continuous stewardship |
 | `<category>/<JIRA-ISSUE-KEY>-<slug>` | Bounded delivery state | One Jira outcome assembled for verification and review |
 | `main` | Reviewed integration state | Accepted outcomes merged through pull requests |
+| `future/` (directory on `main`) | Provisional design-doc store | Implementation-coupled intent captured before Jira activation and kept until its intended state reaches `main` |
 
 Keep the primary checkout on private `workbench/local` for ad hoc changes
 that arise from frequent context switching. Never switch it for Jira delivery.
@@ -102,6 +108,27 @@ every Jira-scoped implementation.
 Atomic workbench commits are capture boundaries, not guaranteed Jira or pull
 request boundaries. Cherry-pick a commit when it maps cleanly to one outcome;
 otherwise transfer selected paths or hunks and create a clean delivery commit.
+
+### Deferred intent: `future/`
+
+1. Capture research, constraints, and proposed structure for a postponed
+   change as one `future/` artifact when losing them would cost real
+   reconstruction effort and no canonical document owns the intent. Deliver
+   the capture to `main` through its own pull request; it is unordered and
+   unowned there, since prioritization belongs to Jira.
+2. Activate it by shaping the accountable outcome and creating or resolving
+   its Jira work item. Keep Jira concise: state, owner, acceptance, and a
+   reference to the artifact, which remains the implementation scope brief.
+3. Create the Jira-keyed delivery branch from current `main` and implement
+   the bounded outcome in its claimed worktree.
+4. Give the artifact its terminal disposition in the same pull request:
+   promote durable content into an ADR or canonical documentation, delete it
+   when code and delivery records fully embody it, or split unrealized
+   residue into new bounded artifacts. Everything remaining under `future/`
+   describes a state that has not reached `main`.
+
+[ADR-0007](../architecture/adr/0007-define-the-lifecycle-of-deferred-intent-in-future.md)
+owns the lifecycle, its entry criteria, and the reasoning.
 
 ## Reusable Codex delivery prompt
 
