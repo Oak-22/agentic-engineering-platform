@@ -12,7 +12,7 @@ for the pattern this is one instance of.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time
 import json
 from pathlib import Path
@@ -204,6 +204,11 @@ def _codex_thinking_tokens(obj: dict[str, Any]) -> int:
     return _nested_int(payload, "info", "last_token_usage", "reasoning_output_tokens")
 
 
+def _optional_str(value: Any) -> str | None:
+    """A non-empty string, or None. Empty and wrong-typed both mean absent."""
+    return value if isinstance(value, str) and value else None
+
+
 def _session_id_from_path(path: Path, runtime: str) -> str:
     if runtime == "claude":
         return path.stem
@@ -250,3 +255,227 @@ def read_turns(path: Path, runtime: str) -> Iterator[TranscriptTurn]:
                 tool_calls=tool_calls,
                 thinking_tokens=thinking_tokens_of(obj),
             )
+
+
+@dataclass(frozen=True)
+class UsageSample:
+    """Billed token usage for one model call, normalized across runtimes.
+
+    A second projection of the same session files read_turns walks, kept
+    separate because the two answer different questions: read_turns
+    reconstructs what was said, this reconstructs what it cost. Sharing one
+    dataclass would put nine usage fields on every text turn, where they are
+    always zero.
+
+    git_branch is the join key onto a governed engineering outcome, and it
+    is runtime-specific evidence: Claude records it per line, so each sample
+    carries its own; Codex records it once per session, so read_usage
+    backfills Codex samples from the session header and never Claude's.
+
+    cache_write_1h_tokens is the portion of cache_creation_tokens written at
+    the one-hour TTL, which bills at a different multiple of the base input
+    rate than the five-minute TTL. It is a subset, never an addition: the
+    five-minute portion is the remainder. Codex reports no TTL split, so the
+    field stays zero there and the whole write prices at one rate.
+    """
+
+    runtime: str
+    session_id: str
+    timestamp: str | None
+    model: str | None
+    git_branch: str | None
+    input_tokens: int
+    output_tokens: int
+    cache_creation_tokens: int
+    cache_read_tokens: int
+    thinking_tokens: int
+    cache_write_1h_tokens: int = 0
+
+    @property
+    def billable_input_tokens(self) -> int:
+        """Every token charged as input, at whatever rate.
+
+        Cache reads and cache writes are billed separately from uncached
+        input, so a caller pricing them must not use this; it exists for
+        volume and cache-ratio reporting, where the three are one quantity.
+        """
+        return self.input_tokens + self.cache_creation_tokens + self.cache_read_tokens
+
+
+def _claude_usage_sample(
+    obj: dict[str, Any], session_id: str
+) -> UsageSample | None:
+    """Read one Claude assistant message's usage block, or None.
+
+    Usage sits on `message.usage` and is absent from user, summary, and
+    metadata lines, which is the normal case rather than an error. The
+    top-level `gitBranch` is Claude's own record of the checkout at the
+    moment of the call — trusted as-is, since re-deriving it from git now
+    would report today's branch for a call made weeks ago."""
+    if obj.get("type") != "assistant":
+        return None
+    message = obj.get("message")
+    if not isinstance(message, dict) or not isinstance(message.get("usage"), dict):
+        return None
+    branch = obj.get("gitBranch")
+    model = message.get("model")
+    return UsageSample(
+        runtime="claude",
+        session_id=session_id,
+        timestamp=obj.get("timestamp"),
+        model=model if isinstance(model, str) and model else None,
+        git_branch=branch if isinstance(branch, str) and branch else None,
+        input_tokens=_nested_int(message, "usage", "input_tokens"),
+        output_tokens=_nested_int(message, "usage", "output_tokens"),
+        cache_creation_tokens=_nested_int(
+            message, "usage", "cache_creation_input_tokens"
+        ),
+        cache_read_tokens=_nested_int(message, "usage", "cache_read_input_tokens"),
+        thinking_tokens=_claude_thinking_tokens(obj),
+        cache_write_1h_tokens=_nested_int(
+            message, "usage", "cache_creation", "ephemeral_1h_input_tokens"
+        ),
+    )
+
+
+def _codex_usage_sample(obj: dict[str, Any], session_id: str) -> UsageSample | None:
+    """Read one Codex `token_count` event's per-turn usage delta, or None.
+
+    Reads `last_token_usage` for the same reason _codex_thinking_tokens
+    does: it is the per-turn delta, so samples sum the way Claude's do,
+    while `total_token_usage` is cumulative and would overcount once per
+    event. Codex reports `cached_input_tokens` inclusive of the uncached
+    count, so the cached portion is subtracted out to match Claude's
+    disjoint input/cache-read split; the model is not on this event and no
+    branch is recorded at all."""
+    payload = obj.get("payload")
+    if not isinstance(payload, dict) or payload.get("type") != "token_count":
+        return None
+    info = payload.get("info")
+    if not isinstance(info, dict) or not isinstance(info.get("last_token_usage"), dict):
+        return None
+    total_input = _nested_int(info, "last_token_usage", "input_tokens")
+    cache_read = _nested_int(info, "last_token_usage", "cached_input_tokens")
+    return UsageSample(
+        runtime="codex",
+        session_id=session_id,
+        timestamp=obj.get("timestamp"),
+        model=None,
+        git_branch=None,
+        input_tokens=max(total_input - cache_read, 0),
+        output_tokens=_nested_int(info, "last_token_usage", "output_tokens"),
+        cache_creation_tokens=_nested_int(
+            info, "last_token_usage", "cache_write_input_tokens"
+        ),
+        cache_read_tokens=cache_read,
+        thinking_tokens=_nested_int(
+            info, "last_token_usage", "reasoning_output_tokens"
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class SessionContext:
+    """Session-level facts recorded once per file, not per model call.
+
+    Both runtimes state where a session ran and on which branch, but at
+    different granularities: Claude repeats them on every line, Codex
+    writes them once in its opening `session_meta`. Reading them through
+    one shape lets a caller filter sessions by repository without knowing
+    which runtime wrote the file.
+    """
+
+    runtime: str
+    session_id: str
+    cwd: str | None
+    git_branch: str | None
+
+
+def _first_lines(path: Path, limit: int) -> Iterator[dict[str, Any]]:
+    with path.open("r", encoding="utf-8") as handle:
+        for index, line in enumerate(handle):
+            if index >= limit:
+                return
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict):
+                yield obj
+
+
+def read_session_context(path: Path, runtime: str) -> SessionContext:
+    """Read where one session ran, without walking the whole file.
+
+    Both runtimes put this at the top — Codex in its opening `session_meta`
+    line, Claude on every line including the first — so a bounded scan of
+    the head is enough. The bound is a guard against a file whose opening
+    lines are all summaries, not an expectation that the answer is deep."""
+    if runtime not in ("claude", "codex"):
+        raise ValueError(f"unknown runtime: {runtime}")
+    session_id = _session_id_from_path(path, runtime)
+    cwd: str | None = None
+    branch: str | None = None
+
+    for obj in _first_lines(path, 40):
+        if runtime == "claude":
+            cwd = cwd or _optional_str(obj.get("cwd"))
+            branch = branch or _optional_str(obj.get("gitBranch"))
+        else:
+            if obj.get("type") != "session_meta":
+                continue
+            payload = obj.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            cwd = cwd or _optional_str(payload.get("cwd"))
+            git = payload.get("git")
+            if isinstance(git, dict):
+                branch = branch or _optional_str(git.get("branch"))
+        if cwd and branch:
+            break
+
+    return SessionContext(
+        runtime=runtime, session_id=session_id, cwd=cwd, git_branch=branch
+    )
+
+
+def read_usage(path: Path, runtime: str) -> Iterator[UsageSample]:
+    """Parse one session file into billed-usage samples, line by line.
+
+    Yields one UsageSample per model call that reported usage, and nothing
+    for the many lines that carry none. Shares read_turns' discipline: a
+    line that fails json.loads is skipped rather than raised, so a session
+    being written to right now can still be read. Pure function: no writes,
+    no network, no mutation of the source file."""
+    if runtime not in ("claude", "codex"):
+        raise ValueError(f"unknown runtime: {runtime}")
+    sample_of = _claude_usage_sample if runtime == "claude" else _codex_usage_sample
+    session_id = _session_id_from_path(path, runtime)
+    # Only Codex leaves the branch off its samples: it records it once, in
+    # session_meta. Claude records it on every line, so a Claude sample
+    # without one is evidence of its own and must not inherit the branch the
+    # session started on.
+    session_branch = (
+        read_session_context(path, runtime).git_branch if runtime == "codex" else None
+    )
+
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(obj, dict):
+                continue
+            sample = sample_of(obj, session_id)
+            if sample is None:
+                continue
+            if sample.git_branch is None and session_branch is not None:
+                sample = replace(sample, git_branch=session_branch)
+            yield sample
