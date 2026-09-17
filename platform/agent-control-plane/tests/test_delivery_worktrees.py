@@ -242,6 +242,24 @@ class OwnershipRecordTests(unittest.TestCase):
             )
 
 
+class ReadOnlyLookupTests(unittest.TestCase):
+    """`list` is a pure read: it must not create the store or the repo-local mirror."""
+
+    def test_status_resolves_the_record_without_creating_the_store(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            root.mkdir()
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            store = Path(directory) / "store"
+            with mock.patch.dict("os.environ", {"AEP_DELIVERY_WORKTREE_DIR": str(store)}):
+                path = MODULE.ownership_path(root, create=False)
+                MODULE.status(root)
+
+            self.assertEqual(path.name, MODULE.OWNERSHIP_FILENAME)
+            self.assertFalse(store.exists())
+            self.assertFalse((root / ".local-mirrors").exists())
+
+
 class RefreshDecisionTests(unittest.TestCase):
     def test_a_current_branch_needs_no_merge(self):
         action, detail = MODULE.refresh_decision(True, (), 0)

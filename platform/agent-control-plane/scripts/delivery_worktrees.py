@@ -325,8 +325,17 @@ def reject_nested_worktree_target(root: Path, target: Path) -> None:
         )
 
 
-def ownership_path(root: Path) -> Path:
+def ownership_path(root: Path, *, create: bool = True) -> Path:
+    """Locate the ownership record for this repository.
+
+    Mutating operations create the store and its repo-local view on the way.
+    A pure read (`status`, hence `list`) resolves the same path without
+    touching the filesystem, so a caller that only looks — such as a hook
+    firing on every prompt — leaves no metadata or mirror link behind.
+    """
     store = _sibling("local_store")
+    if not create:
+        return store.store_root(STORE_NAME, project_dir=root) / OWNERSHIP_FILENAME
     canonical, _ = store.ensure_store(
         STORE_NAME, repo_root=root, project_dir=root, create=True
     )
@@ -739,7 +748,9 @@ def _release_locked(
 
 
 def status(root: Path) -> tuple[Reconciled, ...]:
-    reconciled = reconcile(load_ownership(ownership_path(root)), live_worktrees(root))
+    reconciled = reconcile(
+        load_ownership(ownership_path(root, create=False)), live_worktrees(root)
+    )
     return tuple(
         item
         if item.status != REGISTERED_LIVE or item.branch is None
