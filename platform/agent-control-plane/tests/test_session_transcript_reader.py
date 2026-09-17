@@ -421,5 +421,199 @@ class SessionIdFromPathTests(unittest.TestCase):
         )
 
 
+class ReadSessionContextTests(unittest.TestCase):
+    def _context(self, lines, runtime, name="s.jsonl"):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / name
+            _write_jsonl(path, lines)
+            return reader.read_session_context(path, runtime)
+
+    def test_claude_reads_cwd_and_branch_from_a_line(self):
+        context = self._context(
+            [{"type": "user", "cwd": "/repo", "gitBranch": "feature/AEPI-1-x"}],
+            "claude",
+        )
+        self.assertEqual(context.cwd, "/repo")
+        self.assertEqual(context.git_branch, "feature/AEPI-1-x")
+
+    def test_codex_reads_cwd_and_branch_from_session_meta(self):
+        context = self._context(
+            [
+                {
+                    "type": "session_meta",
+                    "payload": {"cwd": "/repo", "git": {"branch": "main"}},
+                }
+            ],
+            "codex",
+        )
+        self.assertEqual(context.cwd, "/repo")
+        self.assertEqual(context.git_branch, "main")
+
+    def test_absent_metadata_yields_none_rather_than_a_guess(self):
+        context = self._context([{"type": "user", "message": {"content": "hi"}}], "claude")
+        self.assertIsNone(context.cwd)
+        self.assertIsNone(context.git_branch)
+
+    def test_empty_string_counts_as_absent(self):
+        context = self._context(
+            [{"type": "user", "cwd": "", "gitBranch": ""}], "claude"
+        )
+        self.assertIsNone(context.cwd)
+        self.assertIsNone(context.git_branch)
+
+    def test_codex_ignores_a_non_dict_git_block(self):
+        context = self._context(
+            [{"type": "session_meta", "payload": {"cwd": "/repo", "git": None}}],
+            "codex",
+        )
+        self.assertEqual(context.cwd, "/repo")
+        self.assertIsNone(context.git_branch)
+
+    def test_unknown_runtime_raises(self):
+        with self.assertRaises(ValueError):
+            self._context([], "gemini")
+
+
+class ReadUsageTests(unittest.TestCase):
+    def _samples(self, lines, runtime):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "s.jsonl"
+            _write_jsonl(path, lines)
+            return list(reader.read_usage(path, runtime))
+
+    def _claude_line(self, **usage):
+        base = {
+            "input_tokens": 10,
+            "output_tokens": 20,
+            "cache_creation_input_tokens": 30,
+            "cache_read_input_tokens": 40,
+        }
+        base.update(usage)
+        return {
+            "type": "assistant",
+            "timestamp": "2026-09-01T00:00:00Z",
+            "gitBranch": "feature/AEPI-7-x",
+            "message": {"model": "claude-opus-5", "usage": base},
+        }
+
+    def test_claude_reads_every_billed_field(self):
+        sample = self._samples([self._claude_line()], "claude")[0]
+        self.assertEqual(sample.runtime, "claude")
+        self.assertEqual(sample.model, "claude-opus-5")
+        self.assertEqual(sample.git_branch, "feature/AEPI-7-x")
+        self.assertEqual(sample.input_tokens, 10)
+        self.assertEqual(sample.output_tokens, 20)
+        self.assertEqual(sample.cache_creation_tokens, 30)
+        self.assertEqual(sample.cache_read_tokens, 40)
+
+    def test_claude_reads_the_one_hour_cache_write_split(self):
+        line = self._claude_line(
+            cache_creation_input_tokens=100,
+            cache_creation={
+                "ephemeral_1h_input_tokens": 70,
+                "ephemeral_5m_input_tokens": 30,
+            },
+        )
+        sample = self._samples([line], "claude")[0]
+        self.assertEqual(sample.cache_creation_tokens, 100)
+        self.assertEqual(sample.cache_write_1h_tokens, 70)
+
+    def test_one_hour_split_defaults_to_zero_when_absent(self):
+        self.assertEqual(self._samples([self._claude_line()], "claude")[0].cache_write_1h_tokens, 0)
+
+    def test_billable_input_sums_the_three_input_rates(self):
+        self.assertEqual(self._samples([self._claude_line()], "claude")[0].billable_input_tokens, 80)
+
+    def test_lines_without_a_usage_block_yield_nothing(self):
+        lines = [
+            {"type": "user", "message": {"content": "hi"}},
+            {"type": "assistant", "message": {"content": []}},
+            {"type": "summary", "summary": "x"},
+        ]
+        self.assertEqual(self._samples(lines, "claude"), [])
+
+    def test_malformed_json_line_is_skipped_not_raised(self):
+        samples = self._samples(["{not json", self._claude_line()], "claude")
+        self.assertEqual(len(samples), 1)
+
+    def test_codex_subtracts_the_cached_portion_from_input(self):
+        """Codex reports cached_input_tokens inclusive of input_tokens, so a
+        naive read would double-count the cached half at the full rate."""
+        line = {
+            "type": "event_msg",
+            "timestamp": "2026-09-01T00:00:00Z",
+            "payload": {
+                "type": "token_count",
+                "info": {
+                    "last_token_usage": {
+                        "input_tokens": 1000,
+                        "cached_input_tokens": 900,
+                        "output_tokens": 50,
+                        "cache_write_input_tokens": 0,
+                        "reasoning_output_tokens": 5,
+                    }
+                },
+            },
+        }
+        sample = self._samples([line], "codex")[0]
+        self.assertEqual(sample.input_tokens, 100)
+        self.assertEqual(sample.cache_read_tokens, 900)
+        self.assertEqual(sample.billable_input_tokens, 1000)
+        self.assertEqual(sample.thinking_tokens, 5)
+        self.assertIsNone(sample.model)
+
+    def test_codex_backfills_the_branch_from_the_session_header(self):
+        lines = [
+            {
+                "type": "session_meta",
+                "payload": {"cwd": "/repo", "git": {"branch": "agent/AEPI-33-x"}},
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {"last_token_usage": {"input_tokens": 5, "output_tokens": 1}},
+                },
+            },
+        ]
+        self.assertEqual(self._samples(lines, "codex")[0].git_branch, "agent/AEPI-33-x")
+
+    def test_claude_never_backfills_the_branch_from_the_session_header(self):
+        first = self._claude_line()
+        later = self._claude_line()
+        del later["gitBranch"]
+        samples = self._samples([first, later], "claude")
+        self.assertEqual(samples[0].git_branch, "feature/AEPI-7-x")
+        self.assertIsNone(samples[1].git_branch)
+
+    def test_unknown_runtime_raises(self):
+        with self.assertRaises(ValueError):
+            self._samples([], "gemini")
+
+
+class ReadTurnsUnaffectedByUsageProjectionTests(unittest.TestCase):
+    """read_usage was added beside read_turns, not through it. The snapshot
+    consumer depends on read_turns' shape, so a usage-carrying line must
+    still produce exactly the turn it produced before."""
+
+    def test_assistant_usage_line_still_yields_one_text_turn(self):
+        line = {
+            "type": "assistant",
+            "gitBranch": "main",
+            "message": {
+                "model": "claude-opus-5",
+                "content": [{"type": "text", "text": "hello"}],
+                "usage": {"input_tokens": 1, "output_tokens": 2},
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "s.jsonl"
+            _write_jsonl(path, [line])
+            turns = list(reader.read_turns(path, "claude"))
+        self.assertEqual(len(turns), 1)
+        self.assertEqual(turns[0].role, "assistant")
+        self.assertEqual(turns[0].text, "hello")
+
+
 if __name__ == "__main__":
     unittest.main()

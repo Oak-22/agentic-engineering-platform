@@ -532,3 +532,29 @@ python3 migrate_local_stores.py --repo-root ../../..
 
 After reviewing the JSON plan, add `--execute` to copy and verify content and
 repoint safe `.local-mirrors/` views. The command never deletes legacy sources.
+
+## Session transcript reading
+
+`session_transcript_reader.py` is the one read-only port onto Claude Code and
+Codex session files. It never writes, never caches, and re-reads the live
+producer file on every call; see
+[`../docs/strategy/session-transcript-reader.md`](../docs/strategy/session-transcript-reader.md)
+for the design and
+[`../docs/strategy/native-provider-state-ports.md`](../docs/strategy/native-provider-state-ports.md)
+for the pattern it instances.
+
+It offers three projections of the same files, because consumers ask
+different questions of them:
+
+| Call | Yields | Consumer |
+| --- | --- | --- |
+| `read_turns(path, runtime)` | What was said and which tools ran, per turn | the `render-ai-conversation` skill |
+| `read_usage(path, runtime)` | Billed tokens per model call, with model and branch | `platform/inference-telemetry-dashboard` |
+| `read_session_context(path, runtime)` | Where a session ran and on which branch | filtering sessions to one repository |
+
+`locate_sessions(runtime, since)` enumerates a runtime's sessions across every
+project on the machine, so a caller that wants one repository filters on
+`read_session_context(...).cwd` rather than assuming the file's location.
+
+Adding a runtime means adding its path pattern and payload accessors here, not
+a second reader beside a consumer.

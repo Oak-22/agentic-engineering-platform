@@ -161,6 +161,13 @@ STORES: dict[str, StoreSpec] = {
         summary="Ownership of the Git worktree backing each active Jira delivery.",
         owner=PLATFORM_OWNED,
     ),
+    "telemetry-reports": StoreSpec(
+        dirname="telemetry-reports",
+        env_var="AEP_TELEMETRY_REPORT_DIR",
+        project_scoped=True,
+        summary="Rendered inference cost reports projected from local session transcripts.",
+        owner=PLATFORM_OWNED,
+    ),
     "artifact-archive": StoreSpec(
         dirname="artifact-archive",
         env_var="AEP_ARTIFACT_ARCHIVE_DIR",
