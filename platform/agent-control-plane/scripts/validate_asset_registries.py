@@ -21,6 +21,9 @@ def load(relative: str) -> dict:
 
 
 def require_file(relative: str, label: str) -> None:
+    if relative.startswith("~/"):
+        # user-scope registration: machine-local, absent in CI by design
+        return
     if not (ROOT / relative).is_file():
         raise ValueError(f"{label} does not resolve: {relative}")
 
