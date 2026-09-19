@@ -63,9 +63,10 @@ across the run. Wave 1 confirmed this against the transcripts: reported
 103,257 against a final-request footprint of 101,282, and the other three
 within 2% likewise. Record it as **final context**.
 
-Spend comes from `read_usage` on the subagent's output JSONL at
-`/private/tmp/claude-501/<project-slug>/<coordinator-session>/tasks/<agent-id>.output`.
-That directory does not survive a reboot, so copy each file to
+Spend comes from `read_usage` on the subagent's output JSONL, which the
+harness writes under its per-session task directory (`tasks/<agent-id>.output`
+beneath the coordinator session's scratch directory, a machine-local path the
+session announces). That directory does not survive a reboot, so copy each file to
 `.local-mirrors/parallel-delivery-waves/wave-NN/` (gitignored) as its agent
 hands back. Report per agent: output tokens, thinking tokens, cache
 creation, cache read, and sample count (one sample per model call). Thinking

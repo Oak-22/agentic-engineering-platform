@@ -145,8 +145,9 @@ and whose readiness JSON has a non-empty `disputedFindings`.
 ## Risks
 
 - Copilot's reviewer account may not resolve threads it did not open, and
-  thread resolution needs the GraphQL mutation `pull_request_review_write`
-  wraps. Confirm the MCP scope covers it before Unit 1 relies on it.
+  thread resolution needs the GraphQL `resolveReviewThread` mutation, which
+  `pull_request_review_write` does not expose. Confirm the MCP scope covers
+  it before Unit 1 relies on it.
 - A disputed finding that the human then agrees with has no return path
   here; the human requests changes and the ordinary fix loop runs. State
   that in the gate doc so `disputed` is not read as final.

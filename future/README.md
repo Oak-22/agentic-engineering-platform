@@ -3,8 +3,8 @@
 A provisional design-doc store: repository-coupled plans shaped enough to
 keep but deliberately not yet activated as Jira work. It is unordered; a
 ranked list of these is a backlog, and that lives in Jira. The lifecycle
-below is proposed in [deferred-intent-lifecycle-adr.md](deferred-intent-lifecycle-adr.md) and
-not yet an accepted ADR.
+below is defined by
+[ADR-0007](../docs/architecture/adr/0007-define-the-lifecycle-of-deferred-intent-in-future.md).
 
 ## What belongs here
 

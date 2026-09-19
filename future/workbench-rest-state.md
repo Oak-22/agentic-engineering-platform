@@ -48,7 +48,7 @@ independently reviewable and separately revertible.
 
 **Touches**
 - `future/README.md`
-- `future/deferred-intent-lifecycle-adr.md`
+- `docs/architecture/adr/0007-define-the-lifecycle-of-deferred-intent-in-future.md`
 - `docs/operations/governed-repository-delivery.md`
 
 **Mechanism** — State in `future/README.md` that a captured plan is committed
