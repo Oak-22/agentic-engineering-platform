@@ -49,6 +49,12 @@ class CopilotGateTests(unittest.TestCase):
         )
         self.assertEqual(result["conclusion"], "neutral")
 
+    def test_neutral_without_any_recorded_dispute_fails(self):
+        result = MODULE.gate(
+            review(status="neutral", disputedFindings=[]), head_sha="abc1234"
+        )
+        self.assertEqual(result["conclusion"], "failure")
+
     def test_disputed_findings_never_pass_as_success(self):
         # A payload cannot declare success while listing disputes; the dispute
         # keeps the result visible for a human decision.
