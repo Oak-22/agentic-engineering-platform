@@ -242,8 +242,11 @@ def evaluate(snapshot: object) -> ReadinessResult:
     if copilot["headSha"] != head:
         blockers.append("latest Copilot review does not cover the current head")
     # `neutral` means every remaining finding is disputed with a posted,
-    # resolved reply; that is reported below, never blocked on.
-    if copilot["status"] not in {"success", "neutral"}:
+    # resolved reply; that is reported below, never blocked on. A neutral
+    # status with no recorded dispute is unexplained and still blocks.
+    if copilot["status"] == "neutral" and not copilot["disputedFindings"]:
+        blockers.append("Copilot review status is neutral with no recorded dispute")
+    elif copilot["status"] not in {"success", "neutral"}:
         blockers.append(f"Copilot review status is {copilot['status']}")
     if copilot["actionableFindings"]:
         blockers.append(f"Copilot review has {copilot['actionableFindings']} actionable finding(s)")

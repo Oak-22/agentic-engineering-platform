@@ -81,6 +81,16 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(result.blockers, ())
         self.assertIn("finding-2", result.disputedFindings)
 
+    def test_neutral_without_any_recorded_dispute_still_blocks(self):
+        snapshot = ready_snapshot()
+        snapshot["copilotReview"]["status"] = "neutral"
+        snapshot["copilotReview"]["disputedFindings"] = []
+        result = MODULE.evaluate(snapshot)
+        self.assertFalse(result.ready)
+        self.assertIn(
+            "Copilot review status is neutral with no recorded dispute", result.blockers
+        )
+
     def test_declared_success_with_disputed_findings_is_neutral_and_ready(self):
         snapshot = ready_snapshot()
         snapshot["copilotReview"]["disputedFindings"] = ["finding-3"]
