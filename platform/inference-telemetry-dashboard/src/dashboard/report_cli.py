@@ -54,14 +54,20 @@ def collect_samples(
     the runtime's own statement of where it ran."""
     samples = []
     counts = []
-    wanted = str(project_dir)
+    wanted = project_dir.resolve()
 
     for runtime in runtimes:
         paths = transcripts.locate_sessions(runtime, since)
         kept = 0
         for path in paths:
             context = transcripts.read_session_context(path, runtime)
-            if context.cwd is None or not context.cwd.startswith(wanted):
+            if context.cwd is None:
+                continue
+            try:
+                within_repo = Path(context.cwd).resolve().is_relative_to(wanted)
+            except (OSError, ValueError):
+                within_repo = False
+            if not within_repo:
                 continue
             kept += 1
             samples.extend(transcripts.read_usage(path, runtime))

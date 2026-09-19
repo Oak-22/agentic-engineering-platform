@@ -74,7 +74,7 @@ class Rollup:
         self.cache_read_tokens += sample.cache_read_tokens
         self.thinking_tokens += sample.thinking_tokens
         self.estimated_cost += pricing.estimate_cost(sample)
-        if not pricing.is_priceable(sample.model):
+        if pricing.is_pricing_gap(sample.model):
             self.unpriced_calls += 1
         self.runtimes.add(sample.runtime)
         self.sessions.add(f"{sample.runtime}:{sample.session_id}")
@@ -150,7 +150,7 @@ def build_report(samples) -> Report:
         _rollup_into(models, sample.model or f"{sample.runtime} (model not recorded)", sample)
         if sample.timestamp:
             _rollup_into(days, sample.timestamp[:10], sample)
-        if not pricing.is_priceable(sample.model):
+        if pricing.is_pricing_gap(sample.model):
             unpriced.add(sample.model or f"{sample.runtime} (model not recorded)")
 
     return Report(

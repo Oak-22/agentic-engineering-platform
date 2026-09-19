@@ -94,6 +94,15 @@ class PricingTests(unittest.TestCase):
         self.assertFalse(pricing.is_priceable(pricing.SYNTHETIC_MODEL))
         self.assertFalse(pricing.is_priceable(None))
 
+    def test_synthetic_model_is_not_a_pricing_gap(self):
+        """A synthetic message genuinely cost nothing, so it is not the same
+        kind of unpriced as a model this table simply does not know."""
+        self.assertFalse(pricing.is_pricing_gap(pricing.SYNTHETIC_MODEL))
+
+    def test_unknown_and_absent_models_are_pricing_gaps(self):
+        self.assertTrue(pricing.is_pricing_gap("some-other-model"))
+        self.assertTrue(pricing.is_pricing_gap(None))
+
 
 class BuildReportTests(unittest.TestCase):
     def _report(self):
@@ -134,6 +143,14 @@ class BuildReportTests(unittest.TestCase):
         self.assertEqual(codex.calls, 1)
         self.assertEqual(codex.unpriced_calls, 1)
         self.assertEqual(codex.priced_fraction, 0.0)
+
+    def test_synthetic_model_calls_are_not_counted_as_unpriced(self):
+        """A synthetic call is genuinely free, not a pricing gap: counting it
+        as unpriced would misreport zero-cost spend as a table miss."""
+        report = build_report([Sample(model=pricing.SYNTHETIC_MODEL, output_tokens=10)])
+        self.assertEqual(report.total.calls, 1)
+        self.assertEqual(report.total.unpriced_calls, 0)
+        self.assertEqual(report.unpriced_models, [])
 
     def test_unpriced_models_are_reported_for_the_limits_block(self):
         self.assertEqual(

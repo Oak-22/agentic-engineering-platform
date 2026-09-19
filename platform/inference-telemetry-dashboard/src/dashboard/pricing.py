@@ -101,6 +101,16 @@ def is_priceable(model: str | None) -> bool:
     return rate_for(model) is not None
 
 
+def is_pricing_gap(model: str | None) -> bool:
+    """Whether an unpriced call is a genuine gap worth flagging.
+
+    `is_priceable` is false for both the synthetic placeholder and a truly
+    unknown model, but only the unknown model is a gap: the synthetic
+    message was never billed, so counting it here would misreport a
+    zero-cost call as unpriced spend."""
+    return not is_priceable(model) and normalize_model(model) != SYNTHETIC_MODEL
+
+
 def estimate_cost(sample) -> float:
     """List-price cost in dollars for one UsageSample.
 
