@@ -20,3 +20,7 @@ runtime dependency of the platform components.
 - [`side-effects/`](side-effects/) records behavior a component produced
   outside its declared contract, what came to depend on it, and whether the
   resolution was to declare the behavior or remove the dependency.
+- [`parallel-delivery-waves/`](parallel-delivery-waves/) records each
+  governed delivery run as a wave of parallel subagents: coordinator and
+  per-agent usage, durations, Copilot rounds, and scope drift, one file per
+  wave so waves can be compared.
