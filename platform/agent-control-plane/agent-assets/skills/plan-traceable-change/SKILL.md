@@ -83,4 +83,6 @@ intent belongs in `future/`, per
 [ADR-0007](../../../../../docs/architecture/adr/0007-define-the-lifecycle-of-deferred-intent-in-future.md).
 Once the plan is activated as tracked work, the `future/` file remains its
 scope brief until the delivery pull request merges, at which point it is
-deleted or its durable content is promoted into canonical documentation.
+deleted, its durable content is promoted into canonical documentation, or
+its unrealized residue is split into a new bounded `future/` file — the
+three terminal dispositions ADR-0007 defines.
