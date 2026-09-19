@@ -98,6 +98,15 @@ records that `gh` ran and why the MCP surface was unavailable. `gh` is not an
 alternate authority or protocol, and skipping straight to it without recording
 the reason is not permitted.
 
+The credential backing the `gh` fallback carries no scope beyond what the
+enumerated operations need — `repo` for pull-request operations and
+`read:org` where organization membership must resolve — and specifically not
+`delete_repo`, `admin:org`, `admin:enterprise`, or `workflow`. This is a
+property the deployment must hold, not a re-authentication procedure recorded
+here: the token's current scope set and the command that narrows it are
+machine state, and belong in a personal note rather than in this reference,
+which would otherwise decay on the next rotation.
+
 ## Jira communication
 
 Jira is the authority for work-item state and human-visible planning fields.
