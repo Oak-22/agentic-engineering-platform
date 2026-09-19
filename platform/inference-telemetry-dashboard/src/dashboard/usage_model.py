@@ -147,7 +147,12 @@ def build_report(samples) -> Report:
         total.add(sample)
         _rollup_into(work_items, work_item_key(sample.git_branch), sample)
         _rollup_into(runtimes, sample.runtime, sample)
-        _rollup_into(models, sample.model or f"{sample.runtime} (model not recorded)", sample)
+        _rollup_into(
+            models,
+            pricing.normalize_model(sample.model)
+            or f"{sample.runtime} (model not recorded)",
+            sample,
+        )
         if sample.timestamp:
             _rollup_into(days, sample.timestamp[:10], sample)
         if pricing.is_pricing_gap(sample.model):

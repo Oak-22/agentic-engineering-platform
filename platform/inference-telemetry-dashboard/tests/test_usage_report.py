@@ -135,6 +135,24 @@ class BuildReportTests(unittest.TestCase):
         costs = [r.estimated_cost for r in self._report().by_work_item]
         self.assertEqual(costs, sorted(costs, reverse=True))
 
+    def test_model_rollup_merges_a_dated_snapshot_with_the_undated_model(self):
+        """A dated snapshot and its undated model are one price identity, so
+        they must not split into two rows in the per-model report."""
+        report = build_report(
+            [
+                Sample(model="claude-haiku-4-5", output_tokens=100),
+                Sample(
+                    session_id="s2",
+                    model="claude-haiku-4-5-20251001",
+                    output_tokens=100,
+                ),
+            ]
+        )
+        keys = {r.key for r in report.by_model}
+        self.assertEqual(keys, {"claude-haiku-4-5"})
+        merged = next(r for r in report.by_model if r.key == "claude-haiku-4-5")
+        self.assertEqual(merged.calls, 2)
+
     def test_counts_distinct_sessions_across_runtimes(self):
         self.assertEqual(self._report().session_count, 3)
 

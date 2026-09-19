@@ -24,9 +24,23 @@ from .usage_model import build_report
 #: cross-component callers do it. Importing the port is the whole point: a
 #: second transcript reader in this component would re-derive per-runtime
 #: path patterns that already have one owner.
+#:
+#: This only resolves inside an editable checkout of this monorepo: the
+#: entry point this module registers does not work from a standalone wheel
+#: installed elsewhere, because `__file__` would then sit under
+#: `site-packages` with no sibling `agent-control-plane` directory. That is
+#: validated below rather than left to surface as an opaque ModuleNotFoundError.
 _CONTROL_PLANE_SCRIPTS = (
     Path(__file__).resolve().parents[3] / "agent-control-plane" / "scripts"
 )
+if not (_CONTROL_PLANE_SCRIPTS / "session_transcript_reader.py").is_file():
+    raise RuntimeError(
+        "dashboard-report requires an editable checkout of the "
+        "agentic-engineering-platform monorepo: expected the control "
+        f"plane's transcript reader at {_CONTROL_PLANE_SCRIPTS}, which does "
+        "not exist. Installing this package as a standalone wheel outside "
+        "that checkout is not supported."
+    )
 if str(_CONTROL_PLANE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_CONTROL_PLANE_SCRIPTS))
 
