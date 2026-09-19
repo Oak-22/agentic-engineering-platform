@@ -157,9 +157,11 @@ how many units one invocation delivers.
    its evidence without a second permission turn.
 6. **Review:** synchronize with current `main`; inspect required checks, the
    latest Copilot review, and every review thread; fix actionable findings;
-   publish the fix; then reply and resolve the corresponding thread. Leave a
-   disputed finding unresolved with an evidence-backed reply for human
-   judgment. Mark ready only when the branch is current, required checks pass,
+   publish the fix; then reply and resolve the corresponding thread. For a
+   finding judged wrong, reply with the evidence and resolve the thread: the
+   reply is the record the accountable human reads at merge, not a request
+   for a ruling. Never edit or delete a Copilot comment. Mark ready only when
+   the branch is current, required checks pass,
    the latest Copilot review has no actionable finding, no actionable thread
    remains unresolved, and Jira and pull-request evidence agree. Evaluate that
    combined state with `scripts/evaluate_pull_request_readiness.py` before

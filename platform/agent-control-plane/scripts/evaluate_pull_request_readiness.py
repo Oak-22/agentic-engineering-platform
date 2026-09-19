@@ -28,7 +28,8 @@ class ReadinessResult:
 COPILOT_STATUSES = frozenset({"pending", "success", "failure", "neutral"})
 # Ordered by how much attention the finding still demands. A duplicate id may
 # arrive under either disposition, and the more severe reading has to win:
-# open blocks, disputed stays visible for a human, suppressed is waived.
+# open blocks, disputed is reported for the human but never blocks (the
+# agent replies with evidence and resolves the thread), suppressed is waived.
 DISPOSITION_SEVERITY = {"suppressed": 0, "disputed": 1, "open": 2}
 REQUIRED_CHECK_NAMES = frozenset({"control-plane-guards", "aep-copilot-review"})
 
