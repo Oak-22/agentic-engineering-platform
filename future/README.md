@@ -37,6 +37,6 @@ state that has not reached `main`.
 
 ## Writing a plan
 
-Start from [traceable-change-plan-template.md](traceable-change-plan-template.md)
-when the change is too large to review in one pass. Open with status, state
-the end condition rather than a task list, and cite exact paths.
+Invoke the `plan-traceable-change` skill when the change is too large to
+review in one pass. Open with status, state the end condition rather than a
+task list, and cite exact paths.
