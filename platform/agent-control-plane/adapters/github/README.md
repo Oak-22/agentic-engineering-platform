@@ -42,6 +42,16 @@ Multi-purpose tools such as `update_pull_request` and
 `pull_request_review_write` are classified from their arguments by the
 permission gate. Tool availability is therefore not acceptance authority.
 
+`providers.gh.tools` enumerates the intended `gh` fallback surface, and a
+contract test checks it for closure: every operation's `fallbackTool` must
+appear in that list. The enumeration and its test declare which fallback
+commands the mapping expects to be invoked and catch a mapping that grows a
+fallback the list has not been updated to name — they do not constrain what
+`gh` can actually be invoked to do. `gh` reaches the agent as one Bash string,
+and `gh api` bypasses any command-level list, so no enumeration here is an
+enforced bound; treating it as one would be a false sense of a guarantee this
+check cannot hold.
+
 The provider mapping is [`github-delivery-mapping.json`](github-delivery-mapping.json).
 The shared server definition is [`../../agent-assets/mcp-servers/github/server.md`](../../agent-assets/mcp-servers/github/server.md).
 
