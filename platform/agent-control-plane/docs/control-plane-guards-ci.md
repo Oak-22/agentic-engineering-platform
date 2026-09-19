@@ -254,16 +254,18 @@ and not the accountable human who accepts the change by merging it.
 During explicit governed delivery, the generalist coordinator triages
 findings, applies actionable fixes, publishes them, and replies before
 resolving the fixed thread. A disputed finding receives an evidence-backed
-reply and remains unresolved for human judgment. A Copilot comment alone is
-not evidence that a change is correct.
+reply and is resolved as well; the reply is the record the accountable human
+reads at merge. A Copilot comment alone is not evidence that a change is
+correct.
 
 ### Thread resolution remains advisory
 
 The ruleset sets `required_review_thread_resolution: false`. A Copilot comment
 therefore does not mechanically lock the merge button. Actionable findings
 still fail `aep-copilot-review`; disputed findings produce a visible `neutral`
-result and remain unresolved for the accountable human. Neither the workflow
-nor Copilot approves, resolves, merges, closes, or bypasses the PR.
+result that passes the check, with the dispute reply on the resolved thread
+for the accountable human to read. Neither the workflow nor Copilot approves,
+merges, closes, or bypasses the PR.
 
 ### Availability
 

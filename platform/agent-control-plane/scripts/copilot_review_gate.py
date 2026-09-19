@@ -29,7 +29,10 @@ def gate(review: object, *, head_sha: str) -> dict[str, Any]:
     elif normalized["actionableFindings"] or normalized["unrecognizedFindings"]:
         conclusion = "failure"
     elif normalized["status"] == "neutral":
-        conclusion = "neutral"
+        # Neutral stands for disputes with posted, resolved replies. A
+        # neutral status recording no dispute has no such evidence and
+        # fails, matching evaluate_pull_request_readiness.
+        conclusion = "neutral" if normalized["disputedFindings"] else "failure"
     elif normalized["status"] == "success":
         conclusion = "success"
     else:

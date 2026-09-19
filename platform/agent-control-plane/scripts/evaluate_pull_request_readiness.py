@@ -28,7 +28,8 @@ class ReadinessResult:
 COPILOT_STATUSES = frozenset({"pending", "success", "failure", "neutral"})
 # Ordered by how much attention the finding still demands. A duplicate id may
 # arrive under either disposition, and the more severe reading has to win:
-# open blocks, disputed stays visible for a human, suppressed is waived.
+# open blocks, disputed is reported for the human but never blocks (the
+# agent replies with evidence and resolves the thread), suppressed is waived.
 DISPOSITION_SEVERITY = {"suppressed": 0, "disputed": 1, "open": 2}
 REQUIRED_CHECK_NAMES = frozenset({"control-plane-guards", "aep-copilot-review"})
 
@@ -240,7 +241,12 @@ def evaluate(snapshot: object) -> ReadinessResult:
     copilot = normalize_copilot_review(snapshot.get("copilotReview"), current_head=head)
     if copilot["headSha"] != head:
         blockers.append("latest Copilot review does not cover the current head")
-    if copilot["status"] != "success":
+    # `neutral` means every remaining finding is disputed with a posted,
+    # resolved reply; that is reported below, never blocked on. A neutral
+    # status with no recorded dispute is unexplained and still blocks.
+    if copilot["status"] == "neutral" and not copilot["disputedFindings"]:
+        blockers.append("Copilot review status is neutral with no recorded dispute")
+    elif copilot["status"] not in {"success", "neutral"}:
         blockers.append(f"Copilot review status is {copilot['status']}")
     if copilot["actionableFindings"]:
         blockers.append(f"Copilot review has {copilot['actionableFindings']} actionable finding(s)")

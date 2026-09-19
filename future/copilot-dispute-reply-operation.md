@@ -7,8 +7,9 @@ Status: captured, not scheduled. Delete this file when Unit 2 lands on
 
 `deliver-governed-change` step 6 (`SKILL.md:159-162`) instructs the agent to
 fix an actionable Copilot finding, publish the fix, then reply and resolve
-the thread; and to leave a disputed finding unresolved with an
-evidence-backed reply for human judgment. The gate is built to consume that
+the thread; and to reply to a disputed finding with evidence and resolve it
+(AEPI-169 made the dispute reply an observability record rather than a
+request for a ruling; before that the thread was left open). The gate is built to consume that
 reply: `evaluate_pull_request_readiness.py:144-150` reads
 `copilotReview.disputedFindings`, and `copilot_review_gate.py:31` maps a
 disputed review to `neutral` so the human sees the disagreement instead of a
@@ -45,8 +46,8 @@ may skip, while publishing is a deterministic script it cannot. Text
 instructions are the interpretive end of the assurance spectrum; the reply
 belongs at the mechanical end beside `publish_delivery_branch.py`.
 
-End state: every Copilot finding on a delivered pull request is fixed,
-replied-and-resolved, or disputed with a posted reply, and the readiness
+End state: every Copilot finding on a delivered pull request is fixed and
+replied-and-resolved, or disputed with a posted reply and resolved, and the readiness
 declaration refuses a finding in none of those states. A reader of the pull
 request sees the agent's reasoning where the human decides.
 
@@ -66,7 +67,8 @@ one claim that becomes true, and a check a skeptic can run.
 identifier, a disposition (`fixed` or `disputed`), and a body file. For
 `fixed` it posts the reply and resolves the thread through the mapping's
 `review-thread-reply` and `review-thread-resolve` operations; for
-`disputed` it posts the reply and leaves the thread open. It emits one JSON
+`disputed` it posts the reply and also resolves the thread, since the reply
+is the record and the human reads it at merge. It emits one JSON
 line naming the disposition, thread, comment URL, and head SHA, appended to
 the same evidence store the publisher writes. It refuses a `disputed` body
 that cites no path or line, since a dispute without evidence is an opinion

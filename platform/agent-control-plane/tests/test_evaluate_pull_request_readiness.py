@@ -72,20 +72,31 @@ class ReadinessTests(unittest.TestCase):
         self.assertTrue(result.ready)
         self.assertEqual(result.disputedThreads, ("thread-2",))
 
-    def test_disputed_copilot_finding_is_exposed_but_not_clean(self):
+    def test_disputed_copilot_finding_is_exposed_and_does_not_block(self):
         snapshot = ready_snapshot()
         snapshot["copilotReview"]["status"] = "neutral"
         snapshot["copilotReview"]["disputedFindings"] = ["finding-2"]
         result = MODULE.evaluate(snapshot)
-        self.assertFalse(result.ready)
+        self.assertTrue(result.ready)
+        self.assertEqual(result.blockers, ())
         self.assertIn("finding-2", result.disputedFindings)
 
-    def test_declared_success_with_disputed_findings_is_neutral_not_ready(self):
+    def test_neutral_without_any_recorded_dispute_still_blocks(self):
+        snapshot = ready_snapshot()
+        snapshot["copilotReview"]["status"] = "neutral"
+        snapshot["copilotReview"]["disputedFindings"] = []
+        result = MODULE.evaluate(snapshot)
+        self.assertFalse(result.ready)
+        self.assertIn(
+            "Copilot review status is neutral with no recorded dispute", result.blockers
+        )
+
+    def test_declared_success_with_disputed_findings_is_neutral_and_ready(self):
         snapshot = ready_snapshot()
         snapshot["copilotReview"]["disputedFindings"] = ["finding-3"]
         result = MODULE.evaluate(snapshot)
-        self.assertFalse(result.ready)
-        self.assertIn("Copilot review status is neutral", result.blockers)
+        self.assertTrue(result.ready)
+        self.assertNotIn("Copilot review status is neutral", result.blockers)
         self.assertEqual(result.disputedFindings, ("finding-3",))
 
     def test_duplicate_ids_merge_toward_the_more_severe_disposition(self):

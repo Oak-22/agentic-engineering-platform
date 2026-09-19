@@ -267,7 +267,10 @@ jobs:
           CONCLUSION="$(jq -r '.conclusion' /tmp/copilot-result.json)"
           case "${CONCLUSION}" in
             success) exit 0 ;;
-            neutral) exit 78 ;;
+            # neutral: every remaining finding is disputed with a posted,
+            # resolved reply. Informational, so the required check passes;
+            # the dispute stays visible in the job summary and the thread.
+            neutral) exit 0 ;;
             pending|failure) exit 1 ;;
             *) echo "unknown conclusion: ${CONCLUSION}" >&2; exit 1 ;;
           esac

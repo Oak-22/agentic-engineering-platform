@@ -135,8 +135,9 @@ traceability easy to inspect and does not serve as a numerical quality target.
   required checks, security results, the latest Copilot review, and unresolved
   review comments.
 - Fix each actionable Copilot finding, publish it, then reply and resolve that
-  finding's thread. Reply with evidence but leave the thread unresolved when
-  the finding is disputed and needs human judgment.
+  finding's thread. When a finding is judged wrong, reply with the evidence
+  and resolve the thread; the reply is the record the accountable human reads
+  at merge, not a request for a ruling.
 - Mark the pull request ready only when required checks pass, the latest
   Copilot review is clean, no actionable thread remains unresolved, and Jira
   and GitHub evidence agree.

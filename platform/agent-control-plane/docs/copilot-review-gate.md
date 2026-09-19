@@ -66,7 +66,7 @@ evaluation for diagnosis, and its result cannot satisfy the required check.
 | `pending` | No completed Copilot review covers the current SHA. |
 | `success` | The current review has no actionable or unrecognized findings. |
 | `failure` | Findings remain actionable, the review is stale, or the provider payload cannot be normalized safely. |
-| `neutral` | Remaining findings are explicitly disputed with evidence; the result remains visible for a human decision. |
+| `neutral` | Remaining findings are explicitly disputed with evidence. The disputing reply is posted on the thread and the thread is resolved; the state is informational, so the human sees the disagreement at merge without it holding the pull request open. |
 
 ## Dependabot pull requests
 
@@ -98,5 +98,8 @@ python platform/agent-control-plane/scripts/copilot_review_gate.py \
 `evaluate_pull_request_readiness.py` consumes the normalized evidence only when
 the review ID, head SHA, submission timestamp, status, findings, and disputes
 are present. Thread disputes are emitted as `disputedThreads` and Copilot
-finding disputes as `disputedFindings`. Jira alignment remains in that broader readiness declaration;
+finding disputes as `disputedFindings`; both are informational and never
+block readiness. A dispute is a resolved thread carrying an evidence reply,
+not a thread left open for a ruling. Jira alignment remains in that broader
+readiness declaration;
 GitHub Actions never receives Atlassian credentials.

@@ -212,9 +212,10 @@ python3 platform/agent-control-plane/scripts/evaluate_pull_request_readiness.py 
 The JSON result is ready only when the branch is current with `main`, every
 required check succeeds, the latest Copilot review covers the current head and
 has no actionable findings, no actionable thread remains, and Jira/PR evidence
-is aligned. Disputed threads are preserved in `disputedThreads`, and disputed
-Copilot findings in `disputedFindings`, for human judgment rather than silently
-resolved.
+is aligned. Disputed threads are reported in `disputedThreads`, and disputed
+Copilot findings in `disputedFindings`; both are informational and never
+block readiness. Each dispute is a resolved thread carrying the agent's
+evidence reply, which the human reads at merge.
 
 ## Developer-owned skills
 
