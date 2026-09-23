@@ -27,8 +27,9 @@ the skill's main responsibility is composing other skills or performing its
 own bounded workflow.
 
 In the current catalog, `deliver-governed-change` is a coordinator skill.
-`manage-git-workflow`, `manage-jira-confluence`, `shape-repository-change`,
-`shape-readme-entrypoint`, and `handoff-agent-work` are operational skills.
+`manage-git-workflow`, `manage-jira-confluence`, `plan-traceable-change`,
+`shape-repository-change`, `shape-readme-entrypoint`, and `handoff-agent-work`
+are operational skills.
 
 ## Composition rules
 

@@ -74,10 +74,10 @@ will later trip on).
 
 ## Worked examples
 
-`future/` holds plans written to this structure, including their
-falsification checks — for example `github-surface-boundary-drift-plan.md`,
-`workbench-rest-state.md`, and `copilot-dispute-reply-operation.md`. Read
-one before writing a new plan from scratch.
+The plans currently in `future/` are written to this structure, including
+their falsification checks. Read one before writing a new plan from scratch.
+None is named here: ADR-0007 deletes a plan when its work lands, so a named
+example would become a dead link.
 
 ## Where the plan lives
 
