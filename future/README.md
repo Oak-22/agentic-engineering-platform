@@ -38,5 +38,5 @@ state that has not reached `main`.
 ## Writing a plan
 
 Invoke the `plan-traceable-change` skill when the change is too large to
-review in one pass. Open with status, state the end condition rather than a
-task list, and cite exact paths.
+review in one pass. The skill defines a plan's structure, from its opening
+status line through its units.

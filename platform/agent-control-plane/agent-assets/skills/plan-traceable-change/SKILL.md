@@ -21,8 +21,11 @@ rather than assent, and stays possible at reading speed.
 
 ## Structure
 
-Open with **Context**: the problem, what is untrue today, and the end
-state. State the outcome as a condition that will hold, not as a list of
+Open with a one-line **Status** directly under the title: the plan's state
+and what ends it, stated once so a status change is one edit.
+
+Then **Context**: the problem, what is untrue today, and the end state.
+State the outcome as a condition that will hold, not as a list of
 activities.
 
 Then **How to read this plan** — name the fields and the claim that each
