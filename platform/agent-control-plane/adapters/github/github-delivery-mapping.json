@@ -49,7 +49,8 @@
         "gh pr update-branch",
         "gh pr review",
         "gh pr close",
-        "gh pr merge"
+        "gh pr merge",
+        "gh run list"
       ]
     }
   },

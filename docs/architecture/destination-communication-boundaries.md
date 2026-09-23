@@ -90,6 +90,17 @@ stopping at the first surface that can perform the operation:
 1. the hosted GitHub MCP server with runtime-specific authentication (primary);
 2. the `gh` CLI, as an explicit, evidenced fallback only.
 
+`gh` is the more capable interface — it reaches the whole platform API, where
+the MCP surface exposes seventeen typed tools — and is deprioritized for
+that reason: a bounded surface is one a permission gate can name per
+operation, where an unenumerated shell command cannot be. The MCP path buys
+that bound at a cost: a live auth dependency, a hosted-endpoint outage mode, a
+version GitHub rolls on its own schedule, and seventeen tool schemas resident
+in context. That trade is strong under unsupervised operation, where nothing
+but the declared surface stands between an agent and the platform, and
+considerably weaker under supervision, where a human is already present to
+notice a `gh` invocation reaching past the mapped operations.
+
 There is no local MCP tier — the pinned Docker `github-mcp-server` that
 preceded ADR-0004 was removed once the hosted transport was verified
 (ADR-0004 amendment, 2026-09-01). Both tiers perform the same semantic
@@ -97,6 +108,15 @@ operation and the same `github:pull_request:*` permission action. The caller
 records that `gh` ran and why the MCP surface was unavailable. `gh` is not an
 alternate authority or protocol, and skipping straight to it without recording
 the reason is not permitted.
+
+The credential backing the `gh` fallback carries no scope beyond what the
+enumerated operations need — `repo` for pull-request operations and
+`read:org` where organization membership must resolve — and specifically not
+`delete_repo`, `admin:org`, `admin:enterprise`, or `workflow`. This is a
+property the deployment must hold, not a re-authentication procedure recorded
+here: the token's current scope set and the command that narrows it are
+machine state, and belong in a personal note rather than in this reference,
+which would otherwise decay on the next rotation.
 
 ## Jira communication
 

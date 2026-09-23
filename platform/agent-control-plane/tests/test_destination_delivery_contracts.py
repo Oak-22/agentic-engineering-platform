@@ -258,6 +258,33 @@ class GithubFallbackRoutingTests(unittest.TestCase):
             if "fallbackTool" in operation:
                 self.assertTrue(operation["fallbackTool"].startswith("gh "))
 
+    def test_every_fallback_tool_is_declared_on_the_gh_provider(self):
+        """The gh surface is a declaration checked for closure, not an
+        enforced bound (see adapters/github/README.md). An operation whose
+        fallbackTool is missing from providers.gh.tools has silently drifted
+        from the declared surface; the fix is to add the tool to
+        providers.gh.tools or drop the operation's fallback. Runs against
+        every operation with a fallbackTool, including read-only ones, and
+        repeats the gh prefix check for them, since the check above only
+        covers mutating operations."""
+        declared = set(self.mapping["providers"]["gh"]["tools"])
+        used = {
+            name: operation["fallbackTool"]
+            for name, operation in self.mapping["operations"].items()
+            if "fallbackTool" in operation
+        }
+        for name, tool in used.items():
+            self.assertTrue(
+                tool.startswith("gh "),
+                f"operation {name} names fallbackTool {tool!r}, which is not a gh command",
+            )
+            self.assertIn(
+                tool,
+                declared,
+                f"operation {name} names fallbackTool {tool!r}, "
+                "which is absent from providers.gh.tools",
+            )
+
     def test_authorization_classes_match_approval_behavior(self):
         classes = set()
         for operation in self.mapping["operations"].values():
