@@ -91,7 +91,7 @@ stopping at the first surface that can perform the operation:
 2. the `gh` CLI, as an explicit, evidenced fallback only.
 
 `gh` is the more capable interface — it reaches the whole platform API, where
-the MCP surface exposes seventeen typed operations — and is deprioritized for
+the MCP surface exposes seventeen typed tools — and is deprioritized for
 that reason: a bounded surface is one a permission gate can name per
 operation, where an unenumerated shell command cannot be. The MCP path buys
 that bound at a cost: a live auth dependency, a hosted-endpoint outage mode, a
