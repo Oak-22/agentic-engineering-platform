@@ -74,7 +74,7 @@ will later trip on).
 
 ## Worked examples
 
-Not every file in `future/` is written to this structure. A plan that is
+Not every file in `future/` is written to this structure. A worked example
 carries the four unit fields — **Touches**, **Mechanism**, **Claim**,
 **Trace check** — and `grep -l "Trace check" future/*.md` finds the current
 ones. Read one before writing a new plan from scratch. None is named here:
