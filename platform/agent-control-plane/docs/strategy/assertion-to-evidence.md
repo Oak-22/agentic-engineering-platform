@@ -107,5 +107,5 @@ interpretation.
   — the vocabulary-side pass.
 - [`future/close-the-feedback-loop.md`](../../../../future/close-the-feedback-loop.md)
   — resolves ledger instance 2.
-- [`future/traceable-change-plan-template.md`](../../../../future/traceable-change-plan-template.md)
+- [`plan-traceable-change`](../../agent-assets/skills/plan-traceable-change/SKILL.md)
   — states the reading-speed argument this note generalizes.
