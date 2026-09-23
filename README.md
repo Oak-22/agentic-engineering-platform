@@ -20,11 +20,14 @@ The platform operates as a feedback loop across three peer components:
 3. **Developer Learning** converts validated execution signals into reinforced
    understanding and reusable improvements.
 
-Shared Contracts & Schemas connect the components. Telemetry findings and
-validated learning feed back into the Agent Control Plane, strengthening the
-next cycle of governed execution.
+Shared Contracts & Schemas connect the components. The return arcs are
+human-mediated today: a maintainer reads telemetry findings and validated
+learning, then proposes an instruction or policy change back into the Agent
+Control Plane through the ordinary pull-request lifecycle. An automated
+return path is not built; closing that gap is scoped as a deferred decision
+in [`future/close-the-feedback-loop.md`](future/close-the-feedback-loop.md).
 
-<img alt="Agentic Engineering Platform: Agent Control Plane governs Shared Contracts and Schemas, which flow to Inference Telemetry and Developer Learning; both feed back to the Agent Control Plane via dotted lines." src="docs/diagrams/agentic-engineering-platform-diagram.svg">
+<img alt="Agentic Engineering Platform: Agent Control Plane governs Shared Contracts and Schemas, which flow to Inference Telemetry and Developer Learning; both are read by a maintainer, who proposes changes back to the Agent Control Plane through the ordinary pull-request path, shown as dotted lines." src="docs/diagrams/agentic-engineering-platform-diagram.svg">
 
 > [!NOTE]
 > This repository does not require dedicated server infrastructure for its core functionality.

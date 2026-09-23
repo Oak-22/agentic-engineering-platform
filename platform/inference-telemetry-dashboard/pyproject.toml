@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 [project.scripts]
 dashboard = "dashboard.cli:main"
 dashboard-mock = "dashboard.mock_server:main"
+dashboard-report = "dashboard.report_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

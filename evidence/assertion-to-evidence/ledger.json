@@ -35,7 +35,7 @@
       "countermeasureNote": "no mechanism checks prose against diagram",
       "caught": "no",
       "caughtNote": "surfaced by an outside reader's six questions",
-      "fixed": "open; `future/close-the-feedback-loop.md`"
+      "fixed": "outcome B landed 2026-09-19 (AEPI-165, PR #113): `README.md` prose and diagram caption now name the maintainer-by-PR path and state the automated path is not built; `future/close-the-feedback-loop.md` retains outcome A only"
     },
     {
       "id": 3,
