@@ -63,10 +63,15 @@ gate. Land the three in one pull request, or unit 3 before unit 2.
 - `platform/agent-control-plane/scripts/README.md`
 
 **Mechanism** — Compute
-`git diff --no-color --full-index <merge-base(base, head)> <head> | git patch-id --verbatim`
-and return the patch id, or a fixed sentinel for an empty diff. `--verbatim`
-is required: the default `patch-id` ignores whitespace, which would let a
-whitespace-only edit inherit a review it never had. The whole-branch diff is
+`git diff --no-color --full-index --binary <merge-base(base, head)> <head> | git patch-id --verbatim`
+and return the patch id, or a fixed sentinel for an empty diff. Two flags
+carry the byte-identity claim. `--verbatim` is required because the default
+`patch-id` ignores whitespace, which would let a whitespace-only edit inherit
+a review it never had. `--binary` puts a binary file's content into the
+hashed input. Without it `git diff` prints only "Binary files differ"; under
+git 2.48, `--verbatim` still hashes the `index` line's blob ids, so two
+different binary edits already fingerprint differently, but that rests on how
+`patch-id` treats a header line rather than on the content itself. The whole-branch diff is
 fingerprinted rather than per-commit patch ids, because Copilot reviews the
 pull request's diff, and a rebase that squashes or reorders commits without
 changing that diff should still carry. Pure transformation is split from the
@@ -78,8 +83,11 @@ to their respective merge bases are byte-identical.
 **Trace check** — The test builds a temporary repository: branch `b` off
 `main`, advance `main` with an unrelated commit, rebase `b`. Expected: equal
 fingerprints before and after the rebase. Falsification: change one byte in
-`b`'s file, or only its indentation — the fingerprints must differ. Drop
-`--verbatim` and the whitespace case must fail.
+`b`'s file, only its indentation, or the bytes of a committed binary file —
+the fingerprints must differ. Drop `--verbatim` and the whitespace case must
+fail. The binary case guards content and header together: fingerprint a
+diff made without `--binary` and with its `index` lines removed, and it must
+fail.
 
 ## Unit 2 — Do not request Copilot for a rebase-only head
 
@@ -130,7 +138,14 @@ always names the head it vouches for. `copilot_review_gate.py` takes
 against `--carried-from` instead of `--head-sha` and emits the record. In
 `aep-copilot-review.yml`, after the guard wait and before the review wait, the
 same lookup as unit 2 runs; on a match it normalizes the prior review and
-skips the up-to-15-minute review wait. Thread and dispute state are read live,
+skips the up-to-15-minute review wait. The lookup, the fingerprint
+comparison, and the carried-forward normalization all run from tooling
+checked out at the default branch, and the pull-request commits are read only
+as git objects — the same boundary unit 2 draws. Today the gate checks out
+`HEAD_SHA` and runs that head's `copilot_review_gate.py`; for a fresh review
+that only lets a pull request judge its own review, but for carry-forward it
+would let a pull request edit the code that decides whether an older review
+still applies to it. Thread and dispute state are read live,
 as today, so a thread reopened after the original review still blocks.
 Rejected alternative: letting the gate accept any earlier review by the same
 author — that drops the proof that the reviewed content is what will merge.

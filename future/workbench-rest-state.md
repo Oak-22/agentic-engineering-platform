@@ -85,11 +85,13 @@ Unit 3 blocks every governed task on day one.
 **Claim** — `git diff --quiet main..workbench/local` exits 0 immediately
 after the last of those units is cleaned up.
 
-**Trace check** — the command above. Also confirm every `future/` plan the
-workbench held reached `origin/main` via Unit 1 rather than being deleted
-from the workbench: `git log origin/main --diff-filter=A --name-only --
-future/` lists each one, including plans a later delivery pull request
-removed on landing.
+**Trace check** — the command above. Also confirm no plan was dropped from
+the workbench on the way: every path in
+`git ls-tree -r --name-only workbench/local -- future/` appears in
+`git ls-tree -r --name-only origin/main -- future/`. A plan absent from both
+was deleted by the delivery pull request that realized it;
+`git log origin/main --diff-filter=D --name-only -- future/` is the
+historical record of those deletions.
 
 ## Unit 3 — Gate governed tasks on an empty residue
 
