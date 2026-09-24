@@ -1,4 +1,4 @@
-# Rebase without re-review
+# Re-sync without re-review
 
 Status: draft, not activated as Jira work. Delete this file when the delivery
 pull request lands the units below; promote the carry-forward rule into
@@ -11,31 +11,26 @@ so a pull request merges only when its head contains the tip of `main`. Every
 merge therefore leaves each other open pull request behind, and the author
 must bring it current before it can merge.
 
-The standard way to do that — and the one the co-developed CameraTether
-repository already documents in `.github/CONTRIBUTING.md` — is an author-side
-loop:
+Bringing it current is a merge of `main` into the branch: GitHub's Update
+branch for the human, and `publish_delivery_branch.py` for an agent, which
+merges `origin/main` without rewriting history under `git:delivery:publish`
+and needs no approval. (The co-developed CameraTether repository re-syncs by
+rebase and `--force-with-lease` instead; the fingerprint below treats both
+the same.) Strict mode keeps its guarantee either way: `control-plane-guards`
+validates the registries, mappings, and contracts against the combined state
+that will land.
 
-```
-git fetch origin && git rebase origin/main && git push --force-with-lease
-```
-
-Adopting that loop here — its agent authority is planned separately in
-[rebase-loop-standing-authority.md](rebase-loop-standing-authority.md) —
-keeps one git habit across both repositories while strict mode keeps its
-guarantee: `control-plane-guards` validates the registries, mappings, and
-contracts against the combined state that will land.
-
-What makes the loop expensive today is not the guards (recent runs: 30–43s)
+What makes a re-sync expensive today is not the guards (recent runs: 30–43s)
 but the Copilot leg. `aep-copilot-review-request.yml` requests a new Copilot
 review on every `synchronize`, and `aep-copilot-review.yml` accepts only a
 review whose `commit_id` equals the new head (recent gate runs: 125–256s).
-A rebase that changes nothing in the pull request's own diff thus costs a
+A re-sync that changes nothing in the pull request's own diff thus costs a
 full second review — the wall-clock between consecutive merges and a second
 round of review tokens — to re-judge input identical to what was already
 reviewed. The output is not identical: Copilot is a sampled reviewer, so a
 second review is a second draw, not a repeat. PR #113 shows it. Its update
-from `main` left the change fingerprint unchanged (`d87c39c56e13` before and
-after) and brought in nothing touching its files, yet the new review posted a
+from `main` left the change fingerprint unchanged (`21441dd6b47b` before and
+after, by unit 1's method) and brought in nothing touching its files, yet the new review posted a
 finding that the previous review had mentioned only in its summary ("Align
 the README diagram/accessibility text", no line comment, so the gate passed).
 Carry-forward gives up that extra draw on purpose: under strict mode, which
@@ -51,7 +46,7 @@ by Copilot.
 
 Each unit states **Touches**, **Mechanism**, **Claim**, and **Trace check**.
 Units are independently reviewable. Units 2 and 3 depend on unit 1, and unit
-2 depends on unit 3: with unit 2 alone, a rebase-only push requests no review
+2 depends on unit 3: with unit 2 alone, a re-sync-only push requests no review
 while the gate still waits for one, so every re-synced pull request fails the
 gate. Land the three in one pull request, or unit 3 before unit 2.
 
@@ -63,33 +58,35 @@ gate. Land the three in one pull request, or unit 3 before unit 2.
 - `platform/agent-control-plane/scripts/README.md`
 
 **Mechanism** — Compute
-`git diff --no-color --full-index --binary <merge-base(base, head)> <head> | git patch-id --verbatim`
-and return the patch id, or a fixed sentinel for an empty diff. Two flags
-carry the byte-identity claim. `--verbatim` is required because the default
-`patch-id` ignores whitespace, which would let a whitespace-only edit inherit
-a review it never had. `--binary` puts a binary file's content into the
-hashed input. Without it `git diff` prints only "Binary files differ"; under
-git 2.48, `--verbatim` still hashes the `index` line's blob ids, so two
-different binary edits already fingerprint differently, but that rests on how
-`patch-id` treats a header line rather than on the content itself. The whole-branch diff is
-fingerprinted rather than per-commit patch ids, because Copilot reviews the
-pull request's diff, and a rebase that squashes or reorders commits without
-changing that diff should still carry. Pure transformation is split from the
+`git diff --raw --full-index --no-renames <merge-base(base, head)> <head>`,
+sort its lines, and hash them with SHA-256; an empty diff yields a fixed
+sentinel. Each raw line names a changed path with its pre-image and
+post-image mode and full blob id, so the fingerprint is equal only when every
+changed file has byte-identical content on both sides of the diff. A textual
+patch fingerprint was rejected: `git patch-id` ignores hunk line numbers by
+design, so editing the first of two identical blocks and editing the second
+produce the same patch id for different files (reproduced on git 2.48).
+Keying on the pre-image is also deliberately conservative: when `main`
+changed a file the pull request also changes, the reviewed diff met different
+surrounding code, and a fresh review is the right cost. The whole-branch diff
+is fingerprinted rather than individual commits, because Copilot reviews the
+pull request's diff, and a rebase or a merge from `main` that leaves that diff
+unchanged should carry either way. Pure transformation is split from the
 `git` subprocess calls, per `agent-assets/instructions/python.md`.
 
-**Claim** — Two heads share a fingerprint exactly when their changes relative
-to their respective merge bases are byte-identical.
+**Claim** — Two heads share a fingerprint exactly when every path each changes
+relative to its merge base has identical pre-image and post-image content.
 
 **Trace check** — The test builds a temporary repository: branch `b` off
-`main`, advance `main` with an unrelated commit, rebase `b`. Expected: equal
-fingerprints before and after the rebase. Falsification: change one byte in
-`b`'s file, only its indentation, or the bytes of a committed binary file —
-the fingerprints must differ. Drop `--verbatim` and the whitespace case must
-fail. The binary case guards content and header together: fingerprint a
-diff made without `--binary` and with its `index` lines removed, and it must
-fail.
+`main`, advance `main` with an unrelated commit, then bring `b` current once
+by rebase and once by merging `main`. Expected: all three fingerprints equal.
+Falsification: a file holding two identical blocks, edited in the first block
+on one branch and the second on another, must fingerprint differently (the
+case a patch id collapses); so must a one-byte change, an indentation-only
+change, a binary change, a mode change, and a `main` commit touching a file
+`b` also changes.
 
-## Unit 2 — Do not request Copilot for a rebase-only head
+## Unit 2 — Do not request Copilot for a re-sync-only head
 
 Depends on units 1 and 3.
 
@@ -106,13 +103,22 @@ commit can be garbage-collected) or any mismatch, request as today — the
 fallback is the current behaviour, never a skip. This workflow runs on
 `workflow_run` with `pull-requests: write`, so the fingerprint tooling is
 checked out from the default branch and pull-request commits are only ever
-read as git objects; no script from the pull-request head executes.
+read as git objects; no script from the pull-request head executes. The same
+workflow also runs on `pull_request`, where its steps come from the pull
+request's own head, so a checked-out script is not the trust boundary there.
+The boundary is the fingerprint's scope: carry-forward is refused whenever
+the pull request's diff touches `.github/workflows/`,
+`platform/agent-control-plane/scripts/`, or
+`platform/agent-control-plane/contracts/github-delivery/`. A head that edits
+the machinery deciding carry-forward can never inherit a review; any such
+edit must itself be reviewed fresh, and every later carry-forward runs under
+machinery a review already saw.
 
-**Claim** — A rebase-only push produces no new Copilot review request, and a
+**Claim** — A re-sync-only push produces no new Copilot review request, and a
 push that changes the pull request's diff still does.
 
-**Trace check** — On a throwaway pull request with a passing review: rebase
-onto a newer `main`, push, and run
+**Trace check** — On a throwaway pull request with a passing review: merge
+a newer `main` into it, push, and run
 `gh api repos/{owner}/{repo}/issues/<n>/timeline --jq '[.[] | select(.event=="review_requested")] | length'`
 before and after. Expected: unchanged count, and the run log names the
 carried head. Falsification: amend one byte and push — the count increments.
@@ -150,14 +156,14 @@ as today, so a thread reopened after the original review still blocks.
 Rejected alternative: letting the gate accept any earlier review by the same
 author — that drops the proof that the reviewed content is what will merge.
 
-**Claim** — The required `aep-copilot-review` check passes on a rebase-only
+**Claim** — The required `aep-copilot-review` check passes on a re-sync-only
 head without a new Copilot review, and cannot pass on a changed head without
 one.
 
 **Trace check** — `python -m unittest` over the two test files covers: a
 carried record with a matching fingerprint passes; a mismatched fingerprint
 is a normalization error (exit 2); a record whose `carriedForward.fromHeadSha`
-has a failed gate is rejected. End to end, the rebase from unit 2's check
+has a failed gate is rejected. End to end, the re-sync from unit 2's check
 yields a green gate in roughly guard time, and its job summary names the
 carried head. Falsification: push a content change with Copilot review
 disabled for the repository — the gate must fail at the review wait.
@@ -169,7 +175,7 @@ python -m unittest discover -s platform/agent-control-plane/tests
 ```
 
 Then the timed drill: open two throwaway pull requests touching disjoint
-files, let both pass, merge the first, run the rebase loop on the second, and
+files, let both pass, merge the first, bring the second current with Update branch, and
 record the wall clock from push to a mergeable state. Expected: about one
 guard run plus gate overhead, no new Copilot review on the second pull
 request, and a job summary naming the carried head.
@@ -177,7 +183,7 @@ request, and a job summary naming the carried head.
 ## Risks
 
 - **The chain stays serial.** Strict mode means N independent pull requests
-  still need N−1 rebase-and-guard cycles; this plan shrinks each cycle to
+  still need N−1 re-sync-and-guard cycles; this plan shrinks each cycle to
   guard time, not to zero. Only a merge queue — unavailable to a user-owned
   repository — tests the queued combination for you.
 - **Copilot never sees the new base.** A carried review judged the diff
@@ -189,7 +195,7 @@ request, and a job summary naming the carried head.
   More than one sample per pull request is a gate-policy decision in
   `aep-copilot-review.yml`, to be made for every pull request alike, not
   something inherited from merge order.
-- **Conflict-resolved rebases pay full price.** Resolving a conflict changes
+- **Conflict-resolved re-syncs pay full price.** Resolving a conflict changes
   the diff, so the fingerprint differs and a fresh review runs. That is
   correct, and it is the case in which a second review earns its cost.
 - **Garbage-collected heads.** If GitHub no longer serves the reviewed head,
