@@ -95,8 +95,10 @@ the MCP surface exposes seventeen typed tools — and is deprioritized for
 that reason: a bounded surface is one a permission gate can name per
 operation, where an unenumerated shell command cannot be. The MCP path buys
 that bound at a cost: a live auth dependency, a hosted-endpoint outage mode, a
-version GitHub rolls on its own schedule, and seventeen tool schemas resident
-in context. That trade is strong under unsupervised operation, where nothing
+version GitHub rolls on its own schedule, and — for a runtime that loads MCP
+tool schemas eagerly — seventeen tool schemas resident in context; a runtime
+that defers schemas until a tool is searched for, as Claude Code does, pays
+that cost only for the tools a task uses. That trade is strong under unsupervised operation, where nothing
 but the declared surface stands between an agent and the platform, and
 considerably weaker under supervision, where a human is already present to
 notice a `gh` invocation reaching past the mapped operations.
