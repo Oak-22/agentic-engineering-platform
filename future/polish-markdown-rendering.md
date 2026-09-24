@@ -63,8 +63,12 @@ aren't implied by the existing prose):
 To make this a skill, add a package under
 `platform/agent-control-plane/agent-assets/skills/polish-markdown-rendering/`
 with a `SKILL.md`, and its entry in
-`agent-assets/skills/skills_registry.json` in the same change.
-`platform/agent-control-plane/scripts/validate_asset_registries.py` requires
-every directory under `skills/` to have a registry entry and every runtime
-binding to be a resolving symlink, so a package added without its
-registration fails validation immediately.
+`agent-assets/skills/skills_registry.json`, plus its three runtime bindings —
+relative symlinks at `.agents/skills/polish-markdown-rendering`,
+`.claude/skills/polish-markdown-rendering`, and
+`.github/skills/polish-markdown-rendering` — and a line in the
+`.agents/skills/README.md` and `.claude/skills/README.md` catalogs, all in the
+same change. `platform/agent-control-plane/scripts/validate_asset_registries.py`
+requires every directory under `skills/` to have a registry entry and every
+declared binding to be a resolving symlink, so a package added without them
+fails validation or stays undiscoverable in a runtime.

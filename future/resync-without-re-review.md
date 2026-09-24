@@ -132,8 +132,11 @@ Depends on unit 1.
 - `platform/agent-control-plane/scripts/copilot_review_gate.py`
 - `platform/agent-control-plane/tests/test_copilot_review_gate.py`
 - `.github/workflows/aep-copilot-review.yml`
+- `platform/agent-control-plane/tests/test_aep_copilot_review_workflow.py`
 - `platform/agent-control-plane/scripts/evaluate_pull_request_readiness.py`
 - `platform/agent-control-plane/tests/test_evaluate_pull_request_readiness.py`
+- `platform/agent-control-plane/adapters/github/README.md` (the carry-forward
+  rule, promoted per this file's status line)
 
 **Mechanism** — The evidence gains an optional
 `carriedForward: {fromHeadSha, changeFingerprint}`. `headSha` stays the
@@ -160,7 +163,11 @@ author — that drops the proof that the reviewed content is what will merge.
 head without a new Copilot review, and cannot pass on a changed head without
 one.
 
-**Trace check** — `python -m unittest` over the two test files covers: a
+**Trace check** — `test_aep_copilot_review_workflow.py` asserts the workflow
+runs the carry-forward lookup after the guard wait and before the review
+wait, from a default-branch checkout, and falls back to the review wait on a
+mismatch, a failed fetch, or a head touching the refused paths.
+`python -m unittest` over the other two test files covers: a
 carried record with a matching fingerprint passes; a mismatched fingerprint
 is a normalization error (exit 2); a record whose `carriedForward.fromHeadSha`
 has a failed gate is rejected. End to end, the re-sync from unit 2's check

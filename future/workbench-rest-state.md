@@ -85,13 +85,15 @@ Unit 3 blocks every governed task on day one.
 **Claim** — `git diff --quiet main..workbench/local` exits 0 immediately
 after the last of those units is cleaned up.
 
-**Trace check** — the command above. Also confirm no plan was dropped from
-the workbench on the way: every path in
+**Trace check** — the command above. Also confirm every plan still on the
+workbench is published: every path in
 `git ls-tree -r --name-only workbench/local -- future/` appears in
-`git ls-tree -r --name-only origin/main -- future/`. A plan absent from both
-was deleted by the delivery pull request that realized it;
-`git log origin/main --diff-filter=D --name-only -- future/` is the
-historical record of those deletions.
+`git ls-tree -r --name-only origin/main -- future/`. That compares two
+current trees, so it cannot show that no plan was dropped from the workbench
+before reaching `main`; the Jira task enumerating the residue is the record
+of what the drain started with. `git log origin/main --diff-filter=D
+--name-only -- future/` records only plans deleted from `main`, such as those
+a delivery pull request removed on landing.
 
 ## Unit 3 — Gate governed tasks on an empty residue
 
