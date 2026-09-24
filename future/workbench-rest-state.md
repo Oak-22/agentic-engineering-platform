@@ -72,7 +72,7 @@ block the next governed task and name the path.
 
 ## Unit 2 — Drain the current residue once
 
-**Touches** — the 22 non-`future/` paths in `git diff --name-only
+**Touches** — the non-`future/` paths in `git diff --name-only
 main..workbench/local` at the time the unit runs; enumerate them in the Jira
 task, not here.
 
@@ -85,11 +85,11 @@ Unit 3 blocks every governed task on day one.
 **Claim** — `git diff --quiet main..workbench/local` exits 0 immediately
 after the last of those units is cleaned up.
 
-**Trace check** — the command above. Also confirm the four `future/` plans
-present on 2026-09-16 (`copilot-dispute-reply-operation`,
-`close-the-feedback-loop`, `earned-abstraction-pass`,
-`github-surface-boundary-drift-plan`) are on `origin/main` via Unit 1 rather
-than deleted.
+**Trace check** — the command above. Also confirm every `future/` plan the
+workbench held reached `origin/main` via Unit 1 rather than being deleted
+from the workbench: `git log origin/main --diff-filter=A --name-only --
+future/` lists each one, including plans a later delivery pull request
+removed on landing.
 
 ## Unit 3 — Gate governed tasks on an empty residue
 
